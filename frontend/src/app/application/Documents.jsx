@@ -9,6 +9,8 @@ import {
   Eye,
   RefreshCw,
   FileCheck2,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
@@ -67,6 +69,7 @@ const Documents = () => {
   const applicationId = getAppId();
   const [uploading, setUploading] = useState({}); // { docId: true/false }
   const [uploadedDocs, setUploadedDocs] = useState({}); // { docId: { url, name } }
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   // Load existing uploaded documents
   const {
@@ -149,7 +152,9 @@ const Documents = () => {
       });
       setUploadedDocs(map);
     } catch (err) {
-      toast.error(err.message || `Failed to upload ${docConfig.name}`);
+      if (!err?.raw?.__toastShown) {
+        toast.error(err.message || `Failed to upload ${docConfig.name}`);
+      }
     } finally {
       setUploading((prev) => ({ ...prev, [docType]: false }));
       // Reset file input
@@ -321,11 +326,16 @@ const Documents = () => {
                         variant="outline"
                         className="text-blue-600 border-blue-200 hover:bg-blue-50"
                         onClick={() => {
-                          // Open the actual uploaded file URL
                           const url = uploadedInfo.url;
-                          if (url)
-                            window.open(url, "_blank", "noopener,noreferrer");
-                          else toast.error("File URL not available");
+                          if (url) {
+                            setPreviewDoc({
+                              url,
+                              title: doc.name,
+                              name: uploadedInfo.name,
+                            });
+                          } else {
+                            toast.error("File URL not available");
+                          }
                         }}
                       >
                         <Eye className="w-3 h-3 mr-1" />
@@ -407,8 +417,89 @@ const Documents = () => {
           </Button>
         </div>
       </div>
+
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm">
+          <div className="flex max-h-[94vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/20">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-600">
+                  Uploaded Document
+                </p>
+                <h3 className="truncate text-base font-semibold text-slate-900">
+                  {previewDoc.title || "Document Preview"}
+                </h3>
+                {previewDoc.name && (
+                  <p className="truncate text-sm text-slate-500">
+                    {previewDoc.name}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    window.open(previewDoc.url, "_blank", "noopener,noreferrer")
+                  }
+                  className="gap-1.5 border-emerald-300 px-4 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPreviewDoc(null)}
+                  className="text-slate-500 hover:bg-slate-100"
+                  aria-label="Close document preview"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="max-h-[calc(94vh-76px)] overflow-auto bg-slate-100 p-4">
+              {isImagePreview(previewDoc) ? (
+                <div className="mx-auto flex min-h-[70vh] w-full max-w-[794px] items-center justify-center bg-white p-6 shadow-xl ring-1 ring-slate-200">
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.name || "Uploaded document"}
+                    className="max-h-[78vh] max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="mx-auto min-h-[80vh] w-full max-w-[794px] overflow-hidden bg-white shadow-xl ring-1 ring-slate-200">
+                  <iframe
+                    src={getEmbeddablePreviewUrl(previewDoc)}
+                    title={previewDoc.name || "Uploaded document"}
+                    className="h-[80vh] w-full border-0 bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </ApplicationLayout>
   );
+};
+
+const isImagePreview = (doc = {}) => {
+  const value = `${doc.name || ""} ${doc.url || ""}`.toLowerCase();
+  return /\.(png|jpe?g|webp|gif)(\?|#|$)/.test(value);
+};
+
+const isPdfPreview = (doc = {}) => {
+  const value = `${doc.name || ""} ${doc.url || ""}`.toLowerCase();
+  return /\.pdf(\?|#|$)/.test(value);
+};
+
+const getEmbeddablePreviewUrl = (doc = {}) => {
+  if (isPdfPreview(doc)) {
+    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(doc.url)}`;
+  }
+  return doc.url;
 };
 
 export default Documents;

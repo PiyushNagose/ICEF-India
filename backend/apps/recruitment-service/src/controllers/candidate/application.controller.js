@@ -25,6 +25,11 @@ const {
 } = require("../../shared/services/upload.service");
 const { notify } = require("../../shared/utils/notify");
 const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
+const {
+  assertApplicationWindowOpen,
+  assertCorrectionWindowOpen,
+  assertPaymentWindowOpen,
+} = require("../../shared/utils/timeline");
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -45,6 +50,50 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 
+const RESERVED_FORM_SECTION_TITLES = new Set([
+  "personal information",
+  "personal details",
+  "personal info",
+  "candidate details",
+  "educational info",
+  "educational information",
+  "education",
+  "additional information",
+  "additional info",
+  "address details",
+  "address information",
+  "address",
+  "document upload",
+  "documents",
+  "payment",
+  "review",
+  "post selection",
+]);
+
+const normalizeTitle = (title = "") =>
+  String(title).trim().toLowerCase().replace(/\s+/g, " ");
+
+const getCustomFormSections = (job) =>
+  Array.isArray(job?.formSections)
+    ? job.formSections.filter(
+        (section) =>
+          Array.isArray(section.fields) &&
+          section.fields.length > 0 &&
+          !RESERVED_FORM_SECTION_TITLES.has(normalizeTitle(section.title)),
+      )
+    : [];
+
+const assertCandidateMutationWindow = (app) => {
+  const correctionOpen = ["requested", "in_progress"].includes(
+    app.correction?.status,
+  );
+  if (correctionOpen) {
+    assertCorrectionWindowOpen(app.jobId);
+  } else {
+    assertApplicationWindowOpen(app.jobId);
+  }
+};
+
 // Calculate the correct step number based on job configuration
 // Fixed steps: 1=Personal, 2=Education, 3=AdditionalInfo, 4=Address
 // Dynamic steps: 5+=CustomForms, Documents, Review, PostSelection, Payment, Submit
@@ -52,11 +101,7 @@ const getNextStepNumber = (job, currentStepType) => {
   let stepNum = 4; // After fixed 4 steps
 
   // Add custom form sections
-  const formSections = Array.isArray(job?.formSections)
-    ? job.formSections.filter(
-        (s) => Array.isArray(s.fields) && s.fields.length > 0,
-      )
-    : [];
+  const formSections = getCustomFormSections(job);
   if (formSections.length > 0) {
     stepNum += formSections.length;
   }
@@ -83,7 +128,7 @@ const assertApplicationCompleteForJob = (app) => {
       ? Object.fromEntries(app.formResponses)
       : app.formResponses || {};
 
-  (job.formSections || []).forEach((section) => {
+  getCustomFormSections(job).forEach((section) => {
     (section.fields || []).forEach((field) => {
       if (field.type === "file") return;
       const value = responses[String(field._id)];
@@ -156,11 +201,7 @@ const createApplication = asyncHandler(async (req, res) => {
       StatusCodes.BAD_REQUEST,
       "Job is not accepting applications",
     );
-  if (job.applicationDeadline && new Date() > job.applicationDeadline)
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Application deadline has passed",
-    );
+  assertApplicationWindowOpen(job);
 
   const existing = await Application.findOne({ candidateId, jobId });
   if (existing)
@@ -308,7 +349,9 @@ const getApplication = asyncHandler(async (req, res) => {
 
 // ── Step update helper ────────────────────────────────────────
 const getOwnDraftApplication = async (id, candidateId) => {
-  const app = await Application.findOne({ _id: id, candidateId });
+  const app = await Application.findOne({ _id: id, candidateId }).populate(
+    "jobId",
+  );
   if (!app) throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
   const correctionOpen = ["requested", "in_progress"].includes(
     app.correction?.status,
@@ -321,6 +364,7 @@ const getOwnDraftApplication = async (id, candidateId) => {
   if (correctionOpen && app.correction.status === "requested") {
     app.correction.status = "in_progress";
   }
+  assertCandidateMutationWindow(app);
   return app;
 };
 
@@ -456,12 +500,17 @@ const updateFormResponses = asyncHandler(async (req, res) => {
   const app = await getOwnDraftApplication(req.params.id, req.user.id);
 
   // Fetch the job to get formSections for validation
-  const job = await Job.findById(app.jobId);
+  const job = await Job.findById(app.jobId?._id || app.jobId);
   if (!job) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
 
   const { formResponses } = req.body;
+  const sectionIndex =
+    Number.isInteger(Number(req.body.sectionIndex)) &&
+    Number(req.body.sectionIndex) >= 0
+      ? Number(req.body.sectionIndex)
+      : null;
   if (!formResponses || typeof formResponses !== "object") {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid formResponses format");
   }
@@ -470,7 +519,9 @@ const updateFormResponses = asyncHandler(async (req, res) => {
   // the admin's required/type/option constraints.
   const allowedFieldIds = new Set();
   const fieldMap = new Map();
-  (job.formSections || []).forEach((section) => {
+  const formSections = getCustomFormSections(job);
+
+  formSections.forEach((section) => {
     (section.fields || []).forEach((field) => {
       const id = String(field._id);
       allowedFieldIds.add(id);
@@ -488,9 +539,35 @@ const updateFormResponses = asyncHandler(async (req, res) => {
     }
   }
 
-  for (const [fieldId, field] of fieldMap.entries()) {
+  const existingResponses =
+    app.formResponses instanceof Map
+      ? Object.fromEntries(app.formResponses)
+      : app.formResponses || {};
+  const mergedResponses = Object.fromEntries(
+    Object.entries({
+      ...existingResponses,
+      ...formResponses,
+    }).filter(([fieldId]) => allowedFieldIds.has(fieldId)),
+  );
+  const sectionsToValidate =
+    sectionIndex === null
+      ? formSections
+      : formSections.slice(0, Math.min(sectionIndex + 1, formSections.length));
+  const fieldsToValidate = new Map();
+
+  sectionsToValidate.forEach((section) => {
+    (section.fields || []).forEach((field) => {
+      fieldsToValidate.set(String(field._id), field);
+    });
+  });
+  Object.keys(formResponses).forEach((fieldId) => {
+    const field = fieldMap.get(fieldId);
+    if (field) fieldsToValidate.set(fieldId, field);
+  });
+
+  for (const [fieldId, field] of fieldsToValidate.entries()) {
     if (field.type === "file") continue;
-    const value = formResponses[fieldId];
+    const value = mergedResponses[fieldId];
     const empty =
       value === undefined ||
       value === null ||
@@ -568,15 +645,17 @@ const updateFormResponses = asyncHandler(async (req, res) => {
   }
 
   // Update formResponses in application
-  app.formResponses = new Map(Object.entries(formResponses));
+  app.formResponses = new Map(Object.entries(mergedResponses));
 
   // Compute the correct next step dynamically based on job config
   // Fixed steps: 1-4. Custom form sections: 5..4+N. Documents: 4+N+1. Review: 4+N+2. etc.
-  const formSectionsCount = (job.formSections || []).filter(
-    (s) => Array.isArray(s.fields) && s.fields.length > 0,
-  ).length;
-  const nextStepAfterForms = 4 + formSectionsCount + 1; // step after all custom form sections
-  app.currentStep = Math.max(app.currentStep, nextStepAfterForms);
+  const formSectionsCount = formSections.length;
+  const completedSectionIndex =
+    sectionIndex === null
+      ? formSectionsCount - 1
+      : Math.min(sectionIndex, Math.max(formSectionsCount - 1, 0));
+  const nextStepAfterCurrentSection = 4 + completedSectionIndex + 2;
+  app.currentStep = Math.max(app.currentStep, nextStepAfterCurrentSection);
   app.lastSavedAt = new Date();
   await app.save();
 
@@ -644,6 +723,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
   }
   const docType = req.params.type;
   await app.populate("jobId");
+  assertCandidateMutationWindow(app);
 
   const requirements = (app.jobId?.documentRequirements || []).filter(
     (doc) => doc?.name,
@@ -713,9 +793,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
     app.currentStep,
     (() => {
       // Compute documents step number dynamically
-      const formSectionsCount = (app.jobId?.formSections || []).filter(
-        (s) => Array.isArray(s.fields) && s.fields.length > 0,
-      ).length;
+      const formSectionsCount = getCustomFormSections(app.jobId).length;
       return 4 + formSectionsCount + 1 + 1;
     })(),
   );
@@ -789,6 +867,7 @@ const updatePostSelection = asyncHandler(async (req, res) => {
   }
 
   await app.populate("jobId");
+  assertCandidateMutationWindow(app);
 
   const candidate = await User.findById(req.user.id).select("category");
   const activeJobPosts = (app.jobId.posts || []).filter(
@@ -866,9 +945,7 @@ const updatePostSelection = asyncHandler(async (req, res) => {
   app.appliedPosts = postsWithFee;
   app.totalFee = totalFee;
   // Compute post-selection step number dynamically
-  const formSectionsCountPS = (app.jobId?.formSections || []).filter(
-    (s) => Array.isArray(s.fields) && s.fields.length > 0,
-  ).length;
+  const formSectionsCountPS = getCustomFormSections(app.jobId).length;
   const postSelectionStepNum = 4 + formSectionsCountPS + 1 + 1 + 1;
   app.currentStep = Math.max(app.currentStep, postSelectionStepNum);
   app.lastSavedAt = new Date();
@@ -935,15 +1012,15 @@ const submitApplication = asyncHandler(async (req, res) => {
     );
 
   // Save declaration and advance step — actual final submit happens via /finalize after payment
+  assertApplicationWindowOpen(app.jobId);
+
   if (req.body.declaration) {
     app.declaration = req.body.declaration;
   }
 
   // Compute review step number dynamically
   await app.populate("jobId");
-  const formSectionsCount = (app.jobId?.formSections || []).filter(
-    (s) => Array.isArray(s.fields) && s.fields.length > 0,
-  ).length;
+  const formSectionsCount = getCustomFormSections(app.jobId).length;
   const reviewStepNum = 4 + formSectionsCount + 1 + 1;
   // Always keep as draft — finalize handles the actual submission
   app.currentStep = Math.max(app.currentStep, reviewStepNum);
@@ -1017,14 +1094,13 @@ const finalizeApplication = asyncHandler(async (req, res) => {
   }
 
   assertApplicationCompleteForJob(app);
+  assertPaymentWindowOpen(app.jobId);
 
   // Mark payment as simulated/paid and finalize
   app.paymentStatus = "paid";
   app.status = "submitted";
   app.submittedAt = new Date();
-  const formSectionsCount = (app.jobId?.formSections || []).filter(
-    (section) => Array.isArray(section.fields) && section.fields.length > 0,
-  ).length;
+  const formSectionsCount = getCustomFormSections(app.jobId).length;
   app.currentStep = 9 + formSectionsCount;
   if (req.body.transactionId) app.transactionId = req.body.transactionId;
   if (req.body.declaration) app.declaration = req.body.declaration;
@@ -1124,6 +1200,8 @@ const submitCorrection = asyncHandler(async (req, res) => {
     );
   }
 
+  assertCorrectionWindowOpen(app.jobId);
+
   // Validate that all required fields/documents are present
   assertApplicationCompleteForJob(app);
 
@@ -1142,9 +1220,7 @@ const submitCorrection = asyncHandler(async (req, res) => {
   app.status = "under_review";
   app.submittedAt = app.submittedAt || new Date(); // keep original submit date
 
-  const formSectionsCount = (app.jobId?.formSections || []).filter(
-    (section) => Array.isArray(section.fields) && section.fields.length > 0,
-  ).length;
+  const formSectionsCount = getCustomFormSections(app.jobId).length;
   app.currentStep = 9 + formSectionsCount;
   app.lastSavedAt = new Date();
   await app.save();

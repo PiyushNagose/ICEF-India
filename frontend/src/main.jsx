@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.jsx'
 import RealtimeProvider from './realtime/RealtimeProvider.jsx'
+import { installGlobalToastDedupe } from './utils/toastDedupe.js'
+
+installGlobalToastDedupe()
 
 const queryClient = new QueryClient({
   defaultOptions: {

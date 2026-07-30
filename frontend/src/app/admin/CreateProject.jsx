@@ -122,7 +122,7 @@ const CreateProject = () => {
       formData.endDate < formData.startDate
     ) {
       newErrors.endDate =
-        'End date must be after start date'
+        'Project closure date must be after start date'
     }
 
     setErrors(newErrors)
@@ -140,16 +140,16 @@ const CreateProject = () => {
 
   return (
     <AdminLayout title="Create Project">
-      <div className="min-h-screen bg-[#f7f4ee] p-5">
+      <div className="min-h-full bg-[#f7f4ee] p-5">
 
         {/* HEADER */}
         <div className="mb-6">
 
-          <p className="text-[10px] font-black tracking-[0.2em] text-orange-500 mb-2">
+          <p className="text-xs font-bold tracking-normal text-orange-500 mb-2">
             PROJECT CREATION
           </p>
 
-          <h1 className="text-3xl font-black text-[#1f2937]">
+          <h1 className="text-2xl font-bold text-gray-900">
             Create Project
           </h1>
 
@@ -159,7 +159,7 @@ const CreateProject = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-5">
 
           {/* MAIN */}
           <div className="xl:col-span-2 space-y-5">
@@ -167,9 +167,9 @@ const CreateProject = () => {
             {/* BASIC INFO */}
             <Card className="
               rounded-[24px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
             ">
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ const CreateProject = () => {
                   </div>
 
                   <div>
-                    <h3 className="font-black text-[#1f2937]">
+                    <h3 className="font-bold text-gray-900">
                       Basic Information
                     </h3>
 
@@ -214,7 +214,7 @@ const CreateProject = () => {
                       w-full h-12 px-4
                       rounded-2xl
                       border border-gray-200
-                      bg-[#fafafa]
+                      bg-gray-50
                       focus:outline-none
                       focus:ring-2
                       focus:ring-orange-500
@@ -262,7 +262,7 @@ const CreateProject = () => {
                         w-full h-12 px-4
                         rounded-2xl
                         border border-gray-200
-                        bg-[#fafafa]
+                        bg-gray-50
                         focus:outline-none
                         focus:ring-2
                         focus:ring-orange-500
@@ -297,7 +297,7 @@ const CreateProject = () => {
                       w-full px-4 py-4
                       rounded-2xl
                       border border-gray-200
-                      bg-[#fafafa]
+                      bg-gray-50
                       resize-none
                       focus:outline-none
                       focus:ring-2
@@ -355,15 +355,15 @@ const CreateProject = () => {
             {/* TIMELINE */}
             <Card className="
               rounded-[24px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
             ">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-orange-600" />
 
-                  <h3 className="font-black text-[#1f2937]">
+                  <h3 className="font-bold text-gray-900">
                     Timeline
                   </h3>
                 </div>
@@ -385,13 +385,13 @@ const CreateProject = () => {
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">
-                    End Date
+                    Project Closure Date
                   </label>
 
                   <AppDatePicker
                     value={formData.endDate}
                     onChange={(val) => handleChange('endDate', val)}
-                    placeholder="Select end date"
+                    placeholder="Select closure date after result"
                     minDate={formData.startDate ? new Date(formData.startDate) : undefined}
                   />
                   {errors.endDate && (
@@ -427,14 +427,13 @@ const CreateProject = () => {
                   <Sparkles className="w-5 h-5" />
                 </div>
 
-                <h3 className="text-lg font-black">
+                <h3 className="text-lg font-bold">
                   State Compliance
                 </h3>
 
                 <p className="text-sm text-white/80 mt-2 leading-relaxed">
-                  Ensure all project details align with
-                  Bihar recruitment board standards and
-                  state-level guidelines.
+                  Keep the project closure date after the result, final
+                  selection, and any waiting-list or archive activity.
                 </p>
 
               </div>
@@ -448,3 +447,8 @@ const CreateProject = () => {
 }
 
 export default CreateProject
+
+
+
+
+

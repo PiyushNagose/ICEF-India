@@ -149,7 +149,7 @@ const CmsEdit = () => {
   return (
     <AdminLayout title={`CMS — Edit ${stateName}`}>
       <div className="p-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="w-full">
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
@@ -162,7 +162,7 @@ const CmsEdit = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
 
             {/* ── LEFT ── */}
             <div className="lg:col-span-2 space-y-5">
@@ -194,7 +194,7 @@ const CmsEdit = () => {
                   <div className="relative">
                     <input type="text" placeholder="Search and select projects..." value={jobSearch} onChange={(e) => setJobSearch(e.target.value)} className={inputCls} />
                     {jobSearch && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                      <div className="hover-scroll absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                         {filteredJobs.length === 0 && <p className="px-4 py-3 text-sm text-gray-400">No jobs found</p>}
                         {filteredJobs.map((j) => (
                           <button key={j._id} type="button" onMouseDown={() => addJob(j)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50 text-left transition-colors">
@@ -239,7 +239,7 @@ const CmsEdit = () => {
                     <div key={i} className="flex items-center justify-between px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50">
                       <div className="flex items-center gap-2.5">
                         <span className={`w-2 h-2 rounded-full ${a.priority === 'high' ? 'bg-red-500' : a.priority === 'low' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        <p className="text-sm text-gray-800">{a.text}</p>
+                        <p className="text-sm text-gray-900">{a.text}</p>
                       </div>
                       <button onClick={() => removeAnnouncement(i)} className="text-gray-400 hover:text-red-500 ml-2"><X className="w-4 h-4" /></button>
                     </div>
@@ -270,7 +270,7 @@ const CmsEdit = () => {
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Live Page Summary</h3>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-normal">Live Page Summary</h3>
                 </div>
                 <div className="space-y-2.5">
                   {liveSummary.map(({ label, value }) => (
@@ -332,3 +332,8 @@ const CmsEdit = () => {
 }
 
 export default CmsEdit
+
+
+
+
+

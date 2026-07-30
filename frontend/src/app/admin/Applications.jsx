@@ -354,10 +354,19 @@ const Applications = () => {
 
   // Helper: get candidate name from aggregation result (backend returns "candidate" not "candidateId")
   const getCandidateName = (app) =>
-    app.candidate?.fullName || app.candidateId?.fullName || null
+    app.personalDetails?.fullName ||
+    app.candidate?.fullName ||
+    app.candidateId?.fullName ||
+    null
 
   const getCandidateEmail = (app) =>
-    app.candidate?.email || app.candidateId?.email || null
+    app.candidate?.email || app.candidateId?.email || app.personalDetails?.email || null
+
+  const getCandidateMobile = (app) =>
+    app.personalDetails?.registeredMobile ||
+    app.candidate?.registeredMobile ||
+    app.candidateId?.registeredMobile ||
+    null
 
   const getJobTitle = (app) =>
     app.job?.title || app.jobId?.title || null
@@ -398,7 +407,7 @@ const Applications = () => {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                       {stat.title}
                     </p>
                     <p className="text-3xl font-bold text-gray-900">
@@ -489,7 +498,7 @@ const Applications = () => {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -501,25 +510,25 @@ const Applications = () => {
                       className="w-4 h-4 text-orange-600 rounded border-gray-300 cursor-pointer"
                     />
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Candidate
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Application ID
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Job Applied
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Status
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Payment
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Submitted
                   </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Actions
                   </th>
                 </tr>
@@ -555,6 +564,7 @@ const Applications = () => {
                 {applications.map((app) => {
                   const candidateName = getCandidateName(app)
                   const candidateEmail = getCandidateEmail(app)
+                  const candidateMobile = getCandidateMobile(app)
                   const jobTitle = getJobTitle(app)
                   const jobDept = getJobDept(app)
                   const isSelected = selected.includes(app._id)
@@ -590,6 +600,11 @@ const Applications = () => {
                             <p className="text-xs text-gray-500 truncate">
                               {candidateEmail || '—'}
                             </p>
+                            {candidateMobile && (
+                              <p className="text-xs text-gray-400 truncate">
+                                {candidateMobile}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -772,3 +787,8 @@ const Applications = () => {
 }
 
 export default Applications
+
+
+
+
+

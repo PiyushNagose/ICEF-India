@@ -46,13 +46,13 @@ const EmployeeActivity = () => {
 
   return (
     <AdminLayout title="Employee Activity">
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="min-h-full p-6 space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/employees')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-800">Employee Activity Logs</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Employee Activity Logs</h1>
             <p className="text-gray-600 text-sm">View all activities performed by this employee.</p>
           </div>
         </div>
@@ -70,7 +70,7 @@ const EmployeeActivity = () => {
                   {employee.fullName?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-800">{employee.fullName}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{employee.fullName}</h2>
                   <p className="text-gray-600">{employee.officialEmail}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <span className="text-sm text-gray-600">
@@ -97,7 +97,7 @@ const EmployeeActivity = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-orange-600" />
-              <h3 className="font-semibold text-gray-800">Activity Timeline</h3>
+              <h3 className="font-semibold text-gray-900">Activity Timeline</h3>
             </div>
           </CardHeader>
           <CardContent>
@@ -118,7 +118,7 @@ const EmployeeActivity = () => {
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="font-medium text-gray-800">{log.action}</p>
+                          <p className="font-medium text-gray-900">{log.action}</p>
                           {log.description && (
                             <p className="text-sm text-gray-600 mt-1">{log.description}</p>
                           )}
@@ -141,7 +141,7 @@ const EmployeeActivity = () => {
                       {log.metadata && Object.keys(log.metadata).length > 0 && (
                         <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                           <p className="text-xs font-medium text-gray-600 mb-1">Additional Details:</p>
-                          <pre className="text-xs text-gray-700 overflow-x-auto">
+                          <pre className="hover-scroll text-xs text-gray-700 overflow-x-auto">
                             {JSON.stringify(log.metadata, null, 2)}
                           </pre>
                         </div>
@@ -159,3 +159,8 @@ const EmployeeActivity = () => {
 }
 
 export default EmployeeActivity
+
+
+
+
+

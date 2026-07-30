@@ -112,7 +112,7 @@ const Support = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-2xl font-bold text-gray-900">
               Support Management
             </h1>
             <p className="text-gray-600 text-sm">
@@ -137,7 +137,7 @@ const Support = () => {
                   <p className="text-xs font-medium text-gray-500 mb-1">
                     {s.title}
                   </p>
-                  <p className="text-2xl font-bold text-gray-800">
+                  <p className="text-3xl font-bold text-gray-900">
                     {Number(s.value).toLocaleString("en-IN")}
                   </p>
                 </div>
@@ -183,7 +183,7 @@ const Support = () => {
 
         {/* Table */}
         <Card className="bg-white">
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -199,7 +199,7 @@ const Support = () => {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wide"
+                      className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal"
                     >
                       {h}
                     </th>
@@ -241,7 +241,7 @@ const Support = () => {
                       </p>
                     </td>
                     <td className="py-4 px-4">
-                      <p className="text-sm text-gray-800">
+                      <p className="text-sm text-gray-900">
                         {ticket.raisedBy?.fullName || "—"}
                       </p>
                       <p className="text-xs text-gray-500">
@@ -300,3 +300,8 @@ const Support = () => {
 };
 
 export default Support;
+
+
+
+
+

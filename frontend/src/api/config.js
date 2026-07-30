@@ -49,3 +49,5 @@ export const STORAGE_KEYS = {
   refreshToken: "rp_refresh_token",
   user: "rp_user",
 };
+
+export const AUTH_SESSION_EVENT = "rp:auth-session-changed";

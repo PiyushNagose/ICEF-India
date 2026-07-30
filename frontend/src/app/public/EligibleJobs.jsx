@@ -22,7 +22,7 @@ import CustomSelect from "../../components/ui/CustomSelect";
 import { jobService } from "../../services/job.service";
 import { getStoredUser } from "../../services/auth.service";
 
-// ── Indian states list ────────────────────────────────────────────────────────
+// -- Indian states list --------------------------------------------------------
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
   "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
@@ -54,7 +54,7 @@ const STATE_OPTIONS = [
   ...INDIAN_STATES.map((s) => ({ value: s, label: s })),
 ];
 
-// ── Animation variants ────────────────────────────────────────────────────────
+// -- Animation variants --------------------------------------------------------
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
@@ -65,7 +65,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
-// ── Helper: days-left badge colour ───────────────────────────────────────────
+// -- Helper: days-left badge colour -------------------------------------------
 const deadlineBadge = (daysLeft) => {
   if (daysLeft === null || daysLeft === undefined)
     return { bg: "bg-gray-100", text: "text-gray-500", label: "No deadline" };
@@ -76,7 +76,7 @@ const deadlineBadge = (daysLeft) => {
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${daysLeft}d left` };
 };
 
-// ── Main component ────────────────────────────────────────────────────────────
+// -- Main component ------------------------------------------------------------
 const EligibleJobs = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -96,7 +96,7 @@ const EligibleJobs = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  // ── Fetch eligible jobs ───────────────────────────────────────────────────
+  // -- Fetch eligible jobs ---------------------------------------------------
   const {
     data: jobsData,
     isLoading,
@@ -118,7 +118,7 @@ const EligibleJobs = () => {
     keepPreviousData: true,
   });
 
-  // ── Fetch departments ─────────────────────────────────────────────────────
+  // -- Fetch departments -----------------------------------------------------
   const { data: departmentsData } = useQuery({
     queryKey: ["departments"],
     queryFn: () => jobService.getDepartments(),
@@ -134,7 +134,7 @@ const EligibleJobs = () => {
     ...departments.map((d) => ({ value: d, label: d })),
   ];
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // -- Handlers --------------------------------------------------------------
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
@@ -172,7 +172,7 @@ const EligibleJobs = () => {
     });
   };
 
-  // ── Computed ──────────────────────────────────────────────────────────────
+  // -- Computed --------------------------------------------------------------
   const hasActiveFilters = useMemo(
     () =>
       filters.qualification ||
@@ -187,13 +187,13 @@ const EligibleJobs = () => {
   const totalPages = pagination.totalPages || 1;
   const currentPage = pagination.currentPage || 1;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // -- Render ----------------------------------------------------------------
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f3efe8]">
+      <div className="min-h-[calc(100vh-122px)] bg-[#f3efe8]">
 
-        {/* ── Page Header ──────────────────────────────────────────────────── */}
-        <div className="bg-[#1f1d1b] text-white py-10">
+        {/* -- Page Header ---------------------------------------------------- */}
+        <div className="bg-[#1f1d1b] text-white py-8 lg:py-10">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: -16 }}
@@ -217,14 +217,14 @@ const EligibleJobs = () => {
           </div>
         </div>
 
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
 
-          {/* ── Filter Panel ─────────────────────────────────────────────── */}
+          {/* -- Filter Panel ----------------------------------------------- */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="bg-white rounded-[12px] border border-[#e0d7cd] shadow-sm mb-8 overflow-hidden"
+            className="bg-white rounded-[12px] border border-[#e0d7cd] shadow-sm mb-6 overflow-hidden"
           >
             {/* Filter header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebe2d8]">
@@ -357,15 +357,15 @@ const EligibleJobs = () => {
             </div>
           </motion.div>
 
-          {/* ── Loading ───────────────────────────────────────────────────── */}
+          {/* -- Loading ----------------------------------------------------- */}
           {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20">
+            <div className="flex flex-col items-center justify-center py-12">
               <Loader size={40} className="text-orange-500 animate-spin mb-4" />
               <p className="text-[#6d6761] text-sm font-medium">Loading eligible jobs...</p>
             </div>
           )}
 
-          {/* ── Error ─────────────────────────────────────────────────────── */}
+          {/* -- Error ------------------------------------------------------- */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -382,12 +382,12 @@ const EligibleJobs = () => {
             </motion.div>
           )}
 
-          {/* ── Empty State ───────────────────────────────────────────────── */}
+          {/* -- Empty State ------------------------------------------------- */}
           {!isLoading && !error && jobs.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[12px] border border-[#e0d7cd] p-14 text-center"
+              className="bg-white rounded-[12px] border border-[#e0d7cd] p-8 sm:p-10 text-center"
             >
               <AlertCircle size={44} className="mx-auto text-gray-300 mb-4" />
               <h3 className="text-xl font-black text-[#1f1d1b] mb-2">No Jobs Found</h3>
@@ -403,14 +403,14 @@ const EligibleJobs = () => {
             </motion.div>
           )}
 
-          {/* ── Jobs Grid ─────────────────────────────────────────────────── */}
+          {/* -- Jobs Grid --------------------------------------------------- */}
           {!isLoading && !error && jobs.length > 0 && (
             <>
               <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6 items-stretch"
               >
                 {jobs.map((job) => {
                   const badge = deadlineBadge(job.daysLeft);
@@ -418,7 +418,7 @@ const EligibleJobs = () => {
                     <motion.div
                       key={job._id}
                       variants={itemVariants}
-                      className="bg-white rounded-[10px] border border-[#e0d7cd] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
+                      className="h-full bg-white rounded-[10px] border border-[#e0d7cd] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
                     >
                       {/* Card header */}
                       <div className="bg-gradient-to-r from-[#1f1d1b] to-[#3a3530] p-4 text-white">
@@ -464,8 +464,8 @@ const EligibleJobs = () => {
                           <div className="flex items-center gap-1.5 text-[#6d6761]">
                             <IndianRupee size={13} className="text-orange-500 flex-shrink-0" />
                             <span className="text-xs">
-                              ₹{job.salaryRange.min.toLocaleString("en-IN")} –{" "}
-                              ₹{job.salaryRange.max.toLocaleString("en-IN")}
+                              ?{job.salaryRange.min.toLocaleString("en-IN")} –{" "}
+                              ?{job.salaryRange.max.toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
@@ -476,7 +476,7 @@ const EligibleJobs = () => {
                           <span className="text-xs">
                             Fee:{" "}
                             <strong className={job.applicableFee === 0 ? "text-emerald-600" : "text-[#1f1d1b]"}>
-                              {job.applicableFee === 0 ? "Free" : `₹${job.applicableFee}`}
+                              {job.applicableFee === 0 ? "Free" : `?${job.applicableFee}`}
                             </strong>
                           </span>
                         </div>
@@ -497,7 +497,7 @@ const EligibleJobs = () => {
                       </div>
 
                       {/* Card footer */}
-                      <div className="px-4 pb-4 flex gap-2">
+                      <div className="px-4 pb-4 flex gap-2 mt-auto">
                         <button
                           onClick={() => handleViewDetails(job._id)}
                           className="flex-1 h-9 border border-[#e0d7cd] hover:bg-[#f6f1ea] text-[#1f1d1b] rounded-[6px] text-[11px] uppercase tracking-[0.1em] font-black transition-colors flex items-center justify-center gap-1.5"
@@ -518,12 +518,12 @@ const EligibleJobs = () => {
                 })}
               </motion.div>
 
-              {/* ── Pagination ──────────────────────────────────────────── */}
+              {/* -- Pagination -------------------------------------------- */}
               {totalPages > 1 && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center justify-center gap-2 mb-10"
+                  className="flex items-center justify-center gap-2 mb-8"
                 >
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
@@ -565,3 +565,5 @@ const EligibleJobs = () => {
 };
 
 export default EligibleJobs;
+
+

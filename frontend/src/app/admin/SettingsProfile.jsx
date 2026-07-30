@@ -97,7 +97,7 @@ const SettingsProfile = () => {
 
   return (
     <AdminLayout title="Settings & Profile">
-      <div className="p-5 max-w-4xl mx-auto space-y-5">
+      <div className="min-h-full p-5 space-y-5">
 
         {/* Header */}
         <div>
@@ -165,17 +165,17 @@ const SettingsProfile = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Full Name *</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Full Name *</label>
                 <input type="text" className={inp} value={profileForm.fullName}
                   onChange={e => setProfileForm(f => ({ ...f, fullName: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Official Email</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Official Email</label>
                 <input type="email" className={inpDisabled} value={profile?.officialEmail || ''} disabled />
                 <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Contact Number</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Contact Number</label>
                 <div className="flex">
                   <span className="inline-flex items-center px-3 border border-r-0 border-gray-200 bg-gray-50 text-gray-500 text-sm rounded-l-xl">+91</span>
                   <input type="tel" maxLength={10}
@@ -185,21 +185,21 @@ const SettingsProfile = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Employee ID</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Employee ID</label>
                 <input type="text" className={inpDisabled} value={profile?.employeeId || ''} disabled />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Department</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Department</label>
                 <input type="text" className={inp} value={profileForm.department}
                   onChange={e => setProfileForm(f => ({ ...f, department: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Role / Designation</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Role / Designation</label>
                 <input type="text" className={inp} value={profileForm.roleDesignation}
                   onChange={e => setProfileForm(f => ({ ...f, roleDesignation: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Date of Joining</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Date of Joining</label>
                 <input type="date" className={inp} value={profileForm.dateOfJoining}
                   onChange={e => setProfileForm(f => ({ ...f, dateOfJoining: e.target.value }))} />
               </div>
@@ -227,7 +227,7 @@ const SettingsProfile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">New Password</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">New Password</label>
                 <div className="relative">
                   <input type={showNew ? 'text' : 'password'} placeholder="Min 8 characters" className={inp}
                     value={passwordForm.newPassword}
@@ -238,7 +238,7 @@ const SettingsProfile = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Confirm New Password</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Confirm New Password</label>
                 <div className="relative">
                   <input type={showConfirm ? 'text' : 'password'} placeholder="Repeat new password" className={inp}
                     value={passwordForm.confirmPassword}
@@ -308,3 +308,8 @@ const SettingsProfile = () => {
 }
 
 export default SettingsProfile
+
+
+
+
+

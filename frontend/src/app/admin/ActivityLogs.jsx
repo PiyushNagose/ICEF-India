@@ -184,8 +184,8 @@ const ActivityLogs = () => {
               <Clock className="w-5 h-5 text-orange-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Changes Today</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(totalItems).toLocaleString('en-IN')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Changes Today</p>
+              <p className="text-3xl font-bold text-gray-900">{Number(totalItems).toLocaleString('en-IN')}</p>
               <p className="text-xs text-emerald-600 font-medium mt-0.5">↑ 12% vs avg</p>
             </div>
           </div>
@@ -194,8 +194,8 @@ const ActivityLogs = () => {
               <UserCheck className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Active Employees</p>
-              <p className="text-2xl font-bold text-gray-900">{uniqueEmps}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Active Employees</p>
+              <p className="text-3xl font-bold text-gray-900">{uniqueEmps}</p>
               <p className="text-xs text-gray-400 mt-0.5">Currently session active</p>
             </div>
           </div>
@@ -204,8 +204,8 @@ const ActivityLogs = () => {
               <BriefcaseIcon className="w-5 h-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Jobs Updated</p>
-              <p className="text-2xl font-bold text-gray-900">{jobLogs}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Jobs Updated</p>
+              <p className="text-3xl font-bold text-gray-900">{jobLogs}</p>
               <p className="text-xs text-amber-600 font-medium mt-0.5">Pending validation</p>
             </div>
           </div>
@@ -214,8 +214,8 @@ const ActivityLogs = () => {
               <AlertCircle className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Critical Alerts</p>
-              <p className="text-2xl font-bold text-red-600">{String(criticals).padStart(2, '0')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Critical Alerts</p>
+              <p className="text-3xl font-bold text-red-600">{String(criticals).padStart(2, '0')}</p>
               <p className="text-xs text-red-500 font-medium mt-0.5">Requires immediate review</p>
             </div>
           </div>
@@ -264,12 +264,19 @@ const ActivityLogs = () => {
 
         {/* ── Table ── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
+            <table className="w-full min-w-[960px] table-fixed">
+              <colgroup>
+                <col className="w-[14%]" />
+                <col className="w-[20%]" />
+                <col className="w-[13%]" />
+                <col className="w-[16%]" />
+                <col className="w-[37%]" />
+              </colgroup>
+              <thead className="bg-white shadow-sm">
+                <tr>
                   {['Date & Time','Employee','Action','Module','Details'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th key={h} className="bg-white text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                       {h}
                     </th>
                   ))}
@@ -289,38 +296,38 @@ const ActivityLogs = () => {
                   const name       = log.employeeId?.fullName || 'System'
                   return (
                     <tr key={log._id} className="hover:bg-orange-50/40 transition-colors cursor-pointer" onClick={() => log.employeeId?._id && navigate(`/admin/activity-logs/${log.employeeId._id}`, { state: { employee: log.employeeId } })}>
-                      <td className="py-4 px-5">
-                        <p className="text-sm font-semibold text-gray-800">
+                      <td className="py-4 px-5 align-middle">
+                        <p className="text-sm font-semibold text-gray-900">
                           {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                         </p>
                         <p className="text-xs text-orange-500 font-mono mt-0.5">
                           {log.createdAt ? new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
                         </p>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 align-middle">
                         <div className="flex items-center gap-2.5">
                           <Avatar name={name} />
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{name}</p>
-                            <p className="text-xs text-gray-400">{log.employeeId?.employeeId || log.employeeId?.department || ''}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">{name}</p>
+                            <p className="truncate text-xs text-gray-400">{log.employeeId?.employeeId || log.employeeId?.department || ''}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${acfg.bg} ${acfg.text}`}>
+                      <td className="py-4 px-5 align-middle">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '—'}
                         </span>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 align-middle">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <ModuleIcon className="w-3 h-3 text-orange-600" />
                           </div>
-                          <span className="text-sm text-gray-800">{log.module || '—'}</span>
+                          <span className="truncate text-sm text-gray-900">{log.module || '—'}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-5">
-                        <p className="text-sm text-gray-600 max-w-xs truncate" title={log.details || log.description}>
+                      <td className="py-4 px-5 align-middle">
+                        <p className="truncate text-sm text-gray-600" title={log.details || log.description}>
                           {log.details || log.description || '—'}
                         </p>
                       </td>
@@ -346,3 +353,9 @@ const ActivityLogs = () => {
 }
 
 export default ActivityLogs
+
+
+
+
+
+

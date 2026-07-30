@@ -54,6 +54,7 @@ async function seed() {
           support: permissionSchema,
           projects: permissionSchema,
           results: permissionSchema,
+          admitCards: permissionSchema,
         },
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
       },
@@ -139,6 +140,7 @@ async function seed() {
           support: allPerms,
           projects: allPerms,
           results: allPerms,
+          admitCards: allPerms,
         },
       },
       {
@@ -154,6 +156,7 @@ async function seed() {
           support: editView,
           projects: allPerms,
           results: editView,
+          admitCards: allPerms,
         },
       },
       {
@@ -169,6 +172,7 @@ async function seed() {
           support: viewOnly,
           projects: viewOnly,
           results: viewOnly,
+          admitCards: viewOnly,
         },
       },
       {
@@ -184,6 +188,7 @@ async function seed() {
           support: viewOnly,
           projects: viewOnly,
           results: viewOnly,
+          admitCards: viewOnly,
         },
       },
       {
@@ -199,6 +204,7 @@ async function seed() {
           support: allPerms,
           projects: viewOnly,
           results: viewOnly,
+          admitCards: viewOnly,
         },
       },
     ];
@@ -207,8 +213,15 @@ async function seed() {
     for (const roleData of roles) {
       const existing = await Role.findOne({ roleName: roleData.roleName });
       if (existing) {
+        existing.roleDescription = roleData.roleDescription;
+        existing.isSystemRole = roleData.isSystemRole;
+        existing.permissions = {
+          ...(existing.permissions?.toObject?.() || existing.permissions || {}),
+          ...roleData.permissions,
+        };
+        await existing.save();
         console.log(
-          `${C.yellow}⚠️  Role exists: ${roleData.roleName}${C.reset}`,
+          `${C.yellow}⚠️  Role exists, updated permissions: ${roleData.roleName}${C.reset}`,
         );
         if (roleData.roleName === "Super Admin") superAdminRole = existing;
       } else {

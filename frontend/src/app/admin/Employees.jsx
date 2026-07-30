@@ -111,7 +111,7 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-500 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Employees</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Total Employees</p>
                 <p className="text-3xl font-bold text-gray-900">{Number(totalEmp).toLocaleString('en-IN')}</p>
                 <p className="text-xs text-emerald-600 font-medium mt-1">+12% ↗</p>
               </div>
@@ -124,7 +124,7 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Active Now</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Active Now</p>
                 <p className="text-3xl font-bold text-gray-900">{Number(activeEmp).toLocaleString('en-IN')}</p>
                 <p className="text-xs text-gray-400 mt-1">Currently session active</p>
               </div>
@@ -137,7 +137,7 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-blue-500 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Departments</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Departments</p>
                 <p className="text-3xl font-bold text-gray-900">{deptCount}</p>
               </div>
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -149,7 +149,7 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-red-400 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pending Verifications</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Pending Verifications</p>
                 <p className="text-3xl font-bold text-gray-900">{pending}</p>
                 {pending > 0 && (
                   <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full mt-1 inline-block">URGENT</span>
@@ -196,12 +196,12 @@ const Employees = () => {
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Employee Name','ID','Department','Role','Status','Date Joined','Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -303,3 +303,8 @@ const Employees = () => {
 }
 
 export default Employees
+
+
+
+
+

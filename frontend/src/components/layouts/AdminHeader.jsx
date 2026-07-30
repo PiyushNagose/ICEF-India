@@ -21,8 +21,8 @@ const AdminHeader = ({ onToggleSidebar, title = 'Admin Panel', isCollapsed, onLo
   const unreadCount = notifData?.unreadCount || 0
 
   return (
-    <header className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <header className="flex h-[72px] items-center bg-white border-b border-gray-100 px-4 sm:px-6 shadow-sm">
+      <div className="flex w-full items-center justify-between gap-4">
 
         {/* Left: toggle + title */}
         <div className="flex items-center gap-3 min-w-0">
@@ -45,7 +45,7 @@ const AdminHeader = ({ onToggleSidebar, title = 'Admin Panel', isCollapsed, onLo
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search…"
+              placeholder="Search..."
               className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent w-56 lg:w-72 bg-gray-50 focus:bg-white transition-all text-sm"
             />
           </div>
@@ -74,35 +74,40 @@ const AdminHeader = ({ onToggleSidebar, title = 'Admin Panel', isCollapsed, onLo
           </Link>
 
           {/* User + dropdown */}
-          <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-gray-200 ml-1">
-            <div className="text-right hidden sm:block">
-              <div className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</div>
-              <div className="text-[10px] text-orange-600 font-bold uppercase tracking-wide">{roleName}</div>
-            </div>
-            <div className="relative group">
-              <button className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-md">
+          <div className="relative group pl-2 sm:pl-3 border-l border-gray-200 ml-1">
+            <Link
+              to="/admin/settings-profile"
+              className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors"
+              aria-label="Open settings and profile"
+            >
+              <div className="text-right hidden sm:block">
+                <div className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</div>
+                <div className="text-[10px] text-orange-600 font-bold uppercase tracking-wide">{roleName}</div>
+              </div>
+              <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-md">
                 <span className="text-white font-bold text-sm">{initials}</span>
-              </button>
-              {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="p-3 border-b border-gray-100">
-                  <div className="font-semibold text-gray-900 text-sm">{displayName}</div>
-                  <div className="text-xs text-gray-500">{user?.officialEmail || user?.email || ''}</div>
-                </div>
-                <div className="p-2">
-                  <Link to="/admin/settings-profile" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <Settings className="w-4 h-4 text-gray-400" />
-                    <span>Settings & Profile</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={onLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
+              </div>
+            </Link>
+            <div className="absolute right-0 top-full hidden h-2 w-full group-hover:block group-focus-within:block" />
+            {/* Dropdown */}
+            <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50">
+              <div className="p-3 border-b border-gray-100">
+                <div className="font-semibold text-gray-900 text-sm">{displayName}</div>
+                <div className="text-xs text-gray-500">{user?.officialEmail || user?.email || ''}</div>
+              </div>
+              <div className="p-2">
+                <Link to="/admin/settings-profile" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                  <Settings className="w-4 h-4 text-gray-400" />
+                  <span>Settings & Profile</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </div>
           </div>

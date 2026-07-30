@@ -319,7 +319,7 @@ const ApplicationStatus = () => {
 
   return (
     <CandidateLayout title="Application Status">
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 w-full">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <button
@@ -440,9 +440,9 @@ const ApplicationStatus = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 items-start gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 items-stretch gap-6">
           {/* Left — Application details */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-5 min-w-0">
             {/* Job info */}
             <Card>
               <CardHeader>
@@ -738,7 +738,7 @@ const ApplicationStatus = () => {
           </div>
 
           {/* Right — Timeline + Actions */}
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
             {/* Timeline */}
             <Card>
               <CardHeader>

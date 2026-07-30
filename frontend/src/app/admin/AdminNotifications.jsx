@@ -192,7 +192,7 @@ const AdminNotifications = () => {
 
   return (
     <AdminLayout title="Notifications">
-      <div className="p-5 max-w-4xl mx-auto space-y-5">
+      <div className="min-h-full p-5 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
@@ -274,7 +274,7 @@ const AdminNotifications = () => {
             </div>
           )}
 
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="hover-scroll max-h-[70vh] overflow-y-auto pr-1">
             {notifications.map((n, i) => {
               const cfg = getCfg(n.type);
               const Icon = cfg.icon;
@@ -371,3 +371,8 @@ const AdminNotifications = () => {
 };
 
 export default AdminNotifications;
+
+
+
+
+

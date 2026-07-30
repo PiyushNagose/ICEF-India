@@ -21,6 +21,7 @@ import {
   isCorrectionMode,
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
+import logo from "../../assets/logo.png";
 
 const Success = () => {
   const navigate = useNavigate();
@@ -100,18 +101,18 @@ const Success = () => {
   // Show correction success message
   if (correctionMode) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="customer-motion-root h-screen overflow-hidden bg-gray-50 flex flex-col">
         {/* ── Top-right toast fired once on mount via useEffect in parent ── */}
 
         <header className="no-print border-b border-orange-200 bg-white px-6 py-4">
-          <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex w-full items-center justify-between">
             <button
               type="button"
               onClick={() => navigate("/")}
               className="flex items-center space-x-3 text-left"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600">
-                <span className="font-bold text-white">RP</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1f1d1b] overflow-hidden">
+                <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
               </div>
               <div>
                 <div className="font-bold text-gray-800">
@@ -123,7 +124,7 @@ const Success = () => {
           </div>
         </header>
 
-        <main className="mx-auto max-w-3xl p-6">
+        <main className="application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
@@ -210,16 +211,16 @@ const Success = () => {
 
   // Normal submission success (not correction mode)
   return (
-    <div className="min-h-screen bg-orange-50">
+    <div className="customer-motion-root h-screen overflow-hidden bg-orange-50 flex flex-col">
       <header className="no-print border-b border-orange-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
+        <div className="flex w-full items-center justify-between">
           <button
             type="button"
             onClick={() => navigate("/")}
             className="flex items-center space-x-3 text-left"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600">
-              <span className="font-bold text-white">RP</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1f1d1b] overflow-hidden">
+              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
             </div>
             <div>
               <div className="font-bold text-gray-800">Recruitment Portal</div>
@@ -229,7 +230,7 @@ const Success = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl p-6">
+      <main className="application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { authService } from '../../services/auth.service'
+import logo from '../../assets/logo.png'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -47,13 +48,13 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-background flex items-center justify-center p-4">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-primary/10 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <Link to="/" className="inline-flex items-center space-x-3">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">RP</span>
+            <div className="w-12 h-12 rounded-xl bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
+              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1.5" />
             </div>
             <div className="text-left">
               <div className="font-bold text-xl text-text-primary">Recruitment Portal</div>
@@ -63,21 +64,21 @@ const Login = () => {
         </div>
 
         <Card className="shadow-xl">
-          <CardHeader className="text-center pb-4">
-            <h1 className="text-2xl font-bold text-text-primary mb-2">Welcome Back</h1>
-            <p className="text-text-secondary">Sign in to your account to continue</p>
+          <CardHeader className="text-center pb-3">
+            <h1 className="text-2xl font-bold text-text-primary mb-1">Welcome Back</h1>
+            <p className="text-sm text-text-secondary">Sign in to your account to continue</p>
           </CardHeader>
           
-          <CardContent className="p-6">
-            <form onSubmit={handleLogin} className="space-y-6">
+          <CardContent className="p-5">
+            <form onSubmit={handleLogin} className="space-y-4">
               {/* User Type Selection */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-3">Login As</label>
+                <label className="block text-sm font-medium text-text-primary mb-2">Login As</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => handleInputChange('userType', 'candidate')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
+                    className={`p-2.5 rounded-lg border-2 transition-all ${
                       formData.userType === 'candidate'
                         ? 'border-primary bg-primary/5 text-primary'
                         : 'border-border text-text-secondary hover:border-primary/50'
@@ -92,7 +93,7 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => handleInputChange('userType', 'admin')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
+                    className={`p-2.5 rounded-lg border-2 transition-all ${
                       formData.userType === 'admin'
                         ? 'border-primary bg-primary/5 text-primary'
                         : 'border-border text-text-secondary hover:border-primary/50'
@@ -116,7 +117,7 @@ const Login = () => {
                   <input
                     type="email"
                     required
-                    className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
@@ -134,7 +135,7 @@ const Login = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    className="w-full pl-10 pr-12 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full pl-10 pr-12 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
@@ -169,7 +170,7 @@ const Login = () => {
               {/* Login Button */}
               <Button 
                 type="submit" 
-                className="w-full py-3 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 flex items-center justify-center space-x-2"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -182,16 +183,16 @@ const Login = () => {
                 )}
               </Button>
 
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-sm text-blue-700">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="text-xs text-blue-700">
                   Candidate accounts use public login. Admin employees can also use the dedicated admin login page.
                 </div>
               </div>
             </form>
 
             {/* Register Link */}
-            <div className="mt-6 text-center">
-              <p className="text-text-secondary">
+            <div className="mt-4 text-center">
+              <p className="text-sm text-text-secondary">
                 Don't have an account?{' '}
                 <Link to="/auth/register" className="text-primary hover:text-primary-dark font-medium">
                   Create Account
@@ -202,7 +203,7 @@ const Login = () => {
         </Card>
 
         {/* Back to Home */}
-        <div className="text-center mt-6">
+        <div className="text-center mt-4">
           <Link to="/" className="text-text-secondary hover:text-text-primary text-sm">
             ← Back to Home
           </Link>

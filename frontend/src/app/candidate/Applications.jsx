@@ -207,14 +207,13 @@ const Applications = () => {
               return (
                 <div
                   key={app._id}
-                  className={`flex items-center justify-between p-4 border-b border-gray-100 last:border-0 transition-colors ${
+                  className={`grid grid-cols-1 gap-4 p-4 border-b border-gray-100 last:border-0 transition-colors sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_160px_170px_120px] lg:items-center ${
                     needsCorrection
                       ? "bg-orange-50 hover:bg-orange-100"
                       : "hover:bg-gray-50"
                   }`}
                 >
-                  {/* Left — Job info */}
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         needsCorrection
@@ -233,43 +232,40 @@ const Applications = () => {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-800 truncate">
+                      <p className="font-semibold text-gray-900 truncate">
                         {app.jobId?.title || "Job Application"}
                       </p>
                       <p className="text-sm text-gray-500 truncate">
-                        {app.jobId?.department || "—"}
+                        {app.jobId?.department || "-"}
                       </p>
                       <p className="text-xs text-orange-600 mt-0.5 font-mono">
                         {app.applicationId}
                       </p>
 
-                      {/* Correction request banner */}
                       {needsCorrection && (
                         <p className="text-xs font-semibold text-orange-700 mt-1 flex items-center gap-1">
                           <Edit3 className="w-3 h-3" />
-                          Admin requested corrections — action required
+                          Admin requested corrections - action required
                         </p>
                       )}
                       {correctionSubmitted && (
                         <p className="text-xs font-semibold text-blue-600 mt-1 flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
-                          Corrections submitted — awaiting admin re-review
+                          Corrections submitted - awaiting admin re-review
                         </p>
                       )}
 
-                      {/* Draft progress bar */}
                       {isDraft && (
-                        <div className="mt-2 max-w-[200px]">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-gray-500">
-                              Step {app.currentStep || 1}/9 —{" "}
-                              {STEP_LABELS[app.currentStep || 1]}
+                        <div className="mt-2 w-full max-w-[220px]">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-xs text-gray-500 truncate">
+                              Step {app.currentStep || 1}/9 - {STEP_LABELS[app.currentStep || 1]}
                             </span>
-                            <span className="text-xs font-medium text-orange-600">
+                            <span className="text-xs font-semibold text-orange-600 flex-shrink-0">
                               {stepProgress}%
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                             <div
                               className="bg-orange-500 h-1.5 rounded-full transition-all"
                               style={{ width: `${stepProgress}%` }}
@@ -280,35 +276,32 @@ const Applications = () => {
                     </div>
                   </div>
 
-                  {/* Right — Date, status, action */}
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-gray-500">
-                        {app.submittedAt
-                          ? `Submitted ${new Date(app.submittedAt).toLocaleDateString("en-IN")}`
-                          : `Started ${new Date(app.createdAt).toLocaleDateString("en-IN")}`}
-                      </p>
-                    </div>
+                  <p className="text-xs text-gray-500 sm:text-right lg:text-left lg:self-center">
+                    {app.submittedAt
+                      ? `Submitted ${new Date(app.submittedAt).toLocaleDateString("en-IN")}`
+                      : `Started ${new Date(app.createdAt).toLocaleDateString("en-IN")}`}
+                  </p>
 
-                    {/* Correction badge overrides status badge */}
+                  <div className="flex lg:justify-start">
                     {needsCorrection ? (
-                      <Badge className="bg-orange-100 text-orange-700 border border-orange-300">
+                      <Badge className="bg-orange-100 text-orange-700 border border-orange-300 whitespace-nowrap">
                         <Edit3 className="w-3 h-3 mr-1 inline" />
                         Correction Needed
                       </Badge>
                     ) : (
-                      <Badge className={cfg.color}>
+                      <Badge className={`${cfg.color} whitespace-nowrap`}>
                         <StatusIcon className="w-3 h-3 mr-1 inline" />
                         {cfg.label}
                       </Badge>
                     )}
+                  </div>
 
-                    {/* Context-aware action buttons */}
+                  <div className="flex sm:justify-end lg:justify-end">
                     {isDraft ? (
                       <Button
                         size="sm"
                         onClick={() => handleResume(app)}
-                        className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5 whitespace-nowrap"
+                        className="min-w-[112px] bg-orange-600 hover:bg-orange-700 text-white gap-1.5 whitespace-nowrap"
                       >
                         <PlayCircle className="w-4 h-4" />
                         Resume
@@ -317,7 +310,7 @@ const Applications = () => {
                       <Button
                         size="sm"
                         onClick={() => handleEditCorrection(app)}
-                        className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5 whitespace-nowrap"
+                        className="min-w-[112px] bg-orange-600 hover:bg-orange-700 text-white gap-1.5 whitespace-nowrap"
                       >
                         <Edit3 className="w-4 h-4" />
                         Edit Now
@@ -327,7 +320,7 @@ const Applications = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleView(app)}
-                        className="text-orange-600 hover:bg-orange-50"
+                        className="min-w-[44px] text-orange-600 hover:bg-orange-50"
                         title="View application"
                       >
                         <Eye className="w-4 h-4" />

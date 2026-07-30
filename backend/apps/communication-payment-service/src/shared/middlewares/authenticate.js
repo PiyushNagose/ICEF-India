@@ -23,7 +23,16 @@ const authenticate = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "Access token required");
   }
 
-  const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, env.JWT_ACCESS_SECRET);
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      throw new ApiError(401, "Token expired");
+    }
+    throw new ApiError(401, "Invalid token");
+  }
+
   req.user = decoded; // { id, email, role, employeeId? }
   next();
 });

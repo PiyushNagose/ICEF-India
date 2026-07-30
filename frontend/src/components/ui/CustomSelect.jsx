@@ -135,7 +135,7 @@ const CustomSelect = ({
               }}
               className={cn(
                 'w-full flex items-center justify-between px-4 py-2.5 text-sm text-left',
-                'transition-colors duration-100',
+                'transition-colors duration-200 ease-out',
                 isSelected
                   ? 'bg-orange-50 text-orange-700 font-semibold'
                   : 'text-gray-700 hover:bg-orange-50 hover:text-orange-700',
@@ -164,7 +164,7 @@ const CustomSelect = ({
         className={cn(
           'w-full flex items-center justify-between gap-2',
           'px-4 py-3 rounded-xl border text-sm text-left',
-          'transition-all duration-150 outline-none',
+          'transition-all duration-200 ease-out outline-none',
           'focus:ring-2 focus:ring-orange-500 focus:border-orange-500',
           disabled
             ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -181,7 +181,7 @@ const CustomSelect = ({
         </span>
         <ChevronDown
           className={cn(
-            'w-4 h-4 flex-shrink-0 text-orange-500 transition-transform duration-200',
+            'w-4 h-4 flex-shrink-0 text-orange-500 transition-transform duration-200 ease-out',
             open && 'rotate-180',
           )}
         />

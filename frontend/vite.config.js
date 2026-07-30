@@ -73,7 +73,15 @@ export default defineConfig({
         target: RECRUITMENT_URL,
         changeOrigin: true,
       },
+      '/api/admin/exams': {
+        target: RECRUITMENT_URL,
+        changeOrigin: true,
+      },
       '/api/candidate/applications': {
+        target: RECRUITMENT_URL,
+        changeOrigin: true,
+      },
+      '/api/candidate/admit-cards': {
         target: RECRUITMENT_URL,
         changeOrigin: true,
       },

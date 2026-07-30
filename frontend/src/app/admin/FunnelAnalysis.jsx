@@ -55,7 +55,7 @@ const FunnelRow = ({ stage, value, prevValue, maxValue, index, isLast }) => {
       <div className="flex items-center gap-3">
         {/* Stage label */}
         <div className="w-24 text-right flex-shrink-0">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Stage {index + 1}</p>
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-normal">Stage {index + 1}</p>
           <p className="text-xs font-semibold text-gray-700">{stage.label}</p>
         </div>
 
@@ -80,7 +80,7 @@ const FunnelRow = ({ stage, value, prevValue, maxValue, index, isLast }) => {
           isLast ? 'bg-orange-600 text-white' : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
         }`}>
           <p className="text-sm font-bold leading-tight">{isLast ? `${retPct}%` : `${prevPct}%`}</p>
-          <p className="text-[9px] font-medium leading-tight">{isLast ? 'RETENTION' : 'of prev'}</p>
+          <p className="text-xs font-medium leading-tight">{isLast ? 'RETENTION' : 'of prev'}</p>
         </div>
       </div>
 
@@ -174,7 +174,7 @@ const FunnelAnalysis = () => {
             {/* Filters */}
             <div className="flex items-end gap-3 flex-wrap">
               <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Date Range</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Date Range</p>
                 <div className="relative">
                   <select
                     value={dateRange}
@@ -190,7 +190,7 @@ const FunnelAnalysis = () => {
               </div>
 
               <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Job Category</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Job Category</p>
                 <div className="relative">
                   <select
                     value={selectedJob}
@@ -217,7 +217,7 @@ const FunnelAnalysis = () => {
         </div>
 
         {/* ── Two column: Horizontal Funnel + Bar Chart ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 items-stretch xl:grid-cols-2 gap-5">
 
           {/* Horizontal Funnel Bars */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
@@ -289,24 +289,24 @@ const FunnelAnalysis = () => {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
             <div className="flex gap-8 flex-1 flex-wrap">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Total Inflow</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Inflow</p>
                 <p className="text-3xl font-bold text-gray-900">{fmt(maxVal)}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Total Converted</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Converted</p>
                 <p className="text-3xl font-bold text-orange-600">{fmt(submitted)}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Total Leakage</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Leakage</p>
                 <p className="text-3xl font-bold text-red-500">{fmt(totalLeakage)}</p>
               </div>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 text-center min-w-[160px]">
               <div className="flex items-center justify-center gap-1.5 mb-1">
                 <Target className="w-4 h-4 text-blue-600" />
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Final Conversion</p>
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-normal">Final Conversion</p>
               </div>
-              <p className="text-4xl font-bold text-blue-800">{conversionRate}%</p>
+              <p className="text-3xl font-bold text-blue-800">{conversionRate}%</p>
             </div>
           </div>
           <div className="mt-4">
@@ -332,7 +332,7 @@ const FunnelAnalysis = () => {
               <strong>"{STAGE_KEYS[maxDropIdx - 1]?.label}"</strong> and{' '}
               <strong>"{STAGE_KEYS[maxDropIdx]?.label}"</strong>.
             </p>
-            <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-1">Recommendation</p>
+            <p className="text-xs font-bold text-red-600 uppercase tracking-normal mb-1">Recommendation</p>
             <p className="text-xs text-gray-500">Simplify the initial onboarding fields to reduce friction in the first 30 seconds of interaction.</p>
           </div>
 
@@ -344,7 +344,7 @@ const FunnelAnalysis = () => {
             <p className="text-sm text-gray-600 mb-4">
               Users who complete <strong>"Payment"</strong> are almost guaranteed (99%) to submit the application.
             </p>
-            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Key Insight</p>
+            <p className="text-xs font-bold text-emerald-600 uppercase tracking-normal mb-1">Key Insight</p>
             <p className="text-xs text-gray-500">The payment gateway trust is high. Post-payment UX is currently optimized for success.</p>
           </div>
 
@@ -373,3 +373,8 @@ const FunnelAnalysis = () => {
 }
 
 export default FunnelAnalysis
+
+
+
+
+

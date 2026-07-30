@@ -97,6 +97,10 @@ const buildUpdatePayload = (draft) => {
   if (def(draft.applicationDeadline)) payload.applicationDeadline = draft.applicationDeadline;
   if (def(draft.examDate))            payload.examDate            = draft.examDate;
   if (def(draft.applicationStartDate)) payload.applicationStartDate = draft.applicationStartDate;
+  if (def(draft.correctionStartDate)) payload.correctionStartDate = draft.correctionStartDate;
+  if (def(draft.correctionDeadline)) payload.correctionDeadline = draft.correctionDeadline;
+  if (def(draft.admitCardReleaseDate)) payload.admitCardReleaseDate = draft.admitCardReleaseDate;
+  if (def(draft.resultDate)) payload.resultDate = draft.resultDate;
 
   // Eligibility
   if (draft.ageLimit) {
@@ -140,14 +144,52 @@ const buildUpdatePayload = (draft) => {
     if (validDocs.length > 0) payload.documentRequirements = validDocs;
   }
 
+  if (Array.isArray(draft.formSections)) {
+    payload.formSections = draft.formSections
+      .map((section) => ({
+        title: str(section.title),
+        required: Boolean(section.required),
+        fields: Array.isArray(section.fields)
+          ? section.fields
+              .map((field) => {
+                const type = str(field.type) || "text";
+                const options = ["select", "radio"].includes(type)
+                  ? [
+                      ...new Set(
+                        (field.options || [])
+                          .map((option) => String(option).trim())
+                          .filter(Boolean),
+                      ),
+                    ]
+                  : undefined;
+                return {
+                  type,
+                  label: str(field.label),
+                  required: Boolean(field.required),
+                  placeholder: str(field.placeholder) || "",
+                  ...(options && { options }),
+                  ...(field.validation && { validation: field.validation }),
+                };
+              })
+              .filter(
+                (field) =>
+                  field.label &&
+                  (!["select", "radio"].includes(field.type) ||
+                    field.options?.length >= 2),
+              )
+          : [],
+      }))
+      .filter((section) => section.title && section.fields.length > 0);
+  }
+
   // Payment config — only safe fields
   if (draft.paymentConfig) {
     payload.paymentConfig = {
       applicationFee:  num(draft.paymentConfig.applicationFee) || 0,
-      examFee:         num(draft.paymentConfig.examFee)        || 0,
       processingFee:   num(draft.paymentConfig.processingFee)  || 0,
       paymentMethods:  Array.isArray(draft.paymentConfig.paymentMethods) ? draft.paymentConfig.paymentMethods : [],
       ...(def(draft.paymentConfig.refundPolicy)    && { refundPolicy:        draft.paymentConfig.refundPolicy }),
+      ...(def(draft.paymentConfig.paymentDeadline) && { paymentDeadline:     draft.paymentConfig.paymentDeadline }),
     };
   }
 
@@ -339,10 +381,10 @@ const JobReview = () => {
   return (
     <AdminLayout title="Create Job - Review">
       <div className="p-4 sm:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                 Create Job Posting
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">
@@ -373,7 +415,7 @@ const JobReview = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-5">
               {/* Basic Info */}
               <Card>
@@ -381,7 +423,7 @@ const JobReview = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <FileText className="w-5 h-5 text-orange-600" />
-                      <h3 className="font-semibold text-gray-800">
+                      <h3 className="font-semibold text-gray-900">
                         Basic Information
                       </h3>
                     </div>
@@ -419,7 +461,7 @@ const JobReview = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Users className="w-5 h-5 text-orange-600" />
-                        <h3 className="font-semibold text-gray-800">
+                        <h3 className="font-semibold text-gray-900">
                           Post Types & Preferences
                         </h3>
                       </div>
@@ -475,7 +517,7 @@ const JobReview = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <GraduationCap className="w-5 h-5 text-orange-600" />
-                      <h3 className="font-semibold text-gray-800">
+                      <h3 className="font-semibold text-gray-900">
                         Eligibility Criteria
                       </h3>
                     </div>
@@ -518,13 +560,69 @@ const JobReview = () => {
               </Card>
 
               {/* Documents */}
+              {draft.formSections?.some((section) => section.fields?.length > 0) && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="w-5 h-5 text-orange-600" />
+                        <h3 className="font-semibold text-gray-900">
+                          Application Form Sections
+                        </h3>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => editStep("form-builder")}
+                        className="text-orange-600 hover:bg-orange-50"
+                      >
+                        <Edit className="w-3.5 h-3.5 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {draft.formSections
+                      .filter((section) => section.fields?.length > 0)
+                      .map((section, index) => (
+                        <div
+                          key={`${section.title}-${index}`}
+                          className="p-3 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-medium text-gray-900">
+                              {section.title}
+                            </p>
+                            {section.required && (
+                              <Badge className="bg-red-100 text-red-800">
+                                Required
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {section.fields.map((field, fieldIndex) => (
+                              <span
+                                key={`${field.label}-${fieldIndex}`}
+                                className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
+                              >
+                                {field.label} - {field.type}
+                                {field.required ? " - required" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </CardContent>
+                </Card>
+              )}
+
               {draft.documentRequirements?.length > 0 && (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FileText className="w-5 h-5 text-orange-600" />
-                        <h3 className="font-semibold text-gray-800">
+                        <h3 className="font-semibold text-gray-900">
                           Required Documents
                         </h3>
                       </div>
@@ -563,7 +661,7 @@ const JobReview = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <CreditCard className="w-5 h-5 text-orange-600" />
-                      <h3 className="font-semibold text-gray-800">
+                      <h3 className="font-semibold text-gray-900">
                         Application Fees
                       </h3>
                     </div>
@@ -627,14 +725,22 @@ const JobReview = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Important Dates
                     </h3>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2.5 text-sm">
                   <InfoRow
-                    label="Deadline"
+                    label="Application Start"
+                    value={
+                      draft.applicationStartDate
+                        ? new Date(draft.applicationStartDate).toLocaleDateString("en-IN")
+                        : "-"
+                    }
+                  />
+                  <InfoRow
+                    label="Application Deadline"
                     value={
                       draft.applicationDeadline
                         ? new Date(
@@ -644,11 +750,43 @@ const JobReview = () => {
                     }
                   />
                   <InfoRow
+                    label="Payment Deadline"
+                    value={
+                      draft.paymentConfig?.paymentDeadline
+                        ? new Date(draft.paymentConfig.paymentDeadline).toLocaleDateString("en-IN")
+                        : "-"
+                    }
+                  />
+                  <InfoRow
+                    label="Correction Window"
+                    value={
+                      draft.correctionStartDate || draft.correctionDeadline
+                        ? `${draft.correctionStartDate ? new Date(draft.correctionStartDate).toLocaleDateString("en-IN") : "-"} to ${draft.correctionDeadline ? new Date(draft.correctionDeadline).toLocaleDateString("en-IN") : "-"}`
+                        : "-"
+                    }
+                  />
+                  <InfoRow
+                    label="Admit Card Release"
+                    value={
+                      draft.admitCardReleaseDate
+                        ? new Date(draft.admitCardReleaseDate).toLocaleDateString("en-IN")
+                        : "-"
+                    }
+                  />
+                  <InfoRow
                     label="Exam Date"
                     value={
                       draft.examDate
                         ? new Date(draft.examDate).toLocaleDateString("en-IN")
                         : "—"
+                    }
+                  />
+                  <InfoRow
+                    label="Result Publish"
+                    value={
+                      draft.resultDate
+                        ? new Date(draft.resultDate).toLocaleDateString("en-IN")
+                        : "-"
                     }
                   />
                 </CardContent>
@@ -733,3 +871,8 @@ const JobReview = () => {
 };
 
 export default JobReview;
+
+
+
+
+

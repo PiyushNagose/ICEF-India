@@ -112,20 +112,20 @@ const OverlayCard = ({ ticket }) => {
           <p className="font-semibold text-gray-900 text-xs line-clamp-2 flex-1">
             {ticket.subject || ticket.title || "Untitled"}
           </p>
-          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${p.bg} ${p.text}`}>
+          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
             {(ticket.priority || "").charAt(0).toUpperCase() + (ticket.priority || "").slice(1).toLowerCase()}
           </span>
         </div>
-        <p className="text-[10px] font-mono text-orange-500 font-semibold">
+        <p className="text-xs font-mono text-orange-500 font-semibold">
           {ticket.ticketId || "—"}
         </p>
       </div>
       <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-        <span className="text-[10px] text-gray-500 flex items-center gap-1">
+        <span className="text-xs text-gray-500 flex items-center gap-1">
           <User className="w-3 h-3" />{candidateName(ticket)}
         </span>
-        <span className="text-[10px] text-gray-400 flex items-center gap-1">
+        <span className="text-xs text-gray-400 flex items-center gap-1">
           <Clock className="w-3 h-3" />{fmtDate(ticket.createdAt)}
         </span>
       </div>
@@ -161,7 +161,7 @@ const TicketCard = ({ ticket, onNavigate }) => {
         touchAction: "none",           // required for touch/pointer sensors
         userSelect: "none",
       }}
-      className={`bg-white rounded-xl border shadow-sm transition-shadow duration-150
+      className={`bg-white rounded-xl border shadow-sm transition-shadow duration-200 ease-out
         ${isDragging ? "border-orange-300 shadow-lg" : "border-gray-100 hover:shadow-md hover:border-orange-200"}`}
     >
       {/* Card body */}
@@ -173,18 +173,18 @@ const TicketCard = ({ ticket, onNavigate }) => {
               {ticket.subject || ticket.title || "Untitled"}
             </p>
           </div>
-          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${p.bg} ${p.text}`}>
+          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
             {(ticket.priority || "").charAt(0).toUpperCase() + (ticket.priority || "").slice(1).toLowerCase()}
           </span>
         </div>
 
-        <p className="text-[10px] font-mono text-orange-500 font-semibold ml-5 mb-1">
+        <p className="text-xs font-mono text-orange-500 font-semibold ml-5 mb-1">
           {ticket.ticketId || "—"}
         </p>
 
         {ticket.description && (
-          <p className="text-[11px] text-gray-500 line-clamp-2 ml-5 leading-relaxed">
+          <p className="text-xs text-gray-500 line-clamp-2 ml-5 leading-relaxed">
             {ticket.description}
           </p>
         )}
@@ -192,12 +192,12 @@ const TicketCard = ({ ticket, onNavigate }) => {
 
       {/* Footer */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-gray-50 bg-gray-50/60 rounded-b-xl">
-        <span className="text-[10px] text-gray-500 flex items-center gap-1 min-w-0">
+        <span className="text-xs text-gray-500 flex items-center gap-1 min-w-0">
           <User className="w-3 h-3 shrink-0" />
           <span className="truncate max-w-[80px]">{candidateName(ticket)}</span>
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+          <span className="text-xs text-gray-400 flex items-center gap-1">
             <Clock className="w-3 h-3" />{fmtDate(ticket.createdAt)}
           </span>
           {/* Stop pointer events so this button doesn't trigger drag */}
@@ -223,7 +223,7 @@ const KanbanColumn = ({ col, tickets, onNavigate, isOver }) => {
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border-2 overflow-hidden min-h-[520px] transition-colors duration-150
+      className={`flex flex-col rounded-2xl border-2 overflow-hidden min-h-[520px] transition-colors duration-200 ease-out
         ${isOver ? `${col.activeBg} ${col.activeBorder}` : `${col.colBg} ${col.border}`}`}
     >
       {/* Column header */}
@@ -232,7 +232,7 @@ const KanbanColumn = ({ col, tickets, onNavigate, isOver }) => {
           <Icon className="w-4 h-4 text-white/90" />
           <h3 className="font-bold text-white text-sm">{col.label}</h3>
         </div>
-        <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-white/25 text-white">
+        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/25 text-white">
           {tickets.length}
         </span>
       </div>
@@ -240,7 +240,7 @@ const KanbanColumn = ({ col, tickets, onNavigate, isOver }) => {
       {/* Drop zone — this div is registered with useDroppable */}
       <div
         ref={setNodeRef}
-        className="flex-1 p-3 overflow-y-auto"
+        className="hover-scroll flex-1 p-3 overflow-y-auto"
         style={{ minHeight: 200 }}
       >
         <SortableContext
@@ -420,7 +420,7 @@ const SupportKanban = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black tracking-[0.2em] text-orange-500 uppercase mb-1">
+            <p className="text-xs font-bold tracking-normal text-orange-500 uppercase mb-1">
               Support Management
             </p>
             <h1 className="text-2xl font-bold text-gray-900">Kanban Board</h1>
@@ -448,7 +448,7 @@ const SupportKanban = () => {
                   <Icon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-black text-gray-900 leading-none">{countByStatus(col.id)}</p>
+                  <p className="text-3xl font-bold text-gray-900 leading-none">{countByStatus(col.id)}</p>
                   <p className="text-xs text-gray-500 mt-0.5 font-medium">{col.label}</p>
                 </div>
               </div>

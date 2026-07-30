@@ -3,18 +3,20 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell, Briefcase, FileText, HelpCircle,
-  Home, LogOut, User,
+  Home, LogOut, User, FileBadge,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { authService, getStoredUser } from '../../services/auth.service'
 import { candidateService } from '../../services/candidate.service'
 import LogoutModal from '../ui/LogoutModal'
 import { REALTIME_ENABLED } from '../../api/config'
+import logo from '../../assets/logo.png'
 
 const navItems = [
   { to: '/candidate/dashboard',     label: 'Dashboard',     icon: Home       },
   { to: '/candidate/jobs',          label: 'Jobs',          icon: Briefcase  },
   { to: '/candidate/applications',  label: 'Applications',  icon: FileText   },
+  { to: '/candidate/admit-card',    label: 'Admit Card',    icon: FileBadge  },
   { to: '/candidate/profile',       label: 'Profile',       icon: User       },
   { to: '/candidate/notifications', label: 'Notifications', icon: Bell, badge: true },
   { to: '/candidate/support',       label: 'Support',       icon: HelpCircle },
@@ -23,8 +25,8 @@ const navItems = [
 // Page transition variants
 const pageVariants = {
   initial:  { opacity: 0, y: 16 },
-  animate:  { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-  exit:     { opacity: 0, y: -8, transition: { duration: 0.15 } },
+  animate:  { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
+  exit:     { opacity: 0, y: -8, transition: { duration: 0.12 } },
 }
 
 // Sidebar nav item stagger
@@ -33,7 +35,7 @@ const sidebarVariants = {
 }
 const navItemVariants = {
   initial: { opacity: 0, x: -12 },
-  animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+  animate: { opacity: 1, x: 0, transition: { duration: 0.18, ease: 'easeOut' } },
 }
 
 const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
@@ -67,23 +69,23 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
   }
 
   return (
-    <div className="min-h-screen bg-orange-50">
+    <div className="customer-motion-root h-screen overflow-hidden bg-orange-50 flex flex-col">
 
       {/* ── Top Header ── */}
       <header className={`sticky top-0 z-30 bg-white border-b border-gray-100 transition-all duration-200 ${scrolled ? 'shadow-[0_2px_16px_rgba(0,0,0,0.08)]' : ''}`}>
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="w-full px-3 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-4">
 
           {/* ── Brand ── */}
           <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <motion.div
-              whileHover={{ scale: 1.06, rotate: -3 }}
+              whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.95 }}
-              className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md shadow-orange-200"
+              className="w-8 h-8 rounded-lg bg-[#1f1d1b] flex items-center justify-center shadow-sm overflow-hidden"
             >
-              <span className="text-white font-black text-xs tracking-tight">RP</span>
+              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
             </motion.div>
             <div className="hidden sm:block">
-              <div className="text-sm font-black text-gray-900 leading-tight tracking-tight group-hover:text-orange-600 transition-colors">
+              <div className="text-sm font-bold text-gray-900 leading-tight tracking-tight group-hover:text-orange-600 transition-colors">
                 Recruitment Portal
               </div>
               <div className="text-[10px] font-semibold text-orange-500 uppercase tracking-widest leading-tight">
@@ -96,7 +98,7 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
           <div className="flex items-center gap-1.5 sm:gap-2">
 
             {/* Notification bell */}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.93 }}>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Link
                 to="/candidate/notifications"
                 className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 transition-all duration-150"
@@ -110,7 +112,7 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[5px] bg-orange-500 text-white text-[10px] font-black rounded-full flex items-center justify-center leading-none ring-2 ring-white tabular-nums"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[5px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white tabular-nums"
                     >
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </motion.span>
@@ -131,7 +133,7 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
             >
               {/* Avatar */}
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <span className="text-white font-black text-[11px] leading-none">
+                <span className="text-white font-bold text-[11px] leading-none">
                   {(user?.fullName || user?.email || 'C')
                     .split(' ')
                     .map(n => n[0])
@@ -150,14 +152,14 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
       </header>
 
       {/* ── Body ── */}
-      <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[220px_1fr] items-start gap-6 px-3 sm:px-4 lg:px-6 py-5">
+      <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-[220px_1fr] items-stretch gap-6 lg:gap-8 px-3 sm:px-4 lg:px-6 py-5">
 
         {/* ── Sidebar ── */}
-        <aside className="h-fit sticky top-[57px]">
+        <aside className="min-h-0 flex flex-col overflow-hidden lg:h-full">
           {/* Header strip */}
           <div className="bg-[#0f172a] rounded-t-xl px-4 py-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
-              <span className="text-white font-bold text-xs">RP</span>
+            <div className="w-8 h-8 rounded-lg bg-[#1f1d1b] flex items-center justify-center flex-shrink-0 shadow-md overflow-hidden">
+              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
             </div>
             <div>
               <p className="text-white font-bold text-sm leading-tight">Candidate Portal</p>
@@ -170,7 +172,7 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
             variants={sidebarVariants}
             initial="initial"
             animate="animate"
-            className="bg-[#1e293b] rounded-b-xl p-2 space-y-0.5"
+            className="hover-scroll bg-[#1e293b] rounded-b-xl p-2 space-y-0.5 flex-1 min-h-0 overflow-y-auto max-h-[240px] lg:max-h-none"
           >
             {navItems.map((item) => (
               <motion.div key={item.to} variants={navItemVariants}>
@@ -223,7 +225,11 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
         </aside>
 
         {/* ── Page Content with animation ── */}
-        <main className="min-w-0" ref={mainRef}>
+        <main
+          className="hover-scroll min-w-0 min-h-0 overflow-y-auto"
+          ref={mainRef}
+          onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 8)}
+        >
           <h1 className="sr-only">{title}</h1>
           <AnimatePresence mode="wait">
             <motion.div
@@ -232,6 +238,7 @@ const CandidateLayout = ({ children, title = 'Candidate Portal' }) => {
               initial="initial"
               animate="animate"
               exit="exit"
+              className="candidate-page-root min-h-full w-full"
             >
               {children}
             </motion.div>

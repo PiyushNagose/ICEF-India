@@ -19,6 +19,7 @@ import {
   isCorrectionMode,
   readApplicationDraft,
 } from "../../utils/applicationFlow";
+import logo from "../../assets/logo.png";
 
 const FALLBACK_STEPS = [
   {
@@ -112,16 +113,16 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
   };
 
   return (
-    <div className="min-h-screen bg-orange-50">
+    <div className="customer-motion-root h-screen overflow-hidden bg-orange-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-orange-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="bg-white border-b border-orange-200 px-6 py-4 flex-shrink-0">
+        <div className="w-full flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
             className="flex items-center space-x-3"
           >
-            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">RP</span>
+            <div className="w-10 h-10 rounded-lg bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
+              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
             </div>
             <div>
               <div className="font-bold text-gray-800">Recruitment Portal</div>
@@ -137,8 +138,8 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
       </header>
 
       {/* Top progress bar — visual only, no navigation */}
-      <div className="bg-white border-b border-orange-200 px-6 py-4 overflow-x-auto">
-        <div className="max-w-7xl mx-auto">
+      <div className="bg-white border-b border-orange-200 px-6 py-4 overflow-x-auto flex-shrink-0">
+        <div className="w-full">
           <div className="flex items-center min-w-max">
             {steps.map((step, index) => {
               const isCompleted = step.id < activeStep;
@@ -189,10 +190,10 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
         </div>
       </div>
 
-      <div className="flex">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[288px_1fr]">
         {/* Sidebar */}
-        <div className="w-72 p-5 flex-shrink-0 hidden lg:block">
-          <div className="bg-gray-800 rounded-xl shadow-lg h-fit sticky top-6">
+        <div className="hidden lg:block p-5 min-h-0 overflow-hidden">
+          <div className="bg-gray-800 rounded-xl shadow-lg h-full min-h-0 flex flex-col overflow-hidden">
             <div className="p-5 border-b border-gray-700">
               <h2 className="text-white font-semibold text-sm">
                 Application Steps
@@ -212,7 +213,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
               )}
             </div>
 
-            <nav className="p-3 space-y-0.5">
+            <nav className="hover-scroll flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5">
               {steps.map((step) => {
                 const Icon =
                   step.icon ||
@@ -308,9 +309,9 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          <main className="p-4 lg:p-6">
-            <div className="max-w-4xl mx-auto">
+        <div className="min-w-0 min-h-0">
+          <main className="hover-scroll h-full overflow-y-auto p-4 lg:p-6">
+            <div className="application-page-root min-h-full w-full">
               {title && (
                 <h1 className="text-2xl font-bold text-gray-800 mb-6">
                   {title}

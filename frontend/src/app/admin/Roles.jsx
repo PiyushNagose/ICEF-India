@@ -33,7 +33,7 @@ const AvatarStack = ({ count }) => {
     <div className="flex items-center">
       <div className="flex -space-x-2">
         {Array.from({ length: show }).map((_, i) => (
-          <div key={i} className={`w-7 h-7 rounded-full ${colors[i]} border-2 border-white flex items-center justify-center text-white text-[10px] font-bold`}>
+          <div key={i} className={`w-7 h-7 rounded-full ${colors[i]} border-2 border-white flex items-center justify-center text-white text-xs font-bold`}>
             {String.fromCharCode(65 + i)}
           </div>
         ))}
@@ -115,8 +115,8 @@ const Roles = () => {
               </div>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+12% vs LY</span>
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Total Active Roles</p>
-            <p className="text-4xl font-bold text-gray-900">{String(totalRoles).padStart(2, '0')}</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Active Roles</p>
+            <p className="text-3xl font-bold text-gray-900">{String(totalRoles).padStart(2, '0')}</p>
           </div>
 
           {/* Users Assigned */}
@@ -126,8 +126,8 @@ const Roles = () => {
                 <Users className="w-5 h-5 text-blue-500" />
               </div>
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Users Assigned</p>
-            <p className="text-4xl font-bold text-gray-900">{Number(totalAssigned).toLocaleString('en-IN')}</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Users Assigned</p>
+            <p className="text-3xl font-bold text-gray-900">{Number(totalAssigned).toLocaleString('en-IN')}</p>
           </div>
 
           {/* System Load */}
@@ -138,8 +138,8 @@ const Roles = () => {
               </div>
               <div className="w-8 h-1 bg-amber-400 rounded-full mt-3" />
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">System Load</p>
-            <p className="text-4xl font-bold text-gray-900">64%</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">System Load</p>
+            <p className="text-3xl font-bold text-gray-900">64%</p>
           </div>
         </div>
 
@@ -149,12 +149,12 @@ const Roles = () => {
             <h3 className="font-semibold text-gray-900 text-base">Access Control List</h3>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Role Name','Description','Assigned Users','Last Updated','Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -175,7 +175,7 @@ const Roles = () => {
                           <div className={`w-1 h-10 rounded-full ${rtype.bar} flex-shrink-0`} />
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">{role.roleName}</p>
-                            <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${rtype.bg} ${rtype.text}`}>
+                            <span className={`text-xs font-bold uppercase tracking-normal px-1.5 py-0.5 rounded ${rtype.bg} ${rtype.text}`}>
                               {rtype.label}
                             </span>
                           </div>
@@ -194,7 +194,7 @@ const Roles = () => {
 
                       {/* Last Updated */}
                       <td className="py-4 px-5">
-                        <p className="text-sm font-medium text-gray-800">
+                        <p className="text-sm font-medium text-gray-900">
                           {role.updatedAt ? new Date(role.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
@@ -295,3 +295,8 @@ const Roles = () => {
 }
 
 export default Roles
+
+
+
+
+

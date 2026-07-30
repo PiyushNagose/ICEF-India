@@ -42,7 +42,7 @@ const ProjectDetails = () => {
     return (
       <AdminLayout title="Project Details">
         <div className="
-          min-h-screen
+          min-h-full
           flex items-center justify-center
           bg-[#f7f4ee]
         ">
@@ -157,7 +157,7 @@ const ProjectDetails = () => {
     <AdminLayout title="Project Details">
 
       <div className="
-        min-h-screen
+        min-h-full
         bg-[#f7f4ee]
         p-5 space-y-5
       ">
@@ -165,9 +165,9 @@ const ProjectDetails = () => {
         {/* HERO */}
         <div className="
           rounded-[26px]
-          bg-white/90 backdrop-blur-xl
-          border border-white/70
-          shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+          bg-white
+          border border-gray-200
+          shadow-sm
           p-6 relative overflow-hidden
         ">
 
@@ -225,8 +225,8 @@ const ProjectDetails = () => {
               </div>
 
               <h1 className="
-                text-3xl font-black
-                text-[#1f2937]
+                text-2xl font-bold
+                text-gray-900
               ">
                 {project.name}
               </h1>
@@ -305,9 +305,9 @@ const ProjectDetails = () => {
               key={s.title}
               className="
                 rounded-[22px]
-                bg-white/90 backdrop-blur-xl
-                border border-white/70
-                shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+                bg-white
+                border border-gray-200
+                shadow-sm
                 p-5
               "
             >
@@ -319,17 +319,17 @@ const ProjectDetails = () => {
 
                 <div>
                   <p className="
-                    text-[10px]
-                    font-black
-                    tracking-[0.16em]
+                    text-xs
+                    font-bold
+                    tracking-normal
                     text-gray-400 mb-2
                   ">
                     {s.title}
                   </p>
 
                   <h2 className="
-                    text-3xl font-black
-                    text-[#1f2937]
+                    text-3xl font-bold
+                    text-gray-900
                   ">
                     {s.value}
                   </h2>
@@ -355,6 +355,7 @@ const ProjectDetails = () => {
         {/* MAIN GRID */}
         <div className="
           grid grid-cols-1
+          items-stretch
           xl:grid-cols-3
           gap-5
         ">
@@ -362,16 +363,18 @@ const ProjectDetails = () => {
           {/* LEFT */}
           <div className="
             xl:col-span-2
+            flex min-h-[420px]
           ">
 
             <Card className="
+              flex w-full flex-col
               rounded-[24px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
             ">
 
-              <CardHeader>
+              <CardHeader className="shrink-0">
                 <div className="
                   flex items-center
                   justify-between
@@ -379,8 +382,8 @@ const ProjectDetails = () => {
 
                   <div>
                     <h3 className="
-                      text-lg font-black
-                      text-[#1f2937]
+                      text-lg font-bold
+                      text-gray-900
                     ">
                       Active Job Positions
                     </h3>
@@ -417,11 +420,11 @@ const ProjectDetails = () => {
                 </div>
               </CardHeader>
 
-              <CardContent className="p-0">
+              <CardContent className="min-h-0 flex-1 p-0">
 
                 {jobs.length === 0 ? (
                   <div className="
-                    p-10 text-center
+                    flex h-full min-h-[260px] flex-col items-center justify-center p-10 text-center
                   ">
 
                     <div className="
@@ -437,7 +440,7 @@ const ProjectDetails = () => {
 
                     <h3 className="
                       text-lg font-bold
-                      text-[#1f2937]
+                      text-gray-900
                     ">
                       No Jobs Added
                     </h3>
@@ -467,6 +470,7 @@ const ProjectDetails = () => {
                   </div>
                 ) : (
                   <div className="
+                    hover-scroll max-h-[520px] overflow-y-auto
                     divide-y divide-gray-100
                   ">
 
@@ -499,7 +503,7 @@ const ProjectDetails = () => {
                           <div>
 
                             <h4 className="
-                              font-bold text-[#1f2937]
+                              font-bold text-gray-900
                             ">
                               {job.title}
                             </h4>
@@ -521,13 +525,13 @@ const ProjectDetails = () => {
                             text-right
                           ">
                             <h4 className="
-                              font-black text-[#1f2937]
+                              font-bold text-gray-900
                             ">
                               {job.totalApplicants || 0}
                             </h4>
 
                             <p className="
-                              text-[10px]
+                              text-xs
                               text-gray-400
                               font-semibold
                             ">
@@ -573,20 +577,21 @@ const ProjectDetails = () => {
           </div>
 
           {/* RIGHT */}
-          <div className="space-y-5">
+          <div className="flex h-full min-h-[420px] flex-col gap-5">
 
             {/* QUICK ACTIONS */}
             <Card className="
+              shrink-0
               rounded-[24px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
             ">
 
               <CardHeader>
                 <h3 className="
-                  text-lg font-black
-                  text-[#1f2937]
+                  text-lg font-bold
+                  text-gray-900
                 ">
                   Quick Actions
                 </h3>
@@ -625,7 +630,7 @@ const ProjectDetails = () => {
 
                       <p className="
                         text-xs font-bold
-                        text-[#1f2937]
+                        text-gray-900
                       ">
                         {action.title}
                       </p>
@@ -638,23 +643,24 @@ const ProjectDetails = () => {
 
             {/* PROJECT INFO */}
             <Card className="
+              flex min-h-[220px] flex-1 flex-col
               rounded-[24px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
             ">
 
-              <CardHeader>
+              <CardHeader className="shrink-0">
                 <h3 className="
-                  text-lg font-black
-                  text-[#1f2937]
+                  text-lg font-bold
+                  text-gray-900
                 ">
                   Project Information
                 </h3>
               </CardHeader>
 
               <CardContent className="
-                space-y-4 text-sm
+                hover-scroll min-h-0 flex-1 space-y-4 overflow-y-auto text-sm
               ">
 
                 {[
@@ -681,7 +687,7 @@ const ProjectDetails = () => {
                     </span>
 
                     <span className="
-                      font-semibold text-[#1f2937]
+                      font-semibold text-gray-900
                     ">
                       {value}
                     </span>
@@ -700,3 +706,8 @@ const ProjectDetails = () => {
 }
 
 export default ProjectDetails
+
+
+
+
+

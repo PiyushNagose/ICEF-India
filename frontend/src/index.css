@@ -88,6 +88,183 @@
   .animate-slide-in-left {
     animation: slideInLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
   }
+
+  .hover-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .hover-scroll:hover,
+  .hover-scroll:focus-within {
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .hover-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .hover-scroll::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .hover-scroll::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 999px;
+  }
+  .hover-scroll:hover::-webkit-scrollbar-thumb,
+  .hover-scroll:focus-within::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+  }
+  .hover-scroll:hover::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+
+  html.public-scroll-page,
+  body.public-scroll-page {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+    background-color: #f3efe8;
+  }
+  html.public-scroll-page.public-main-hover,
+  body.public-scroll-page.public-main-hover {
+    scrollbar-width: none;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  html.public-scroll-page::-webkit-scrollbar,
+  body.public-scroll-page::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  html.public-scroll-page::-webkit-scrollbar-track,
+  body.public-scroll-page::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  html.public-scroll-page::-webkit-scrollbar-thumb,
+  body.public-scroll-page::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 999px;
+  }
+  html.public-scroll-page.public-main-hover::-webkit-scrollbar-thumb,
+  body.public-scroll-page.public-main-hover::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+  }
+  html.public-scroll-page.public-main-hover::-webkit-scrollbar-thumb:hover,
+  body.public-scroll-page.public-main-hover::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+
+  .admin-data-scroll {
+    max-height: clamp(320px, calc(100vh - 340px), 620px);
+  }
+  .admin-data-scroll thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
+  }
+  .admin-compact-scroll {
+    max-height: clamp(260px, 44vh, 460px);
+  }
+
+  .candidate-page-root,
+  .application-page-root {
+    width: 100%;
+    min-width: 0;
+  }
+  .candidate-page-root :where(.grid),
+  .application-page-root :where(.grid) {
+    align-items: stretch;
+  }
+  .candidate-page-root :where(.card),
+  .application-page-root :where(.card) {
+    min-width: 0;
+  }
+  .candidate-page-root :where(.grid > .card),
+  .application-page-root :where(.grid > .card) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .customer-data-scroll {
+    max-height: clamp(300px, calc(100vh - 360px), 640px);
+  }
+
+  .customer-motion-root {
+    --customer-accent: #ea580c;
+    --customer-accent-soft: #fff7ed;
+    --customer-border: #e7e5e4;
+    color: #1f2937;
+  }
+  .customer-motion-root :where(
+    .transition,
+    .transition-all,
+    .transition-colors,
+    .transition-opacity,
+    .transition-shadow,
+    .transition-transform
+  ) {
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  .customer-motion-root :where(h1) {
+    @apply text-xl sm:text-2xl font-semibold tracking-normal text-gray-900 leading-tight;
+  }
+  .customer-motion-root :where(h2) {
+    @apply text-lg font-semibold tracking-normal text-gray-900 leading-snug;
+  }
+  .customer-motion-root :where(h3) {
+    @apply text-base font-semibold tracking-normal text-gray-900 leading-snug;
+  }
+  .customer-motion-root :where(h4) {
+    @apply text-sm font-semibold tracking-normal text-gray-800 leading-snug;
+  }
+  .customer-motion-root :where(p, li, label, input, textarea, select, button, a) {
+    letter-spacing: 0;
+  }
+  .candidate-page-root :where(.card),
+  .application-page-root :where(.card) {
+    @apply rounded-xl border-stone-200 bg-white shadow-sm transition-shadow duration-200;
+  }
+  .candidate-page-root :where(.card:hover),
+  .application-page-root :where(.card:hover) {
+    @apply shadow-md;
+  }
+  .candidate-page-root :where(button:not(:disabled), a),
+  .application-page-root :where(button:not(:disabled), a) {
+    @apply transition-all duration-200;
+  }
+  .candidate-page-root :where(button:not(:disabled):active, a:active),
+  .application-page-root :where(button:not(:disabled):active, a:active) {
+    transform: translateY(1px);
+  }
+  .candidate-page-root :where(input, textarea, select),
+  .application-page-root :where(input, textarea, select) {
+    @apply rounded-lg border-stone-300 text-sm text-gray-800 placeholder:text-gray-400 transition-colors duration-200;
+  }
+  .candidate-page-root :where(input:focus, textarea:focus, select:focus),
+  .application-page-root :where(input:focus, textarea:focus, select:focus) {
+    @apply border-orange-500 outline-none ring-2 ring-orange-500/20;
+  }
+  .candidate-page-root :where(.text-2xl, .text-3xl),
+  .application-page-root :where(.text-2xl, .text-3xl) {
+    line-height: 1.2;
+  }
+  .candidate-page-root :where(.font-black),
+  .application-page-root :where(.font-black) {
+    font-weight: 700;
+  }
+  .candidate-page-root :where(.rounded-2xl),
+  .application-page-root :where(.rounded-2xl) {
+    border-radius: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-motion-root *,
+  .customer-motion-root *::before,
+  .customer-motion-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @keyframes slideInLeft {
@@ -99,4 +276,34 @@
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+.admin-motion-root :where(
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-shadow,
+  .transition-transform
+) {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+.admin-motion-root :where(.duration-700) {
+  transition-duration: 700ms;
+}
+
+.admin-page-root :where(.space-y-3 > :not([hidden]) ~ :not([hidden])),
+.public-content-root :where(.space-y-3 > :not([hidden]) ~ :not([hidden])) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+}
+
+.admin-page-root :where(.space-y-4 > :not([hidden]) ~ :not([hidden])),
+.public-content-root :where(.space-y-4 > :not([hidden]) ~ :not([hidden])) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1.25rem * var(--tw-space-y-reverse));
 }

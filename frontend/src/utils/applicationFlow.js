@@ -6,11 +6,37 @@ const normaliseJob = (jobOrApplication) => {
   return job?.job || job;
 };
 
+const RESERVED_FORM_SECTION_TITLES = new Set([
+  "personal information",
+  "personal details",
+  "personal info",
+  "candidate details",
+  "educational info",
+  "educational information",
+  "education",
+  "additional information",
+  "additional info",
+  "address details",
+  "address information",
+  "address",
+  "document upload",
+  "documents",
+  "payment",
+  "review",
+  "post selection",
+]);
+
+const normaliseTitle = (title = "") =>
+  String(title).trim().toLowerCase().replace(/\s+/g, " ");
+
 export const getJobFormSections = (jobOrApplication) => {
   const job = normaliseJob(jobOrApplication);
   return Array.isArray(job?.formSections)
     ? job.formSections.filter(
-        (section) => Array.isArray(section.fields) && section.fields.length > 0,
+        (section) =>
+          Array.isArray(section.fields) &&
+          section.fields.length > 0 &&
+          !RESERVED_FORM_SECTION_TITLES.has(normaliseTitle(section.title)),
       )
     : [];
 };

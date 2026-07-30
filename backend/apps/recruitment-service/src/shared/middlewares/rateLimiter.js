@@ -40,4 +40,16 @@ const otpLimiter = rateLimit({
   },
 });
 
-module.exports = { apiLimiter, authLimiter, otpLimiter };
+const publicAdmitCardLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    statusCode: 429,
+    message: "Too many admit card requests. Please try again later.",
+  },
+});
+
+module.exports = { apiLimiter, authLimiter, otpLimiter, publicAdmitCardLimiter };

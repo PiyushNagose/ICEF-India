@@ -495,22 +495,22 @@ const Support = () => {
               <div
                 key={ticket._id}
                 onClick={() => navigate(`/candidate/support/${ticket._id}`)}
-                className="flex items-center justify-between p-4 border-b border-gray-100 last:border-0 hover:bg-orange-50 cursor-pointer transition-colors"
+                className="grid grid-cols-1 gap-4 p-4 border-b border-gray-100 last:border-0 hover:bg-orange-50 cursor-pointer transition-colors sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_92px_96px_118px_44px] lg:items-center"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <HelpCircle className="w-5 h-5 text-orange-600" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">
                       {ticket.title}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 min-w-0">
                       <span className="text-xs font-mono text-orange-600">
                         {ticket.ticketId}
                       </span>
                       <span className="text-xs text-gray-400">•</span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 truncate">
                         {ticket.category}
                       </span>
                       {ticket.replies?.length > 0 && (
@@ -525,30 +525,32 @@ const Support = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs text-gray-400">
-                      {ticket.createdAt
-                        ? new Date(ticket.createdAt).toLocaleDateString("en-IN")
-                        : ""}
-                    </p>
-                  </div>
+                <p className="text-xs text-gray-500 sm:text-right lg:text-left">
+                  {ticket.createdAt
+                    ? new Date(ticket.createdAt).toLocaleDateString("en-IN")
+                    : ""}
+                </p>
+                <div className="flex sm:col-span-2 lg:col-span-1">
                   <Badge
-                    className={
+                    className={`whitespace-nowrap ${
                       PRIORITY_COLORS[ticket.priority] ||
                       "bg-gray-100 text-gray-700"
-                    }
+                    }`}
                   >
                     {ticket.priority}
                   </Badge>
+                </div>
+                <div className="flex sm:col-span-2 lg:col-span-1">
                   <Badge
-                    className={
+                    className={`whitespace-nowrap ${
                       STATUS_COLORS[ticket.status] ||
                       "bg-gray-100 text-gray-700"
-                    }
+                    }`}
                   >
                     {ticket.status}
                   </Badge>
+                </div>
+                <div className="hidden lg:flex justify-end">
                   <Eye className="w-4 h-4 text-gray-400" />
                 </div>
               </div>

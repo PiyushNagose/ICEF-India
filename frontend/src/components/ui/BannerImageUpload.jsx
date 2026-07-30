@@ -113,7 +113,7 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          className={`w-full h-44 rounded-xl border-2 border-dashed transition-all duration-150 flex flex-col items-center justify-center gap-3
+          className={`w-full h-44 rounded-xl border-2 border-dashed transition-all duration-200 ease-out flex flex-col items-center justify-center gap-3
             ${dragOver
               ? 'border-orange-400 bg-orange-50 scale-[1.01]'
               : uploading

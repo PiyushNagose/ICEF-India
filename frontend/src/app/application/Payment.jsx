@@ -91,9 +91,10 @@ const Payment = () => {
   const steps = buildApplicationSteps(application?.jobId, application);
   const paymentStep = steps.find((step) => step.type === "payment")?.id || 1;
   const previousStep = steps.find((step) => step.id === paymentStep - 1);
-  const totalFee = application?.totalFee ?? 0;
-  const processingFee = totalFee > 0 ? Math.round(totalFee * 0.02) : 0;
-  const grandTotal = totalFee + processingFee;
+  const applicationFee = Number(application?.totalFee ?? 0);
+  const processingPercent = Math.max(0, Number(application?.jobId?.paymentConfig?.processingFee || 0));
+  const processingFee = applicationFee > 0 ? Math.round((applicationFee * processingPercent) / 100) : 0;
+  const grandTotal = applicationFee + processingFee;
   const candidateCategory = application?.personalDetails?.category || "";
 
   // Map UI method to Razorpay prefill method
@@ -128,7 +129,8 @@ const Payment = () => {
     try {
       // Step 1: Initiate payment — get gateway order from backend
       const initData = await candidateService.initiatePayment(applicationId, method === "upi_qr" ? "razorpay" : "razorpay");
-      const { transactionId, gatewayOrderId, gatewayKeyId, gatewayData, amount, gateway } = initData;
+      const { transactionId, gatewayOrderId, gatewayKeyId, gatewayData, amount, gateway, feeBreakdown } = initData;
+      const payableAmount = Number(amount ?? feeBreakdown?.totalFee ?? grandTotal);
 
       // ── RAZORPAY ──────────────────────────────────────────
       if (gateway === "razorpay" || !gateway) {
@@ -139,7 +141,7 @@ const Payment = () => {
         const prefillMethod = getRazorpayMethod();
         const options = {
           key: gatewayKeyId,
-          amount: (amount || grandTotal) * 100,
+          amount: payableAmount * 100,
           currency: "INR",
           name: "Bihar Recruitment Portal",
           description: `Application Fee — ${application?.applicationId || ""}`,
@@ -216,7 +218,7 @@ const Payment = () => {
           sessionStorage.setItem("pending_payment", JSON.stringify({ transactionId, applicationId, gateway: "paytm" }));
           window.Paytm?.CheckoutJS?.init({
             merchant: { mid: gatewayData.mid, name: "Bihar Recruitment Portal" },
-            order:    { id: gatewayOrderId, amount: String(grandTotal), token: gatewayData.txnToken, currency: "INR" },
+                order:    { id: gatewayOrderId, amount: String(payableAmount), token: gatewayData.txnToken, currency: "INR" },
             flow:     "DEFAULT",
             handler:  {
               notifyMerchant: async (eventName) => {
@@ -230,7 +232,7 @@ const Payment = () => {
                   await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
                   sessionStorage.removeItem(APP_KEY);
                   sessionStorage.removeItem("pending_payment");
-                  navigate("/application/success", { state: { applicationId, paymentSuccess: true, amount: grandTotal, transactionId, submittedAt: new Date().toISOString() } });
+                  navigate("/application/success", { state: { applicationId, paymentSuccess: true, amount: payableAmount, transactionId, submittedAt: new Date().toISOString() } });
                 }
               },
             },
@@ -248,7 +250,7 @@ const Payment = () => {
       sessionStorage.removeItem(APP_KEY);
       toast.success("Payment successful! Application submitted.");
       navigate("/application/success", {
-        state: { applicationId, paymentSuccess: true, amount: grandTotal, transactionId, submittedAt: new Date().toISOString() },
+        state: { applicationId, paymentSuccess: true, amount: payableAmount, transactionId, submittedAt: new Date().toISOString() },
       });
     } catch (err) {
       if (err.message === "Payment cancelled by user") {
@@ -416,10 +418,10 @@ const Payment = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Application Fee</span>
-                    <span className="font-medium">₹{totalFee.toLocaleString("en-IN")}</span>
+                    <span className="font-medium">₹{applicationFee.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Processing Fee (2%)</span>
+                    <span className="text-gray-600">Processing Fee ({processingPercent}%)</span>
                     <span className="font-medium">₹{processingFee.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="border-t pt-3 flex justify-between">
@@ -437,7 +439,7 @@ const Payment = () => {
                   </div>
                 )}
 
-                {totalFee === 0 && (
+                {applicationFee === 0 && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600" />
                     <p className="text-sm text-green-800 font-medium">No fee for your category</p>

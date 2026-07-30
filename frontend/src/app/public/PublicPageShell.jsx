@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowRight,
@@ -44,11 +44,11 @@ export const getFee = (job) =>
 
 export const PageHero = ({ eyebrow, title, description, children }) => (
   <section className="bg-[#201d1a] text-white">
-    <div className={`${publicContainer} py-12 lg:py-16`}>
+    <div className={`${publicContainer} py-8 lg:py-10 lg:py-12`}>
       <p className="text-[11px] uppercase tracking-[0.16em] font-black text-orange-300">
         {eyebrow}
       </p>
-      <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+      <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_360px] lg:items-end">
         <div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
             {title}
@@ -65,7 +65,7 @@ export const PageHero = ({ eyebrow, title, description, children }) => (
 
 export const PageFrame = ({ children }) => (
   <PublicLayout>
-    <div className="min-h-screen bg-[#f5efe9]">{children}</div>
+    <div className="min-h-[calc(100vh-122px)] bg-[#f5efe9]">{children}</div>
   </PublicLayout>
 );
 
@@ -85,7 +85,7 @@ export const ErrorState = ({ message }) => (
 );
 
 export const EmptyState = ({ icon: Icon = FileText, title, description }) => (
-  <div className="bg-white border border-[#e0d7cd] rounded-lg p-10 text-center shadow-sm">
+  <div className="bg-white border border-[#e0d7cd] rounded-lg p-8 text-center shadow-sm">
     <Icon className="w-12 h-12 text-[#c7bdb3] mx-auto mb-4" />
     <h2 className="text-lg font-black text-[#1f1d1b]">{title}</h2>
     <p className="mt-2 max-w-xl mx-auto text-sm leading-6 text-[#6d6761]">
@@ -95,7 +95,7 @@ export const EmptyState = ({ icon: Icon = FileText, title, description }) => (
 );
 
 export const StatTile = ({ label, value }) => (
-  <div className="bg-white/10 border border-white/15 rounded-lg px-5 py-4">
+  <div className="h-full bg-white/10 border border-white/15 rounded-lg px-5 py-4">
     <p className="text-[10px] uppercase tracking-[0.14em] font-black text-white/55">
       {label}
     </p>
@@ -104,7 +104,7 @@ export const StatTile = ({ label, value }) => (
 );
 
 export const JobListCard = ({ job, meta, actionLabel = "View Details" }) => (
-  <article className="bg-white border border-[#e0d7cd] rounded-lg p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md">
+  <article className="h-full bg-white border border-[#e0d7cd] rounded-lg p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em] font-black text-orange-700">
@@ -144,7 +144,7 @@ export const JobListCard = ({ job, meta, actionLabel = "View Details" }) => (
 export const ResourceCard = ({ icon: Icon = Download, title, description, to, className = "" }) => (
   <Link
     to={to}
-    className={`block bg-white border border-[#e0d7cd] rounded-lg p-6 hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md transition-all ${className}`}
+    className={`block h-full bg-white border border-[#e0d7cd] rounded-lg p-6 hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md transition-all ${className}`}
   >
     <Icon className="w-6 h-6 text-orange-600" />
     <h2 className="mt-4 text-lg font-black text-[#1f1d1b]">{title}</h2>
@@ -180,3 +180,5 @@ export const SearchInput = ({ value, onChange, placeholder }) => (
     />
   </div>
 );
+
+

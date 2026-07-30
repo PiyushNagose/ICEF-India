@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -50,7 +50,7 @@ const Results = () => {
         </div>
       </PageHero>
 
-      <section className={`${publicContainer} py-10 space-y-5`}>
+      <section className={`${publicContainer} py-8 lg:py-10 space-y-5`}>
         {isLoading && <LoadingState label="Loading result updates..." />}
         {error && <ErrorState message={error.message} />}
 
@@ -106,3 +106,5 @@ const Results = () => {
 };
 
 export default Results;
+
+

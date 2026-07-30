@@ -63,7 +63,20 @@ const JobBasicInfo = () => {
         applicationDeadline: saved.applicationDeadline
           ? saved.applicationDeadline.split("T")[0]
           : "",
+        applicationStartDate: saved.applicationStartDate
+          ? saved.applicationStartDate.split("T")[0]
+          : "",
+        correctionStartDate: saved.correctionStartDate
+          ? saved.correctionStartDate.split("T")[0]
+          : "",
+        correctionDeadline: saved.correctionDeadline
+          ? saved.correctionDeadline.split("T")[0]
+          : "",
+        admitCardReleaseDate: saved.admitCardReleaseDate
+          ? saved.admitCardReleaseDate.split("T")[0]
+          : "",
         examDate: saved.examDate ? saved.examDate.split("T")[0] : "",
+        resultDate: saved.resultDate ? saved.resultDate.split("T")[0] : "",
         description: saved.description || "",
         posts: saved.posts?.length
           ? saved.posts
@@ -93,7 +106,12 @@ const JobBasicInfo = () => {
         workLocation: "",
         applicationFee: { general: "", obc: "", scSt: "", ews: "", pwd: "" },
         applicationDeadline: "",
+        applicationStartDate: "",
+        correctionStartDate: "",
+        correctionDeadline: "",
+        admitCardReleaseDate: "",
         examDate: "",
+        resultDate: "",
         description: "",
         posts: [
           {
@@ -154,6 +172,37 @@ const JobBasicInfo = () => {
       ) < 1
     )
       e.totalPosts = "At least 1 vacancy is required";
+    if (
+      formData.applicationStartDate &&
+      formData.applicationDeadline &&
+      formData.applicationStartDate > formData.applicationDeadline
+    ) {
+      e.applicationDeadline = "Application deadline must be after application start";
+    }
+    if (
+      formData.correctionStartDate &&
+      formData.correctionDeadline &&
+      formData.correctionStartDate > formData.correctionDeadline
+    ) {
+      e.correctionDeadline = "Correction deadline must be after correction start";
+    }
+    if (
+      formData.applicationDeadline &&
+      formData.examDate &&
+      formData.applicationDeadline > formData.examDate
+    ) {
+      e.examDate = "Exam date must be after application deadline";
+    }
+    if (
+      formData.admitCardReleaseDate &&
+      formData.examDate &&
+      formData.admitCardReleaseDate > formData.examDate
+    ) {
+      e.admitCardReleaseDate = "Admit card release must be on or before exam date";
+    }
+    if (formData.examDate && formData.resultDate && formData.examDate > formData.resultDate) {
+      e.resultDate = "Result publish date must be after exam date";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -247,7 +296,12 @@ const JobBasicInfo = () => {
           pwd: Number(formData.applicationFee.pwd) || 0,
         },
         applicationDeadline: formData.applicationDeadline || undefined,
+        applicationStartDate: formData.applicationStartDate || undefined,
+        correctionStartDate: formData.correctionStartDate || undefined,
+        correctionDeadline: formData.correctionDeadline || undefined,
+        admitCardReleaseDate: formData.admitCardReleaseDate || undefined,
         examDate: formData.examDate || undefined,
+        resultDate: formData.resultDate || undefined,
         description: formData.description,
       }),
     );
@@ -268,9 +322,9 @@ const JobBasicInfo = () => {
   return (
     <AdminLayout title="Create Job - Basic Info">
       <div className="p-4 sm:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="space-y-6">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               Create Job Posting
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
@@ -317,13 +371,13 @@ const JobBasicInfo = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <FileText className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">Job Details</h3>
+                    <h3 className="font-semibold text-gray-900">Job Details</h3>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -417,7 +471,7 @@ const JobBasicInfo = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <Users className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Post Details
                     </h3>
                   </div>
@@ -428,7 +482,7 @@ const JobBasicInfo = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Total Vacancies
                       </label>
-                      <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 font-semibold text-gray-800">
+                      <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 font-semibold text-gray-900">
                         {postVacancyTotal.toLocaleString("en-IN")}
                       </div>
                       {errors.totalPosts && (
@@ -642,7 +696,7 @@ const JobBasicInfo = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <DollarSign className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Salary & Location
                     </h3>
                   </div>
@@ -697,7 +751,7 @@ const JobBasicInfo = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <DollarSign className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Application Fees
                     </h3>
                   </div>
@@ -739,12 +793,22 @@ const JobBasicInfo = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Important Dates
                     </h3>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Application Start
+                    </label>
+                    <AppDatePicker
+                      value={formData.applicationStartDate}
+                      onChange={(val) => set("applicationStartDate", val)}
+                      placeholder="Select application start"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Application Deadline
@@ -754,6 +818,51 @@ const JobBasicInfo = () => {
                       onChange={(val) => set("applicationDeadline", val)}
                       placeholder="Select deadline"
                     />
+                    {errors.applicationDeadline && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.applicationDeadline}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Correction Start
+                    </label>
+                    <AppDatePicker
+                      value={formData.correctionStartDate}
+                      onChange={(val) => set("correctionStartDate", val)}
+                      placeholder="Optional correction start"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Correction Deadline
+                    </label>
+                    <AppDatePicker
+                      value={formData.correctionDeadline}
+                      onChange={(val) => set("correctionDeadline", val)}
+                      placeholder="Optional correction deadline"
+                    />
+                    {errors.correctionDeadline && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.correctionDeadline}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Admit Card Release
+                    </label>
+                    <AppDatePicker
+                      value={formData.admitCardReleaseDate}
+                      onChange={(val) => set("admitCardReleaseDate", val)}
+                      placeholder="Visible/download from"
+                    />
+                    {errors.admitCardReleaseDate && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.admitCardReleaseDate}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -764,6 +873,26 @@ const JobBasicInfo = () => {
                       onChange={(val) => set("examDate", val)}
                       placeholder="Select exam date"
                     />
+                    {errors.examDate && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.examDate}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Result Publish Date
+                    </label>
+                    <AppDatePicker
+                      value={formData.resultDate}
+                      onChange={(val) => set("resultDate", val)}
+                      placeholder="Select expected result date"
+                    />
+                    {errors.resultDate && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.resultDate}
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -790,3 +919,8 @@ const JobBasicInfo = () => {
 };
 
 export default JobBasicInfo;
+
+
+
+
+

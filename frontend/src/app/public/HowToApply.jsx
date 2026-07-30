@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { CheckCircle2, CreditCard, FileCheck2, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -53,7 +53,7 @@ const HowToApply = () => (
       description="Follow the official application flow from registration to final submission. The same steps are used by every active job published on this portal."
     />
 
-    <section className={`${publicContainer} py-10`}>
+    <section className={`${publicContainer} py-8 lg:py-10`}>
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-5">
           {steps.map((step, index) => (
@@ -127,3 +127,5 @@ const HowToApply = () => (
 );
 
 export default HowToApply;
+
+

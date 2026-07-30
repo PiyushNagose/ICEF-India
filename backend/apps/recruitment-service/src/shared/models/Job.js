@@ -147,6 +147,7 @@ const paymentConfigSchema = new mongoose.Schema(
     applicationFee: Number,
     examFee: Number,
     processingFee: Number,
+    paymentDeadline: Date,
     paymentMethods: [
       { type: String, enum: ["razorpay", "payu", "ccavenue", "billdesk"] },
     ],
@@ -191,6 +192,9 @@ const jobSchema = new mongoose.Schema(
     // Dates
     applicationStartDate: { type: Date },
     applicationDeadline: { type: Date },
+    correctionStartDate: { type: Date },
+    correctionDeadline: { type: Date },
+    admitCardReleaseDate: { type: Date },
     examDate: { type: Date },
     resultDate: { type: Date },
 
@@ -238,5 +242,6 @@ jobSchema.index({ projectId: 1 });
 jobSchema.index({ status: 1 });
 jobSchema.index({ department: 1 });
 jobSchema.index({ applicationDeadline: 1 });
+jobSchema.index({ resultDate: 1 });
 
 module.exports = mongoose.model("Job", jobSchema);

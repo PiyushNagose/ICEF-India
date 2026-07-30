@@ -18,6 +18,7 @@ const createProjectSchema = z.object({
     .datetime({ offset: true })
     .optional()
     .or(z.string().optional()),
+  closureDate: z.string().optional(),
 });
 
 const updateProjectSchema = z.object({
@@ -28,6 +29,7 @@ const updateProjectSchema = z.object({
   status: z.enum(["Upcoming", "Active", "Completed", "Cancelled"]).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  closureDate: z.string().optional(),
 });
 
 module.exports = { createProjectSchema, updateProjectSchema };

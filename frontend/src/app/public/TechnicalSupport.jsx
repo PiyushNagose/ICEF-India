@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   ChevronDown,
   AlertCircle,
@@ -328,23 +328,23 @@ const TechnicalSupport = () => {
               </h3>
               <ul className="space-y-3 text-sm text-[#6d6761]">
                 <li className="flex gap-2">
-                  <span className="text-orange-600 font-black">•</span>
+                  <span className="text-orange-600 font-black">â€¢</span>
                   <span>Clear cache regularly</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-orange-600 font-black">•</span>
+                  <span className="text-orange-600 font-black">â€¢</span>
                   <span>Use latest browser version</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-orange-600 font-black">•</span>
+                  <span className="text-orange-600 font-black">â€¢</span>
                   <span>Disable browser extensions</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-orange-600 font-black">•</span>
+                  <span className="text-orange-600 font-black">â€¢</span>
                   <span>Check internet connection</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-orange-600 font-black">•</span>
+                  <span className="text-orange-600 font-black">â€¢</span>
                   <span>Try incognito/private mode</span>
                 </li>
               </ul>
@@ -357,3 +357,5 @@ const TechnicalSupport = () => {
 };
 
 export default TechnicalSupport;
+
+

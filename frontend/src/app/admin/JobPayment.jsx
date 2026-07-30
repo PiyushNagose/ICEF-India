@@ -10,26 +10,41 @@ import {
   ArrowLeft,
   CreditCard,
   IndianRupee,
+  Percent,
   Shield,
   Info,
 } from "lucide-react";
 
-const FeeInput = ({ label, field, value, onChange, hint }) => (
+const FeeInput = ({
+  label,
+  field,
+  value,
+  onChange,
+  hint,
+  prefix = "Rs.",
+  suffix = "",
+}) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">
       {label}
       {hint && <span className="ml-1 text-xs text-gray-400">({hint})</span>}
     </label>
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-        ₹
+      <span className={`${prefix ? "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" : "hidden"}`}>
+        Rs.
       </span>
+      {suffix && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+          {suffix}
+        </span>
+      )}
       <input
         type="number"
         min="0"
+        step={suffix === "%" ? "0.01" : "1"}
         value={value}
         onChange={(e) => onChange(field, e.target.value)}
-        className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+        className={`w-full ${prefix ? "pl-7" : "pl-4"} ${suffix ? "pr-9" : "pr-4"} py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm`}
         placeholder="0"
       />
     </div>
@@ -39,11 +54,18 @@ const FeeInput = ({ label, field, value, onChange, hint }) => (
 const JobPayment = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const projectId = searchParams.get("project");
+  const savedDraft = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("job_draft") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+  const projectId = searchParams.get("project") || savedDraft.projectId || null;
   const returnToReview = searchParams.get("returnTo") === "review";
 
   const [config, setConfig] = useState(() => {
-    const saved = JSON.parse(sessionStorage.getItem("job_draft") || "{}");
+    const saved = savedDraft;
     const af = saved.applicationFee || {};
     const pc = saved.paymentConfig || {};
     const methods = pc.paymentMethods || ["razorpay"];
@@ -54,8 +76,6 @@ const JobPayment = () => {
       scSt: af.scSt ?? af.scst ?? 0,
       ews: af.ews ?? "",
       pwd: af.pwd ?? 0,
-      // Other fees
-      examFee: pc.examFee ?? "",
       processingFee: pc.processingFee ?? "",
       refundPolicy: pc.refundPolicy ?? "",
       paymentDeadline: pc.paymentDeadline ?? "",
@@ -66,9 +86,12 @@ const JobPayment = () => {
       },
     };
   });
+  const [errors, setErrors] = useState({});
 
-  const set = (field, value) =>
+  const set = (field, value) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
   const setMethod = (method, enabled) =>
     setConfig((prev) => ({
       ...prev,
@@ -76,6 +99,18 @@ const JobPayment = () => {
     }));
 
   const handleNext = () => {
+    const nextErrors = {};
+    if (
+      savedDraft.applicationDeadline &&
+      config.paymentDeadline &&
+      config.paymentDeadline < savedDraft.applicationDeadline
+    ) {
+      nextErrors.paymentDeadline =
+        "Payment deadline cannot be before application deadline";
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     const existing = JSON.parse(sessionStorage.getItem("job_draft") || "{}");
     const enabledMethods = Object.entries(config.paymentMethods)
       .filter(([, v]) => v)
@@ -95,7 +130,6 @@ const JobPayment = () => {
         },
         paymentConfig: {
           applicationFee: Number(config.general) || 0, // backward compat
-          examFee: Number(config.examFee) || 0,
           processingFee: Number(config.processingFee) || 0,
           paymentMethods: enabledMethods,
           refundPolicy: config.refundPolicy || undefined,
@@ -109,6 +143,8 @@ const JobPayment = () => {
   };
 
   const generalFee = Number(config.general) || 0;
+  const processingPercent = Math.max(0, Number(config.processingFee) || 0);
+  const processingForGeneral = Math.round((generalFee * processingPercent) / 100);
   const preview = [
     { cat: "General", fee: Number(config.general) || 0 },
     { cat: "OBC", fee: Number(config.obc) || Number(config.general) || 0 },
@@ -120,10 +156,10 @@ const JobPayment = () => {
   return (
     <AdminLayout title="Create Job - Payment">
       <div className="p-4 sm:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                 Create Job Posting
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">
@@ -134,7 +170,7 @@ const JobPayment = () => {
 
           <JobStepProgress currentStep={5} projectId={projectId} clickable />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
             {/* Main Form */}
             <div className="lg:col-span-2 space-y-6">
               {/* Category-wise Application Fee */}
@@ -142,7 +178,7 @@ const JobPayment = () => {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <IndianRupee className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Application Fee by Category
                     </h3>
                   </div>
@@ -173,7 +209,7 @@ const JobPayment = () => {
                       field="scSt"
                       value={config.scSt}
                       onChange={set}
-                      hint="usually ₹0"
+                      hint="usually Rs.0"
                     />
                     <FeeInput
                       label="EWS Category"
@@ -187,7 +223,7 @@ const JobPayment = () => {
                       field="pwd"
                       value={config.pwd}
                       onChange={set}
-                      hint="usually ₹0"
+                      hint="usually Rs.0"
                     />
                   </div>
 
@@ -195,7 +231,7 @@ const JobPayment = () => {
                   <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
                     <p className="text-xs font-semibold text-orange-800 mb-3 flex items-center gap-1.5">
                       <Info className="w-3.5 h-3.5" />
-                      Fee Preview — what each candidate will see
+                      Fee Preview - what each candidate will see
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       {preview.map(({ cat, fee }) => (
@@ -209,7 +245,7 @@ const JobPayment = () => {
                           >
                             {fee === 0
                               ? "Free"
-                              : `₹${fee.toLocaleString("en-IN")}`}
+                              : `Rs.${fee.toLocaleString("en-IN")}`}
                           </p>
                         </div>
                       ))}
@@ -218,30 +254,37 @@ const JobPayment = () => {
                 </CardContent>
               </Card>
 
-              {/* Other Fees */}
+              {/* Processing Fee */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">Other Fees</h3>
+                    <Percent className="w-5 h-5 text-orange-600" />
+                    <h3 className="font-semibold text-gray-900">Processing Fee</h3>
                   </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Set gateway/platform charge as a percentage of the candidate's application fee.
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                     <FeeInput
-                      label="Exam Fee (₹)"
-                      field="examFee"
-                      value={config.examFee}
-                      onChange={set}
-                      hint="if separate exam fee applies"
-                    />
-                    <FeeInput
-                      label="Processing Fee (₹)"
+                      label="Processing Fee"
                       field="processingFee"
                       value={config.processingFee}
                       onChange={set}
-                      hint="platform/gateway charge"
+                      hint="percentage"
+                      prefix=""
+                      suffix="%"
                     />
+                    <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                      <p className="text-xs font-medium text-orange-800">General fee preview</p>
+                      <p className="mt-1 text-sm text-gray-700">
+                        Rs.{generalFee.toLocaleString("en-IN")} + Rs.{processingForGeneral.toLocaleString("en-IN")} processing =
+                        <span className="font-semibold text-orange-700">
+                          {" "}Rs.{(generalFee + processingForGeneral).toLocaleString("en-IN")}
+                        </span>
+                      </p>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -253,6 +296,11 @@ const JobPayment = () => {
                       placeholder="Select payment deadline"
                       showTimeSelect={true}
                     />
+                    {errors.paymentDeadline && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.paymentDeadline}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -277,7 +325,7 @@ const JobPayment = () => {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">
+                    <h3 className="font-semibold text-gray-900">
                       Payment Methods
                     </h3>
                   </div>
@@ -320,11 +368,11 @@ const JobPayment = () => {
                     </h3>
                   </div>
                   <ul className="text-xs text-blue-700 space-y-1.5">
-                    <li>• SC/ST candidates are usually exempt (₹0)</li>
-                    <li>• PwD candidates are usually exempt (₹0)</li>
-                    <li>• OBC fee is typically 50-60% of General fee</li>
-                    <li>• EWS fee is typically same as General</li>
-                    <li>• Ex-servicemen may get fee waiver</li>
+                    <li>- SC/ST candidates are usually exempt (Rs.0)</li>
+                    <li>- PwD candidates are usually exempt (Rs.0)</li>
+                    <li>- OBC fee is typically 50-60% of General fee</li>
+                    <li>- EWS fee is typically same as General</li>
+                    <li>- Ex-servicemen may get fee waiver</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -338,11 +386,11 @@ const JobPayment = () => {
                   <div className="space-y-1 text-xs text-gray-600">
                     <div className="flex justify-between">
                       <span>General</span>
-                      <span className="font-medium">₹500</span>
+                      <span className="font-medium">Rs.500</span>
                     </div>
                     <div className="flex justify-between">
                       <span>OBC</span>
-                      <span className="font-medium">₹300</span>
+                      <span className="font-medium">Rs.300</span>
                     </div>
                     <div className="flex justify-between">
                       <span>SC/ST</span>
@@ -350,7 +398,7 @@ const JobPayment = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>EWS</span>
-                      <span className="font-medium">₹500</span>
+                      <span className="font-medium">Rs.500</span>
                     </div>
                     <div className="flex justify-between">
                       <span>PwD</span>
@@ -390,3 +438,9 @@ const JobPayment = () => {
 };
 
 export default JobPayment;
+
+
+
+
+
+

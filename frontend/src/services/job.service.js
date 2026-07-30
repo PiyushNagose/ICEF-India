@@ -26,6 +26,14 @@ export const jobService = {
     const response = await apiClient.get("/jobs/search", { params });
     return unwrapData(response);
   },
+  async lookupPublicAdmitCard(data) {
+    const response = await apiClient.post("/admit-cards/lookup", data);
+    return unwrapData(response);
+  },
+  async verifyPublicAdmitCard(token) {
+    const response = await apiClient.get(`/admit-cards/verify/${encodeURIComponent(token)}`);
+    return unwrapData(response);
+  },
 
   // ── Eligibility Filter ───────────────────────────────────
   async getEligibleJobs(params = {}) {

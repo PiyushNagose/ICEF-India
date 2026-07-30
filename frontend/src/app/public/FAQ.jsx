@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
@@ -46,6 +46,16 @@ const baseFaqs = [
       "Application fees are pulled from the job configuration published by the department. Always verify the amount on the job detail page before applying.",
   },
   {
+    question: "How do I track my submitted application?",
+    answer:
+      "Login to your candidate dashboard and open My Applications. You can view the current status, payment state, document review updates, and available next steps there.",
+  },
+  {
+    question: "Can I update documents after uploading?",
+    answer:
+      "Draft applications can be updated before final submission. After submission, document changes depend on the recruitment authority's review rules and correction window.",
+  },
+  {
     question: "What if no jobs are visible?",
     answer:
       "The public API only shows active jobs with open deadlines. Check back later or use filters to broaden your search.",
@@ -82,7 +92,7 @@ const FAQ = () => {
         </div>
       </PageHero>
 
-      <section className={`${publicContainer} py-10`}>
+      <section className={`${publicContainer} py-8 lg:py-10`}>
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
           <div className="space-y-5">
             {isLoading && <LoadingState />}
@@ -145,3 +155,5 @@ const FAQ = () => {
 };
 
 export default FAQ;
+
+

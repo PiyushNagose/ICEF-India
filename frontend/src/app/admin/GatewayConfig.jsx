@@ -125,7 +125,7 @@ const GatewayConfig = () => {
 
   if (isLoading) return (
     <AdminLayout title={`${gatewayName} Configuration`}>
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-full">
         <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
       </div>
     </AdminLayout>
@@ -133,7 +133,7 @@ const GatewayConfig = () => {
 
   return (
     <AdminLayout title={`${gatewayName} Configuration`}>
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="min-h-full p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -184,7 +184,7 @@ const GatewayConfig = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
           {/* Left: Config Form */}
           <div className="lg:col-span-2 space-y-5">
             {/* API Configuration */}
@@ -197,7 +197,7 @@ const GatewayConfig = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                     API KEY ID
                   </label>
                   <input
@@ -214,7 +214,7 @@ const GatewayConfig = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                       API SECRET
                     </label>
                     <div className="relative">
@@ -239,7 +239,7 @@ const GatewayConfig = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                       WEBHOOK SECRET
                     </label>
                     <div className="relative">
@@ -267,7 +267,7 @@ const GatewayConfig = () => {
                 {/* Merchant ID (Paytm / PhonePe) */}
                 {(name === 'paytm' || name === 'phonepe') && (
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                       MERCHANT ID
                     </label>
                     <div className="relative">
@@ -290,7 +290,7 @@ const GatewayConfig = () => {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
                     SETTLEMENT DAYS
                   </label>
                   <input
@@ -334,7 +334,7 @@ const GatewayConfig = () => {
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
               <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-normal mb-1">
                   SECURITY PROTOCOL ALERT
                 </p>
                 <p className="text-sm text-red-700">
@@ -432,3 +432,8 @@ const GatewayConfig = () => {
 }
 
 export default GatewayConfig
+
+
+
+
+

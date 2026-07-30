@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { isAdminUser, isCandidateUser, useAuth } from '../../hooks/useAuth'
+import { getDashboardPath, isAdminUser, isCandidateUser, useAuth } from '../../hooks/useAuth'
 
 const ProtectedRoute = ({ children, role }) => {
   const location = useLocation()
@@ -18,11 +18,11 @@ const ProtectedRoute = ({ children, role }) => {
   }
 
   if (role === 'admin' && !isAdminUser(user)) {
-    return <Navigate to="/auth/candidate-login" replace />
+    return <Navigate to={getDashboardPath(user)} replace />
   }
 
   if (role === 'candidate' && !isCandidateUser(user)) {
-    return <Navigate to="/auth/admin-login" replace />
+    return <Navigate to={getDashboardPath(user)} replace />
   }
 
   return children

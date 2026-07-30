@@ -56,10 +56,10 @@ export const applicationService = {
   },
 
   // Candidate - Save dynamic form responses (Custom fields from job)
-  async saveDynamicFormResponses(id, data) {
+  async saveDynamicFormResponses(id, data, meta = {}) {
     const response = await apiClient.put(
       `/candidate/applications/${id}/form-responses`,
-      { formResponses: data },
+      { formResponses: data, ...meta },
     );
     return unwrapData(response);
   },

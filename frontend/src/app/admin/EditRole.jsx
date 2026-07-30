@@ -17,6 +17,7 @@ const MODULES = [
   { id: 'support',        label: 'Support Management' },
   { id: 'projects',       label: 'Project Management' },
   { id: 'results',        label: 'Results Management' },
+  { id: 'admitCards',     label: 'Admit Card Management' },
 ]
 const ACTIONS = ['create', 'view', 'edit', 'delete', 'download']
 
@@ -101,7 +102,7 @@ const EditRole = () => {
   if (isLoading) {
     return (
       <AdminLayout title="Edit Role">
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-full">
           <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
         </div>
       </AdminLayout>
@@ -112,24 +113,24 @@ const EditRole = () => {
 
   return (
     <AdminLayout title="Edit Role">
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="min-h-full p-6 space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/roles')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Edit Role</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Edit Role</h1>
             <p className="text-gray-600 text-sm">
               {isSystemRole ? 'System role — name is locked, permissions can be adjusted.' : 'Update role name and permissions.'}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
             <Card>
-              <CardHeader><h3 className="font-semibold text-gray-800">Basic Information</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-gray-900">Basic Information</h3></CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -166,27 +167,27 @@ const EditRole = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Lock className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">Permission Matrix</h3>
+                    <h3 className="font-semibold text-gray-900">Permission Matrix</h3>
                   </div>
                   <span className="text-sm text-gray-500">{totalActive} permissions active</span>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="admin-compact-scroll hover-scroll overflow-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Module</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">Module</th>
                         {ACTIONS.map(a => (
-                          <th key={a} className="text-center py-3 px-3 text-xs font-medium text-gray-500 uppercase">{a}</th>
+                          <th key={a} className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-normal">{a}</th>
                         ))}
-                        <th className="text-center py-3 px-3 text-xs font-medium text-gray-500 uppercase">All</th>
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-normal">All</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {MODULES.map(mod => (
                         <tr key={mod.id} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm font-medium text-gray-800">{mod.label}</td>
+                          <td className="py-3 px-4 text-sm font-medium text-gray-900">{mod.label}</td>
                           {ACTIONS.map(action => (
                             <td key={action} className="py-3 px-3 text-center">
                               <input
@@ -257,3 +258,8 @@ const EditRole = () => {
 }
 
 export default EditRole
+
+
+
+
+

@@ -28,7 +28,7 @@ const StateInitial = ({ state }) => {
   ]
   const color = colors[state.charCodeAt(0) % colors.length]
   return (
-    <div className={`w-8 h-8 rounded-lg ${color} flex items-center justify-center text-white text-xs font-black shrink-0`}>
+    <div className={`w-8 h-8 rounded-lg ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
       {initials}
     </div>
   )
@@ -38,8 +38,8 @@ const StatCard = ({ icon: Icon, label, value, color, sub }) => (
   <div className="bg-white rounded-xl border border-gray-200 p-5">
     <div className="flex items-start justify-between">
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-        <p className="text-3xl font-black text-gray-900">{value}</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">{label}</p>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
         {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
       </div>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
@@ -128,7 +128,7 @@ const CmsHome = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black tracking-[0.2em] text-orange-500 uppercase mb-1">Admin Panel</p>
+            <p className="text-xs font-bold tracking-normal text-orange-500 uppercase mb-1">Admin Panel</p>
             <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Manage state-specific landing pages, official announcements, and portal banners for
@@ -200,12 +200,12 @@ const CmsHome = () => {
           )}
 
           {!isLoading && filtered.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="admin-data-scroll hover-scroll overflow-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     {['State', 'Status', 'Featured Projects', 'Last Updated', 'Updated By', 'Actions'].map((h) => (
-                      <th key={h} className="text-left py-3 px-5 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                         {h}
                       </th>
                     ))}
@@ -280,7 +280,7 @@ const CmsHome = () => {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900">Recent Activity</h2>
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase tracking-widest">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-normal">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Live
             </span>
@@ -318,8 +318,8 @@ const CmsHome = () => {
                       <Icon className={`w-3.5 h-3.5 ${cfg.color}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800">{a.text}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                      <p className="text-sm text-gray-900">{a.text}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {timeAgo(a.time)}
                       </p>
@@ -330,7 +330,7 @@ const CmsHome = () => {
             </div>
           )}
 
-          <p className="text-center text-[10px] text-gray-400 mt-5 pt-4 border-t border-gray-100 tracking-widest uppercase">
+          <p className="text-center text-xs text-gray-400 mt-5 pt-4 border-t border-gray-100 tracking-normal uppercase">
             Real-time update stream active · refreshes every 30s
           </p>
         </div>
@@ -341,3 +341,8 @@ const CmsHome = () => {
 }
 
 export default CmsHome
+
+
+
+
+

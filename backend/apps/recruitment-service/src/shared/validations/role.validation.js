@@ -23,6 +23,7 @@ const createRoleSchema = z.object({
       support: permissionSchema,
       projects: permissionSchema,
       results: permissionSchema,
+      admitCards: permissionSchema,
     })
     .optional(),
 });

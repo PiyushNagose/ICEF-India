@@ -21,11 +21,18 @@ const steps = [
  */
 const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const handleStepClick = (step) => {
     if (!clickable) return
     if (step.id < currentStep) {
-      navigate(`${step.path}${projectId ? `?project=${projectId}` : ''}`)
+      const params = new URLSearchParams()
+      if (projectId) params.set('project', projectId)
+      if (currentStep === steps.length || searchParams.get('returnTo') === 'review') {
+        params.set('returnTo', 'review')
+      }
+      const query = params.toString()
+      navigate(`${step.path}${query ? `?${query}` : ''}`)
     }
   }
 
@@ -90,7 +97,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
                 {/* Connector line */}
                 {index < steps.length - 1 && (
                   <div
-                    className={`flex-1 h-0.5 mx-2 sm:mx-3 min-w-[16px] rounded-full transition-colors duration-300 ${
+                    className={`flex-1 h-0.5 mx-2 sm:mx-3 min-w-[16px] rounded-full transition-colors duration-200 ease-out ${
                       isCompleted ? 'bg-green-400' : 'bg-gray-200'
                     }`}
                   />

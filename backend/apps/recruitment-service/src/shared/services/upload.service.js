@@ -55,10 +55,18 @@ const uploadToCloudinary = (buffer, options = {}) => {
         ...options,
       },
       (error, result) => {
-        if (error)
+        if (error) {
+          const statusCode = error.http_code || error.statusCode || 500;
+          const isAuthError = statusCode === 401 || statusCode === 403;
           return reject(
-            new ApiError(500, `Cloudinary upload failed: ${error.message}`),
+            new ApiError(
+              isAuthError ? 502 : 500,
+              isAuthError
+                ? "Cloudinary upload failed: invalid or unauthorized Cloudinary credentials"
+                : `Cloudinary upload failed: ${error.message}`,
+            ),
           );
+        }
         resolve(result);
       },
     );

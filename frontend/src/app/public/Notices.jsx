@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
@@ -54,7 +54,7 @@ const Notices = () => {
         </div>
       </PageHero>
 
-      <section className={`${publicContainer} py-10 space-y-5`}>
+      <section className={`${publicContainer} py-8 lg:py-10 space-y-5`}>
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -104,3 +104,5 @@ const Notices = () => {
 };
 
 export default Notices;
+
+

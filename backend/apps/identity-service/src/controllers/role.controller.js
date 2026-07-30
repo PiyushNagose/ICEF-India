@@ -127,6 +127,11 @@ const getPermissionsStructure = asyncHandler(async (req, res) => {
         label: "Results Management",
         actions: ["create", "view", "edit", "delete", "download"],
       },
+      {
+        name: "admitCards",
+        label: "Admit Card Management",
+        actions: ["create", "view", "edit", "delete", "download"],
+      },
     ],
   };
 

@@ -15,6 +15,7 @@ const {
 } = require("../../shared/socket/index");
 const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
+const { assertJobTimeline } = require("../../shared/utils/timeline");
 
 const normalizePosts = (posts = []) =>
   posts
@@ -238,6 +239,12 @@ const createJob = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
+  if (["Completed", "Cancelled"].includes(project.status)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Cannot create jobs under a completed or cancelled project",
+    );
+  }
 
   // Check if postCode is unique
   const existingJob = await Job.findOne({ postCode });
@@ -344,6 +351,28 @@ const updateJob = asyncHandler(async (req, res) => {
   }
 
   // Update job with provided fields — deep merge nested objects
+  const project = await Project.findById(req.body.projectId || job.projectId);
+  if (!project) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+  }
+
+  const nextJob = job.toObject();
+  Object.keys(req.body).forEach((key) => {
+    if (
+      req.body[key] !== undefined &&
+      key !== "posts" &&
+      typeof req.body[key] === "object" &&
+      !Array.isArray(req.body[key]) &&
+      nextJob[key] &&
+      typeof nextJob[key] === "object"
+    ) {
+      nextJob[key] = { ...nextJob[key], ...req.body[key] };
+    } else if (req.body[key] !== undefined) {
+      nextJob[key] = req.body[key];
+    }
+  });
+  assertJobTimeline(nextJob, project);
+
   Object.keys(req.body).forEach((key) => {
     if (req.body[key] !== undefined) {
       // For nested objects (applicationFee, paymentConfig, etc.), merge instead of replace
@@ -392,7 +421,7 @@ const updateJob = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const publishJob = asyncHandler(async (req, res) => {
-  const job = await Job.findById(req.params.id);
+  const job = await Job.findById(req.params.id).populate("projectId");
 
   if (!job) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
@@ -427,6 +456,13 @@ const publishJob = asyncHandler(async (req, res) => {
       "At least one post/designation must be added before publishing",
     );
   }
+  if (!job.applicationDeadline) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Application deadline is required before publishing",
+    );
+  }
+  assertJobTimeline(job.toObject(), job.projectId);
 
   job.status = "active";
   job.publishedAt = new Date();

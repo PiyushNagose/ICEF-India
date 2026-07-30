@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -89,11 +89,26 @@ const Grid = ({ children }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">{children}</div>
 );
 
+const formatAdminValue = (value) => {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value && typeof value === "object") {
+    if (value.name) return value.name;
+    if (value.label) return value.label;
+    return Object.entries(value)
+      .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(", ") : val}`)
+      .join(", ");
+  }
+  return value;
+};
+
+const formatCurrency = (value) =>
+  Number(value || 0) > 0 ? `₹${Number(value).toLocaleString("en-IN")}` : "—";
+
 const EduCard = ({ title, data }) => {
   if (!data || Object.keys(data).length === 0) return null;
   return (
     <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/60">
-      <h4 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
+      <h4 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
         {title}
       </h4>
@@ -109,7 +124,7 @@ const EduCard = ({ title, data }) => {
           v ? (
             <div key={l}>
               <p className="text-xs text-gray-500">{l}</p>
-              <p className="text-sm font-medium text-gray-800">{v}</p>
+              <p className="text-sm font-medium text-gray-900">{v}</p>
             </div>
           ) : null,
         )}
@@ -122,7 +137,7 @@ const AddrCard = ({ title, data }) => {
   if (!data || Object.keys(data).length === 0) return null;
   return (
     <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/60">
-      <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-wide mb-3">
+      <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-normal mb-3">
         {title}
       </h4>
       {[
@@ -139,7 +154,7 @@ const AddrCard = ({ title, data }) => {
             className="py-1.5 border-b border-gray-100 last:border-0"
           >
             <p className="text-xs text-gray-500">{l}</p>
-            <p className="text-sm font-medium text-gray-800">{v}</p>
+            <p className="text-sm font-medium text-gray-900">{v}</p>
           </div>
         ) : null,
       )}
@@ -197,7 +212,7 @@ const ApplicationDetails = () => {
   if (!application)
     return (
       <AdminLayout title="Application Details">
-        <div className="p-6 flex flex-col items-center justify-center h-96 gap-4">
+        <div className="min-h-full p-6 flex flex-col items-center justify-center h-96 gap-4">
           <FileText className="w-12 h-12 text-gray-300" />
           <p className="text-gray-500">Application not found</p>
           <Button
@@ -223,6 +238,8 @@ const ApplicationDetails = () => {
   (application.jobId?.formSections || []).forEach((section) => {
     (section.fields || []).forEach((field) => {
       fieldLabelMap[String(field._id)] = field.label;
+      if (field.id) fieldLabelMap[String(field.id)] = field.label;
+      if (field.name) fieldLabelMap[String(field.name)] = field.label;
     });
   });
   const canAct = ["submitted", "under_review"].includes(application.status);
@@ -230,7 +247,20 @@ const ApplicationDetails = () => {
   const sCfg = STATUS_CFG[application.status] || STATUS_CFG.draft;
   const payCfg =
     PAY_CFG[application.paymentStatus] || "bg-gray-100 text-gray-600";
-  const initials = (application.candidateId?.fullName || "?")
+  const candidateName =
+    personal.fullName ||
+    application.candidateId?.fullName ||
+    application.candidate?.fullName ||
+    "";
+  const candidateEmail =
+    application.candidateId?.email || application.candidate?.email || personal.email || "";
+  const candidateMobile =
+    personal.registeredMobile ||
+    application.candidateId?.registeredMobile ||
+    application.candidateId?.contactNumber ||
+    application.candidate?.registeredMobile ||
+    "";
+  const initials = (candidateName || "?")
     .split(" ")
     .map((n) => n[0])
     .slice(0, 2)
@@ -239,7 +269,7 @@ const ApplicationDetails = () => {
 
   return (
     <AdminLayout title="Application Details">
-      <div className="p-6 space-y-5 max-w-7xl mx-auto">
+      <div className="min-h-full p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -289,14 +319,14 @@ const ApplicationDetails = () => {
             </div>
             <div>
               <p className="text-white font-bold text-lg leading-tight">
-                {application.candidateId?.fullName || (
+                {candidateName || (
                   <span className="opacity-60 italic font-normal text-base">
                     Name not provided
                   </span>
                 )}
               </p>
               <p className="text-orange-100 text-sm">
-                {application.candidateId?.email || "—"}
+                {candidateEmail || "—"}
               </p>
             </div>
           </div>
@@ -307,29 +337,25 @@ const ApplicationDetails = () => {
                 val: application.jobId?.title,
                 sub: application.jobId?.department,
               },
-              { label: "Category", val: personal.category || "—", sub: null },
+              { label: "Category", val: personal.category || "-", sub: null },
               {
                 label: "Mobile",
                 val:
-                  application.candidateId?.registeredMobile ||
-                  personal.registeredMobile ||
-                  "—",
+                  candidateMobile || "—",
                 sub: null,
               },
               {
                 label: "Fee",
-                val: application.totalFee
-                  ? `₹${Number(application.totalFee).toLocaleString("en-IN")}`
-                  : "—",
+                val: formatCurrency(application.totalFee),
                 sub: application.transactionId,
               },
             ].map(({ label, val, sub }) => (
               <div key={label} className="px-5 py-4">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">
+                <p className="text-xs text-gray-500 uppercase tracking-normal font-medium mb-1">
                   {label}
                 </p>
                 <p className="font-semibold text-gray-900 text-sm">
-                  {val || "—"}
+                  {val || "-"}
                 </p>
                 {sub && (
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{sub}</p>
@@ -409,10 +435,10 @@ const ApplicationDetails = () => {
         )}
 
         {/* Tabs + Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-4 gap-5">
           {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2 sticky top-24">
+          <div className="lg:col-span-1 flex">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2 sticky top-24 w-full min-h-[420px] lg:h-full lg:flex lg:flex-col">
               {TABS.map(({ id: tid, label, icon: Icon }) => (
                 <button
                   key={tid}
@@ -431,7 +457,8 @@ const ApplicationDetails = () => {
           </div>
 
           {/* Content Panel */}
-          <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 min-h-[420px]">
+          <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[420px] max-h-[calc(100vh-240px)] overflow-hidden">
+            <div className="hover-scroll h-full overflow-y-auto p-6">
             {/* Admin-configured form */}
             {activeTab === "custom" && (
               <div>
@@ -453,7 +480,7 @@ const ApplicationDetails = () => {
                       <Row
                         key={fieldId}
                         label={fieldLabelMap[fieldId] || fieldId}
-                        value={Array.isArray(value) ? value.join(", ") : value}
+                        value={formatAdminValue(value)}
                       />
                     ))}
                   </Grid>
@@ -479,6 +506,7 @@ const ApplicationDetails = () => {
                 ) : (
                   <Grid>
                     <Row label="Full Name" value={personal.fullName} />
+                    <Row label="Email" value={candidateEmail} />
                     <Row label="Father's Name" value={personal.fatherName} />
                     <Row label="Mother's Name" value={personal.motherName} />
                     <Row
@@ -498,7 +526,7 @@ const ApplicationDetails = () => {
                       value={personal.maritalStatus}
                     />
                     <Row label="Religion" value={personal.religion} />
-                    <Row label="Mobile" value={personal.registeredMobile} />
+                    <Row label="Mobile" value={candidateMobile} />
                     <Row
                       label="Identification Mark"
                       value={personal.identificationMark}
@@ -642,7 +670,7 @@ const ApplicationDetails = () => {
                     />
                     {address.sameAsPermanent && (
                       <p className="text-xs text-gray-500 md:col-span-2">
-                        ✓ Correspondence address same as permanent
+                        Same as permanent address
                       </p>
                     )}
                   </div>
@@ -689,8 +717,13 @@ const ApplicationDetails = () => {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 text-sm capitalize">
-                                {doc.type?.replace(/_/g, " ")}
+                                {doc.name || doc.type?.replace(/_/g, " ")}
                               </p>
+                              {doc.originalName && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {doc.originalName}
+                                </p>
+                              )}
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span
                                   className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusCls}`}
@@ -771,24 +804,24 @@ const ApplicationDetails = () => {
                                 <p className="text-xs text-gray-500">
                                   Designation
                                 </p>
-                                <p className="text-gray-800">
-                                  {post.designation || "—"}
+                                <p className="text-gray-900">
+                                  {post.designation || "-"}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-xs text-gray-500">
                                   Department
                                 </p>
-                                <p className="text-gray-800">
-                                  {post.department || "—"}
+                                <p className="text-gray-900">
+                                  {post.department || "-"}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-xs text-gray-500">
                                   Vacancies
                                 </p>
-                                <p className="text-gray-800">
-                                  {post.vacancies || "—"}
+                                <p className="text-gray-900">
+                                  {post.vacancies || "-"}
                                 </p>
                               </div>
                               <div>
@@ -796,7 +829,7 @@ const ApplicationDetails = () => {
                                   Preference
                                 </p>
                                 <p className="text-gray-800 font-medium">
-                                  #{post.preference || "—"}
+                                  #{post.preference || "-"}
                                 </p>
                               </div>
                             </div>
@@ -850,8 +883,7 @@ const ApplicationDetails = () => {
                       </span>
                       {application.totalFee > 0 && (
                         <span className="ml-auto font-bold text-gray-900">
-                          ₹
-                          {Number(application.totalFee).toLocaleString("en-IN")}
+                          {formatCurrency(application.totalFee)}
                         </span>
                       )}
                     </div>
@@ -864,7 +896,7 @@ const ApplicationDetails = () => {
                         label="Total Fee"
                         value={
                           application.totalFee
-                            ? `₹${Number(application.totalFee).toLocaleString("en-IN")}`
+                            ? formatCurrency(application.totalFee)
                             : null
                         }
                       />
@@ -877,6 +909,7 @@ const ApplicationDetails = () => {
                 )}
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -890,7 +923,7 @@ const ApplicationDetails = () => {
                 Reject Application
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Provide a reason — this will be visible to the candidate.
+                Provide a reason - this will be visible to the candidate.
               </p>
             </div>
             <div className="p-6">
@@ -931,3 +964,9 @@ const ApplicationDetails = () => {
 };
 
 export default ApplicationDetails;
+
+
+
+
+
+

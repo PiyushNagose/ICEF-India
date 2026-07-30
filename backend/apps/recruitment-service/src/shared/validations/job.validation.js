@@ -70,7 +70,11 @@ const createJobSchema = z.object({
     .optional(),
   applicationStartDate: z.string().optional(),
   applicationDeadline: z.string().optional(),
+  correctionStartDate: z.string().optional(),
+  correctionDeadline: z.string().optional(),
+  admitCardReleaseDate: z.string().optional(),
   examDate: z.string().optional(),
+  resultDate: z.string().optional(),
   // Eligibility fields
   ageLimit: z
     .object({

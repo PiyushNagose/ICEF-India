@@ -28,12 +28,15 @@ const swaggerSpec = require("./src/docs/swagger");
 // ── Service-local routes ──────────────────────────────────────
 const publicJobRoutes = require("./src/routes/public/job.routes");
 const publicCmsRoutes = require("./src/routes/public/cms.routes");
+const publicAdmitCardRoutes = require("./src/routes/public/admitCard.routes");
 const adminProjectRoutes = require("./src/routes/admin/project.routes");
 const adminJobRoutes = require("./src/routes/admin/job.routes");
 const adminApplicationRoutes = require("./src/routes/admin/application.routes");
 const adminAnalyticsRoutes = require("./src/routes/admin/analytics.routes");
 const adminCmsRoutes = require("./src/routes/admin/cms.routes");
+const adminExamRoutes = require("./src/routes/admin/exam.routes");
 const candidateApplicationRoutes = require("./src/routes/candidate/application.routes");
+const candidateAdmitCardRoutes = require("./src/routes/candidate/admitCard.routes");
 
 const PORT = parseInt(process.env.RECRUITMENT_SERVICE_PORT, 10) || 5002;
 const parsedOrigins =
@@ -82,12 +85,15 @@ app.get("/api/docs.json", (_req, res) => {
 app.use("/api", apiLimiter);
 app.use("/api/jobs", publicJobRoutes);
 app.use("/api/cms/state", publicCmsRoutes);
+app.use("/api/admit-cards", publicAdmitCardRoutes);
 app.use("/api/admin/projects", adminProjectRoutes);
 app.use("/api/admin/jobs", adminJobRoutes);
 app.use("/api/admin/applications", adminApplicationRoutes);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
 app.use("/api/admin/cms", adminCmsRoutes);
+app.use("/api/admin/exams", adminExamRoutes);
 app.use("/api/candidate/applications", candidateApplicationRoutes);
+app.use("/api/candidate/admit-cards", candidateAdmitCardRoutes);
 
 // ── Health ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {

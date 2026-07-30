@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, Landmark, LockKeyhole, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import { authService } from "../../services/auth.service";
+import { getDashboardPath, useAuth } from "../../hooks/useAuth";
 import heroBg from "../../assets/herobg.jpg";
+import logo from "../../assets/logo.png";
 
 const SIDE_IMAGE =
   "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=480&q=80&fit=crop";
@@ -22,20 +24,25 @@ const STATS = [
 ];
 
 const TRUST = [
-  { icon: "🏛️", title: "Official Portal",     sub: "Government of India"   },
-  { icon: "🔒", title: "256-bit Encryption", sub: "Bank-level security"    },
-  { icon: "🛡️", title: "Privacy First",      sub: "Your data is protected" },
+  { icon: Landmark, title: "Official Portal",     sub: "Government of India"   },
+  { icon: LockKeyhole, title: "256-bit Encryption", sub: "Bank-level security"    },
+  { icon: ShieldCheck, title: "Privacy First",      sub: "Your data is protected" },
 ];
 
 const inputCls =
-  "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
+  "w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
 
 const CandidateLogin = () => {
   const navigate = useNavigate();
+  const { user, isLoading: isAuthChecking } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isAuthChecking && user) navigate(getDashboardPath(user), { replace: true });
+  }, [isAuthChecking, navigate, user]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -49,7 +56,7 @@ const CandidateLogin = () => {
     try {
       await authService.candidateLogin(formData);
       toast.success("Login successful");
-      window.location.href = "/candidate/dashboard";
+      navigate("/candidate/dashboard", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -59,23 +66,23 @@ const CandidateLogin = () => {
 
   return (
     <div
-      className="min-h-screen w-full bg-cover bg-center bg-no-repeat flex flex-col"
+      className="h-screen w-full overflow-hidden bg-cover bg-center bg-no-repeat flex flex-col"
       style={{ backgroundImage: `url(${heroBg})` }}
     >
       {/* Fixed overlay so it always covers full screen regardless of scroll */}
       <div className="fixed inset-0 bg-black/55 pointer-events-none" />
 
       {/* Centered content */}
-      <div className="relative z-10 flex flex-col items-center justify-center py-12 px-4 min-h-screen">
+      <div className="relative z-10 flex h-screen flex-col items-center justify-center px-4 py-4">
 
         {/* Card */}
-        <div className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex bg-white">
+        <div className="w-full max-w-4xl max-h-[calc(100vh-104px)] rounded-2xl overflow-hidden shadow-2xl flex bg-white">
 
           {/* LEFT PANEL */}
-          <div className="hidden lg:flex lg:w-[44%] flex-col bg-[#fdf8f2] p-10 shrink-0">
-            <Link to="/" className="flex items-center gap-2.5 mb-8">
-              <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-700 rounded-lg flex items-center justify-center shadow-sm">
-                <span className="text-white font-black text-sm">RP</span>
+          <div className="hidden lg:flex lg:w-[44%] flex-col bg-[#fdf8f2] p-7 shrink-0">
+            <Link to="/" className="flex items-center gap-2.5 mb-5">
+              <div className="w-9 h-9 rounded-lg bg-[#1f1d1b] flex items-center justify-center shadow-sm overflow-hidden">
+                <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
               </div>
               <div>
                 <p className="text-orange-600 font-black text-sm leading-tight">Recruitment Portal</p>
@@ -83,15 +90,15 @@ const CandidateLogin = () => {
               </div>
             </Link>
 
-            <h2 className="text-[30px] font-black text-gray-900 leading-tight mb-3">
+            <h2 className="text-[26px] font-black text-gray-900 leading-tight mb-2">
               Welcome Back
             </h2>
-            <p className="text-xs text-gray-500 leading-relaxed mb-6">
+            <p className="text-xs text-gray-500 leading-relaxed mb-4">
               Sign in to continue your applications, track recruitment progress,
               manage documents, and receive important updates.
             </p>
 
-            <ul className="space-y-2.5 mb-7">
+            <ul className="space-y-2 mb-5">
               {FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-2.5 text-xs text-gray-600">
                   <CheckCircle className="w-4 h-4 text-orange-500 shrink-0" />
@@ -100,16 +107,16 @@ const CandidateLogin = () => {
               ))}
             </ul>
 
-            <div className="rounded-xl overflow-hidden mb-7 border border-gray-100">
+            <div className="rounded-xl overflow-hidden mb-5 border border-gray-100">
               <img
                 src={SIDE_IMAGE}
                 alt="Candidate"
-                className="w-full h-40 object-cover"
+                className="w-full h-28 object-cover"
                 onError={(e) => { e.currentTarget.style.display = "none"; }}
               />
             </div>
 
-            <div className="flex gap-6 mt-auto">
+            <div className="flex gap-5 mt-auto">
               {STATS.map((s) => (
                 <div key={s.value}>
                   <p className="text-orange-500 font-black text-base leading-none">{s.value}</p>
@@ -123,19 +130,19 @@ const CandidateLogin = () => {
           <div className="flex-1 flex flex-col bg-white">
             <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-yellow-400 shrink-0" />
 
-            <div className="flex-1 flex flex-col justify-center px-10 py-12">
+            <div className="flex-1 flex flex-col justify-center px-8 py-8">
               {/* Mobile logo */}
-              <Link to="/" className="flex items-center gap-2 mb-6 lg:hidden">
-                <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-black text-xs">RP</span>
+              <Link to="/" className="flex items-center gap-2 mb-4 lg:hidden">
+                <div className="w-8 h-8 rounded-lg bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
+                  <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
                 </div>
                 <p className="font-bold text-gray-800 text-sm">Recruitment Portal</p>
               </Link>
 
-              <h1 className="text-3xl font-black text-gray-900 mb-1">Sign In</h1>
-              <p className="text-xs text-gray-400 mb-8">Access Your Recruitment Account</p>
+              <h1 className="text-2xl font-black text-gray-900 mb-1">Sign In</h1>
+              <p className="text-xs text-gray-400 mb-5">Access Your Recruitment Account</p>
 
-              <form onSubmit={handleLogin} className="space-y-5">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                     Email Address
@@ -192,7 +199,7 @@ const CandidateLogin = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -211,10 +218,10 @@ const CandidateLogin = () => {
         </div>
 
         {/* Trust badges — below card, never overlapping */}
-        <div className="flex flex-wrap justify-center gap-8 mt-8">
+        <div className="flex flex-wrap justify-center gap-8 mt-10">
           {TRUST.map((b) => (
-            <div key={b.title} className="flex items-center gap-2 text-white/85">
-              <span className="text-xl leading-none">{b.icon}</span>
+            <div key={b.title} className="flex min-w-[170px] items-center gap-3 text-white/85">
+              <b.icon className="h-6 w-6 shrink-0 text-orange-300" />
               <div>
                 <p className="text-xs font-bold leading-tight">{b.title}</p>
                 <p className="text-[10px] opacity-70">{b.sub}</p>

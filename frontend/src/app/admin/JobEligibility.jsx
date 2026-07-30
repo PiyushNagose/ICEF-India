@@ -20,11 +20,18 @@ import {
 const JobEligibility = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('project')
+  const savedDraft = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    } catch {
+      return {}
+    }
+  })()
+  const projectId = searchParams.get('project') || savedDraft.projectId || null
   const returnToReview = searchParams.get('returnTo') === 'review'
 
   const [formData, setFormData] = useState(() => {
-    const saved = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    const saved = savedDraft
     return {
     ageLimit: {
       min: saved.ageLimit?.min || '',
@@ -178,11 +185,11 @@ const JobEligibility = () => {
   return (
     <AdminLayout title="Create Job - Eligibility">
       <div className="p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Create Job Posting</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create Job Posting</h1>
             <p className="text-gray-500 text-sm mt-0.5">Step 2 of 6: Eligibility Criteria</p>
           </div>
         </div>
@@ -190,7 +197,7 @@ const JobEligibility = () => {
         {/* Progress Steps */}
         <JobStepProgress currentStep={2} projectId={projectId} clickable />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
             {/* Age Limit */}
@@ -198,7 +205,7 @@ const JobEligibility = () => {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Age Limit</h3>
+                  <h3 className="font-semibold text-gray-900">Age Limit</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -285,7 +292,7 @@ const JobEligibility = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <GraduationCap className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">Educational Qualifications</h3>
+                    <h3 className="font-semibold text-gray-900">Educational Qualifications</h3>
                   </div>
                 </div>
               </CardHeader>
@@ -293,7 +300,7 @@ const JobEligibility = () => {
                 {/* Essential Qualifications */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium text-gray-800">Essential Qualifications</h4>
+                    <h4 className="font-medium text-gray-900">Essential Qualifications</h4>
                     <Button 
                       onClick={() => addEducationRequirement('essential')}
                       variant="outline" 
@@ -364,7 +371,7 @@ const JobEligibility = () => {
                 {/* Desirable Qualifications */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium text-gray-800">Desirable Qualifications</h4>
+                    <h4 className="font-medium text-gray-900">Desirable Qualifications</h4>
                     <Button 
                       onClick={() => addEducationRequirement('desirable')}
                       variant="outline" 
@@ -441,7 +448,7 @@ const JobEligibility = () => {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Award className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Experience Requirements</h3>
+                  <h3 className="font-semibold text-gray-900">Experience Requirements</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -514,7 +521,7 @@ const JobEligibility = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <BookOpen className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-800">Other Requirements</h3>
+                    <h3 className="font-semibold text-gray-900">Other Requirements</h3>
                   </div>
                   <Button 
                     onClick={addOtherRequirement}
@@ -562,7 +569,7 @@ const JobEligibility = () => {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Users className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Physical Standards</h3>
+                  <h3 className="font-semibold text-gray-900">Physical Standards</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -612,7 +619,7 @@ const JobEligibility = () => {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Award className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Medical Standards</h3>
+                  <h3 className="font-semibold text-gray-900">Medical Standards</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -688,3 +695,8 @@ const JobEligibility = () => {
 }
 
 export default JobEligibility
+
+
+
+
+

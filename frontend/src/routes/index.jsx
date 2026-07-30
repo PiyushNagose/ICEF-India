@@ -72,6 +72,7 @@ const JobDocuments = lazy(() => import("../app/admin/JobDocuments"));
 const JobPayment = lazy(() => import("../app/admin/JobPayment"));
 const JobReview = lazy(() => import("../app/admin/JobReview"));
 const AdminApplications = lazy(() => import("../app/admin/Applications"));
+const AdminAdmitCards = lazy(() => import("../app/admin/AdmitCards"));
 const ActivityLogs = lazy(() => import("../app/admin/ActivityLogs"));
 const EmployeeActivityDetails = lazy(
   () => import("../app/admin/EmployeeActivityDetails"),
@@ -228,6 +229,7 @@ const AppRoutes = () => {
         <Route path="/results" element={<Results />} />
         <Route path="/notices" element={<Notices />} />
         <Route path="/admit-cards" element={<AdmitCards />} />
+        <Route path="/admit-cards/verify/:token" element={<AdmitCards />} />
         <Route path="/downloads" element={<Downloads />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/contact" element={<Contact />} />
@@ -374,6 +376,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute role="admin">
               <ApplicationDetails />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/admit-cards"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminAdmitCards />
             </ProtectedRoute>
           }
         />

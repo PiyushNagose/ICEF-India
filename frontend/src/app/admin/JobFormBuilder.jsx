@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -30,11 +31,18 @@ import {
 const JobFormBuilder = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('project')
+  const savedDraft = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    } catch {
+      return {}
+    }
+  })()
+  const projectId = searchParams.get('project') || savedDraft.projectId || null
   const returnToReview = searchParams.get('returnTo') === 'review'
 
   const [formSections, setFormSections] = useState(() => {
-    const saved = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    const saved = savedDraft
     if (saved.formSections?.length) {
       return saved.formSections.map((section, sectionIndex) => ({
         id: sectionIndex + 1,
@@ -49,39 +57,24 @@ const JobFormBuilder = () => {
     return [
     {
       id: 1,
-      title: 'Personal Information',
-      required: true,
-      fields: [
-        { id: 1, type: 'text', label: 'Full Name', required: true, placeholder: 'Enter full name' },
-        { id: 2, type: 'email', label: 'Email Address', required: true, placeholder: 'Enter email' },
-        { id: 3, type: 'tel', label: 'Mobile Number', required: true, placeholder: 'Enter mobile number' },
-        { id: 4, type: 'date', label: 'Date of Birth', required: true, placeholder: '' },
-        { id: 5, type: 'select', label: 'Gender', required: true, options: ['Male', 'Female', 'Other'] }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Address Details',
-      required: true,
-      fields: [
-        { id: 6, type: 'textarea', label: 'Permanent Address', required: true, placeholder: 'Enter permanent address' },
-        { id: 7, type: 'text', label: 'City', required: true, placeholder: 'Enter city' },
-        { id: 8, type: 'text', label: 'State', required: true, placeholder: 'Enter state' },
-        { id: 9, type: 'text', label: 'PIN Code', required: true, placeholder: 'Enter PIN code' }
-      ]
+      title: 'General Info',
+      required: false,
+      fields: []
     }
     ]
   })
 
   const [selectedSection, setSelectedSection] = useState(1)
   const [showFieldModal, setShowFieldModal] = useState(false)
+  const [showSectionSettings, setShowSectionSettings] = useState(true)
   const [editingField, setEditingField] = useState(null)
   const [newField, setNewField] = useState({
     type: 'text',
     label: '',
     required: false,
     placeholder: '',
-    options: []
+    options: [],
+    optionsText: ''
   })
 
   const fieldTypes = [
@@ -106,6 +99,7 @@ const JobFormBuilder = () => {
     }
     setFormSections([...formSections, newSection])
     setSelectedSection(newSection.id)
+    setShowSectionSettings(true)
   }
 
   const updateSection = (sectionId, updates) => {
@@ -118,18 +112,82 @@ const JobFormBuilder = () => {
 
   const deleteSection = (sectionId) => {
     if (formSections.length > 1) {
-      setFormSections(sections => sections.filter(section => section.id !== sectionId))
+      const remainingSections = formSections.filter(section => section.id !== sectionId)
+      setFormSections(remainingSections)
       if (selectedSection === sectionId) {
-        setSelectedSection(formSections[0].id)
+        setSelectedSection(remainingSections[0]?.id)
       }
     }
   }
 
-  const addField = () => {
+  const resetFieldModal = () => {
+    setEditingField(null)
+    setNewField({
+      type: 'text',
+      label: '',
+      required: false,
+      placeholder: '',
+      options: [],
+      optionsText: '',
+      validation: {}
+    })
+    setShowFieldModal(false)
+  }
+
+  const cleanField = () => {
+    const type = newField.type || 'text'
+    const options = ['select', 'radio'].includes(type)
+      ? [...new Set(String(newField.optionsText || '').split(/[,\n]/).map(opt => opt.trim()).filter(Boolean))]
+      : undefined
+    const validation = type === 'number'
+      ? {
+          ...(newField.validation?.min !== '' && newField.validation?.min !== undefined && { min: Number(newField.validation.min) }),
+          ...(newField.validation?.max !== '' && newField.validation?.max !== undefined && { max: Number(newField.validation.max) }),
+        }
+      : undefined
+
+    return {
+      type,
+      label: newField.label.trim(),
+      placeholder: newField.placeholder?.trim() || '',
+      options,
+      validation,
+    }
+  }
+
+  const validateFieldDraft = () => {
+    const field = cleanField()
+    if (!field.label) return 'Field label is required'
+    if (['select', 'radio'].includes(field.type) && (!field.options || field.options.length < 2)) {
+      return 'Add at least two options'
+    }
+    if (field.type === 'number' && field.validation?.min !== undefined && field.validation?.max !== undefined && field.validation.min > field.validation.max) {
+      return 'Minimum value cannot be greater than maximum value'
+    }
+    return ''
+  }
+
+  const saveField = () => {
+    const error = validateFieldDraft()
+    if (error) {
+      toast.error(error)
+      return
+    }
+    const field = cleanField()
+    if (editingField) {
+      updateField(editingField.id, field)
+      toast.success('Field updated')
+      resetFieldModal()
+      return
+    }
+
+    addField(field)
+  }
+
+  const addField = (fieldDraft = cleanField()) => {
     const field = {
       id: Date.now(),
-      ...newField,
-      options: newField.type === 'select' || newField.type === 'radio' ? newField.options : undefined
+      ...fieldDraft,
     }
     
     setFormSections(sections =>
@@ -140,14 +198,8 @@ const JobFormBuilder = () => {
       )
     )
     
-    setNewField({
-      type: 'text',
-      label: '',
-      required: false,
-      placeholder: '',
-      options: []
-    })
-    setShowFieldModal(false)
+    toast.success('Field added')
+    resetFieldModal()
   }
 
   const updateField = (fieldId, updates) => {
@@ -178,12 +230,75 @@ const JobFormBuilder = () => {
     )
   }
 
+  const openAddFieldModal = () => {
+    setEditingField(null)
+    setNewField({
+      type: 'text',
+      label: '',
+      required: false,
+      placeholder: '',
+      options: [],
+      optionsText: '',
+      validation: {}
+    })
+    setShowFieldModal(true)
+  }
+
+  const openEditFieldModal = (field) => {
+    setEditingField(field)
+    setNewField({
+      type: field.type || 'text',
+      label: field.label || '',
+      required: Boolean(field.required),
+      placeholder: field.placeholder || '',
+      options: Array.isArray(field.options) ? field.options : [],
+      optionsText: Array.isArray(field.options) ? field.options.join(', ') : '',
+      validation: field.validation || {}
+    })
+    setShowFieldModal(true)
+  }
+
   const handleNext = () => {
     const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    const invalidSection = formSections.find(section => !section.title?.trim())
+    if (invalidSection) {
+      toast.error('Every form section needs a title')
+      setSelectedSection(invalidSection.id)
+      setShowSectionSettings(true)
+      return
+    }
+    const reservedTitles = new Set([
+      'personal information',
+      'personal details',
+      'personal info',
+      'candidate details',
+      'educational info',
+      'educational information',
+      'education',
+      'additional information',
+      'additional info',
+      'address details',
+      'address information',
+      'address',
+      'document upload',
+      'documents',
+      'payment',
+      'review',
+      'post selection',
+    ])
+    const duplicateFixedSection = formSections.find(section =>
+      reservedTitles.has(section.title.trim().toLowerCase().replace(/\s+/g, ' '))
+    )
+    if (duplicateFixedSection) {
+      toast.error('Use a custom section name. Personal, address, documents, payment, and review are already built-in steps.')
+      setSelectedSection(duplicateFixedSection.id)
+      setShowSectionSettings(true)
+      return
+    }
     sessionStorage.setItem('job_draft', JSON.stringify({
       ...existing,
-      formSections: formSections.map(section => ({
-        title: section.title,
+      formSections: formSections.filter(section => section.fields.length > 0).map(section => ({
+        title: section.title.trim(),
         required: section.required,
         fields: section.fields.map(({ id: _id, ...field }) => field),
       })),
@@ -203,11 +318,11 @@ const JobFormBuilder = () => {
   return (
     <AdminLayout title="Create Job - Form Builder">
       <div className="p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Create Job Posting</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create Job Posting</h1>
             <p className="text-gray-500 text-sm mt-0.5">Step 3 of 6: Application Form Builder</p>
           </div>
         </div>
@@ -215,14 +330,14 @@ const JobFormBuilder = () => {
         {/* Progress Steps */}
         <JobStepProgress currentStep={3} projectId={projectId} clickable />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-4 gap-6">
           {/* Sections Sidebar */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-800">Form Sections</h3>
-                  <Button onClick={addSection} variant="ghost" size="sm">
+                  <h3 className="font-semibold text-gray-900">Form Sections</h3>
+                  <Button onClick={addSection} variant="ghost" size="sm" title="Add section">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -261,19 +376,24 @@ const JobFormBuilder = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-800">{currentSection?.title}</h3>
+                    <h3 className="font-semibold text-gray-900">{currentSection?.title}</h3>
                     <p className="text-sm text-gray-600">Configure form fields for this section</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
-                      onClick={() => setShowFieldModal(true)}
+                      onClick={openAddFieldModal}
                       className="bg-orange-600 hover:bg-orange-700 text-white"
                       size="sm"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Field
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Section settings"
+                      onClick={() => setShowSectionSettings(prev => !prev)}
+                    >
                       <Settings className="w-4 h-4" />
                     </Button>
                   </div>
@@ -285,7 +405,7 @@ const JobFormBuilder = () => {
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No fields added yet</p>
                     <Button
-                      onClick={() => setShowFieldModal(true)}
+                      onClick={openAddFieldModal}
                       variant="outline"
                       className="mt-4"
                     >
@@ -300,7 +420,7 @@ const JobFormBuilder = () => {
                           <div className="flex items-center space-x-3">
                             <GripVertical className="w-4 h-4 text-gray-400" />
                             <div>
-                              <div className="font-medium text-gray-800">{field.label}</div>
+                              <div className="font-medium text-gray-900">{field.label}</div>
                               <div className="text-sm text-gray-500 capitalize">{field.type}</div>
                             </div>
                             {field.required && (
@@ -308,7 +428,12 @@ const JobFormBuilder = () => {
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditFieldModal(field)}
+                              title="Edit field"
+                            >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button 
@@ -382,14 +507,14 @@ const JobFormBuilder = () => {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Eye className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Form Preview</h3>
+                  <h3 className="font-semibold text-gray-900">Form Preview</h3>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm">
                   {formSections.map((section) => (
                     <div key={section.id} className="border-l-2 border-gray-200 pl-3">
-                      <div className="font-medium text-gray-800">{section.title}</div>
+                      <div className="font-medium text-gray-900">{section.title}</div>
                       <div className="text-gray-500">{section.fields.length} fields</div>
                     </div>
                   ))}
@@ -413,10 +538,10 @@ const JobFormBuilder = () => {
             </Card>
 
             {/* Section Settings */}
-            {currentSection && (
+            {currentSection && showSectionSettings && (
               <Card className="mt-6">
                 <CardHeader>
-                  <h3 className="font-semibold text-gray-800">Section Settings</h3>
+                  <h3 className="font-semibold text-gray-900">Section Settings</h3>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -460,13 +585,15 @@ const JobFormBuilder = () => {
         {/* Add Field Modal */}
         {showFieldModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="hover-scroll bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">Add New Field</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {editingField ? 'Edit Field' : 'Add New Field'}
+                </h3>
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => setShowFieldModal(false)}
+                  onClick={resetFieldModal}
                 >
                   <X className="w-4 h-4" />
                 </Button>
@@ -483,7 +610,13 @@ const JobFormBuilder = () => {
                       return (
                         <button
                           key={type.type}
-                          onClick={() => setNewField({ ...newField, type: type.type })}
+                          onClick={() => setNewField({
+                            ...newField,
+                            type: type.type,
+                            options: ['select', 'radio'].includes(type.type) ? newField.options : [],
+                            optionsText: ['select', 'radio'].includes(type.type) ? newField.optionsText : '',
+                            validation: type.type === 'number' ? newField.validation || {} : {}
+                          })}
                           className={`p-3 border rounded-lg text-left transition-colors ${
                             newField.type === type.type
                               ? 'border-orange-500 bg-orange-50'
@@ -529,18 +662,54 @@ const JobFormBuilder = () => {
                 {(newField.type === 'select' || newField.type === 'radio') && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Options (one per line)
+                      Options (comma separated)
                     </label>
-                    <textarea
-                      rows="4"
-                      placeholder="Option 1&#10;Option 2&#10;Option 3"
-                      value={newField.options.join('\n')}
+                    <input
+                      type="text"
+                      placeholder="Male, Female, Other"
+                      value={newField.optionsText || ''}
                       onChange={(e) => setNewField({ 
                         ...newField, 
-                        options: e.target.value.split('\n').filter(opt => opt.trim()) 
+                        optionsText: e.target.value
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Example: General, OBC, SC, ST
+                    </p>
+                  </div>
+                )}
+
+                {newField.type === 'number' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Minimum Value
+                      </label>
+                      <input
+                        type="number"
+                        value={newField.validation?.min ?? ''}
+                        onChange={(e) => setNewField({
+                          ...newField,
+                          validation: { ...(newField.validation || {}), min: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Maximum Value
+                      </label>
+                      <input
+                        type="number"
+                        value={newField.validation?.max ?? ''}
+                        onChange={(e) => setNewField({
+                          ...newField,
+                          validation: { ...(newField.validation || {}), max: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -560,17 +729,17 @@ const JobFormBuilder = () => {
 
               <div className="flex justify-end space-x-4 mt-6">
                 <Button 
-                  onClick={() => setShowFieldModal(false)}
+                  onClick={resetFieldModal}
                   variant="outline"
                 >
                   Cancel
                 </Button>
                 <Button 
-                  onClick={addField}
+                  onClick={saveField}
                   className="bg-orange-600 hover:bg-orange-700 text-white"
-                  disabled={!newField.label}
+                  disabled={!newField.label.trim()}
                 >
-                  Add Field
+                  {editingField ? 'Save Field' : 'Add Field'}
                 </Button>
               </div>
             </div>
@@ -602,3 +771,8 @@ const JobFormBuilder = () => {
 }
 
 export default JobFormBuilder
+
+
+
+
+

@@ -8,10 +8,12 @@ const {
   emitBroadcast,
   SOCKET_EVENTS,
 } = require("../socket/index");
+const { assertJobTimeline } = require("../utils/timeline");
 
 const createJob = async (data, createdBy) => {
   const project = await Project.findById(data.projectId);
   if (!project) throw new ApiError(404, "Project not found");
+  assertJobTimeline(data, project);
 
   const job = await Job.create({ ...data, createdBy, status: "draft" });
 
@@ -84,6 +86,18 @@ const getJobById = async (id, isAdmin = false) => {
 };
 
 const updateJob = async (id, data) => {
+  const existing = await Job.findById(id);
+  if (!existing) throw new ApiError(404, "Job not found");
+  const project = await Project.findById(data.projectId || existing.projectId);
+  if (!project) throw new ApiError(404, "Project not found");
+  const nextJob = { ...existing.toObject(), ...data };
+  if (data.paymentConfig) {
+    nextJob.paymentConfig = {
+      ...(existing.toObject().paymentConfig || {}),
+      ...data.paymentConfig,
+    };
+  }
+  assertJobTimeline(nextJob, project);
   const job = await Job.findByIdAndUpdate(
     id,
     { ...data },
@@ -98,10 +112,13 @@ const updateJob = async (id, data) => {
 };
 
 const publishJob = async (id) => {
-  const job = await Job.findById(id);
+  const job = await Job.findById(id).populate("projectId");
   if (!job) throw new ApiError(404, "Job not found");
   if (job.status === "active")
     throw new ApiError(400, "Job is already published");
+  if (!job.applicationDeadline)
+    throw new ApiError(400, "Application deadline is required before publishing");
+  assertJobTimeline(job.toObject(), job.projectId);
 
   job.status = "active";
   job.publishedAt = new Date();

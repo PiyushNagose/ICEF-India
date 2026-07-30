@@ -103,7 +103,7 @@ const JobCard = ({
 
   return (
     <div
-      className={`bg-white rounded-xl border transition-all hover:shadow-md ${
+      className={`flex h-full flex-col bg-white rounded-xl border transition-all hover:shadow-md ${
         isSubmitted
           ? "border-green-200"
           : isDraft
@@ -128,7 +128,7 @@ const JobCard = ({
         </div>
       )}
 
-      <div className="p-5">
+      <div className="flex flex-1 flex-col p-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
@@ -189,12 +189,12 @@ const JobCard = ({
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-3 border-t border-gray-100">
+        <div className="mt-auto flex gap-2 pt-4 border-t border-gray-100">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onView(job._id)}
-            className="flex-1 text-gray-700 border-gray-200 hover:border-orange-300 hover:text-orange-600"
+            className="h-11 flex-1 text-gray-700 border-gray-200 hover:border-orange-300 hover:text-orange-600"
           >
             View Details
           </Button>
@@ -204,7 +204,7 @@ const JobCard = ({
             <Button
               size="sm"
               onClick={() => onViewApp(existingApp)}
-              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white gap-1"
+              className="h-11 flex-1 bg-orange-600 hover:bg-orange-700 text-white gap-1"
             >
               <PlayCircle className="w-3.5 h-3.5" />
               Continue
@@ -214,7 +214,7 @@ const JobCard = ({
             <Button
               size="sm"
               onClick={() => onViewApp(existingApp)}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1"
+              className="h-11 flex-1 bg-green-600 hover:bg-green-700 text-white gap-1"
             >
               <Eye className="w-3.5 h-3.5" />
               Track Status
@@ -223,7 +223,7 @@ const JobCard = ({
             <Button
               size="sm"
               disabled
-              className="flex-1 bg-gray-100 text-gray-400 cursor-not-allowed"
+              className="h-11 flex-1 bg-gray-100 text-gray-400 cursor-not-allowed"
             >
               Closed
             </Button>
@@ -232,7 +232,7 @@ const JobCard = ({
               size="sm"
               onClick={() => onApply(job._id)}
               disabled={isApplying}
-              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+              className="h-11 flex-1 bg-orange-600 hover:bg-orange-700 text-white"
             >
               {isApplying ? (
                 <>

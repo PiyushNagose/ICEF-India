@@ -18,7 +18,7 @@ const inp = (err, disabled) =>
   `w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${disabled ? 'bg-gray-100 cursor-not-allowed border-gray-200 text-gray-500' : err ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'}`
 
 const Label = ({ children }) => (
-  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">{children}</p>
+  <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">{children}</p>
 )
 const Err = ({ msg }) => msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null
 
@@ -136,7 +136,7 @@ const EditEmployee = () => {
 
   return (
     <AdminLayout title="Edit Employee">
-      <div className="p-5 max-w-4xl mx-auto space-y-5">
+      <div className="min-h-full p-5 space-y-5">
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -309,3 +309,8 @@ const EditEmployee = () => {
 }
 
 export default EditEmployee
+
+
+
+
+

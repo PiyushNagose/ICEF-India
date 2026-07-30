@@ -78,7 +78,7 @@ const RazorpayConfig = () => {
 
   return (
     <AdminLayout title="Razorpay Configuration">
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="min-h-full p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/payment-settings')}>
@@ -90,7 +90,7 @@ const RazorpayConfig = () => {
                 <span className="text-white font-bold text-xl">R</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Razorpay Configuration</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Razorpay Configuration</h1>
                 <div className="flex items-center gap-3 mt-1">
                   <Badge className={isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}>
                     {isActive ? '● Active' : '○ Inactive'}
@@ -122,7 +122,7 @@ const RazorpayConfig = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
           {/* Config Form */}
           <div className="lg:col-span-2 space-y-6">
             {/* API Keys */}
@@ -130,7 +130,7 @@ const RazorpayConfig = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Key className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">API Configuration</h3>
+                  <h3 className="font-semibold text-gray-900">API Configuration</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -222,7 +222,7 @@ const RazorpayConfig = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Link className="w-5 h-5 text-yellow-600" />
-                  <h3 className="font-semibold text-gray-800">Webhook Endpoint</h3>
+                  <h3 className="font-semibold text-gray-900">Webhook Endpoint</h3>
                 </div>
               </CardHeader>
               <CardContent>
@@ -281,7 +281,7 @@ const RazorpayConfig = () => {
 
             <Card>
               <CardContent className="p-6 space-y-3">
-                <h3 className="font-semibold text-gray-800">Supported Methods</h3>
+                <h3 className="font-semibold text-gray-900">Supported Methods</h3>
                 {['UPI', 'Credit/Debit Cards', 'Net Banking', 'Wallets', 'EMI'].map(m => (
                   <div key={m} className="flex items-center gap-2 text-sm text-gray-700">
                     <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -315,3 +315,8 @@ const RazorpayConfig = () => {
 }
 
 export default RazorpayConfig
+
+
+
+
+

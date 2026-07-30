@@ -98,20 +98,37 @@ const socketProxy = (target, label, routePrefix) =>
 
 const serviceUrl = (baseUrl, path) => `${baseUrl}${path}`;
 
-const callJson = async (url, authorization) => {
+class UpstreamHttpError extends Error {
+  constructor(message, status, payload = {}) {
+    super(message);
+    this.name = "UpstreamHttpError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+const callJson = async (url, authorization, cookie) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
 
   try {
+    const headers = {};
+    if (authorization) headers.Authorization = authorization;
+    if (cookie) headers.Cookie = cookie;
+
     const response = await fetch(url, {
       method: "GET",
-      headers: authorization ? { Authorization: authorization } : {},
+      headers,
       signal: controller.signal,
     });
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(payload?.message || `Request failed with ${response.status}`);
+      throw new UpstreamHttpError(
+        payload?.message || `Request failed with ${response.status}`,
+        response.status,
+        payload,
+      );
     }
 
     return payload;
@@ -123,18 +140,21 @@ const callJson = async (url, authorization) => {
 app.get("/api/dashboard/admin", async (req, res) => {
   try {
     const authorization = req.headers.authorization || "";
+    const cookie = req.headers.cookie || "";
     const [overview, funnel, topJobs, support, notifications] =
       await Promise.all([
-        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/overview"), authorization),
-        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/funnel"), authorization),
+        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/overview"), authorization, cookie),
+        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/funnel"), authorization, cookie),
         callJson(
           serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/top-jobs?limit=5"),
           authorization,
+          cookie,
         ),
-        callJson(serviceUrl(COMMUNICATION_URL, "/api/admin/support/stats"), authorization),
+        callJson(serviceUrl(COMMUNICATION_URL, "/api/admin/support/stats"), authorization, cookie),
         callJson(
           serviceUrl(IDENTITY_URL, "/api/admin/notifications?limit=20&isRead=false"),
           authorization,
+          cookie,
         ),
       ]);
 
@@ -151,6 +171,14 @@ app.get("/api/dashboard/admin", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ [Dashboard Admin]", error.message);
+    if (error.status === 401 || error.status === 403) {
+      return res.status(error.status).json({
+        success: false,
+        statusCode: error.status,
+        message: error.message || "Session expired. Please login again.",
+      });
+    }
+
     res.status(503).json({
       success: false,
       message: "Unable to fetch admin dashboard data",
@@ -161,20 +189,24 @@ app.get("/api/dashboard/admin", async (req, res) => {
 app.get("/api/dashboard/candidate", async (req, res) => {
   try {
     const authorization = req.headers.authorization || "";
+    const cookie = req.headers.cookie || "";
     const [applications, notifications, tickets, jobs] = await Promise.all([
       callJson(
         serviceUrl(RECRUITMENT_URL, "/api/candidate/applications?limit=5"),
         authorization,
+        cookie,
       ),
       callJson(
         serviceUrl(COMMUNICATION_URL, "/api/candidate/notifications?limit=5"),
         authorization,
+        cookie,
       ),
       callJson(
         serviceUrl(COMMUNICATION_URL, "/api/candidate/support/tickets?limit=5"),
         authorization,
+        cookie,
       ),
-      callJson(serviceUrl(RECRUITMENT_URL, "/api/jobs?limit=5"), authorization),
+      callJson(serviceUrl(RECRUITMENT_URL, "/api/jobs?limit=5"), authorization, cookie),
     ]);
 
     res.json({
@@ -190,6 +222,14 @@ app.get("/api/dashboard/candidate", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ [Dashboard Candidate]", error.message);
+    if (error.status === 401 || error.status === 403) {
+      return res.status(error.status).json({
+        success: false,
+        statusCode: error.status,
+        message: error.message || "Session expired. Please login again.",
+      });
+    }
+
     res.status(503).json({
       success: false,
       message: "Unable to fetch candidate dashboard data",
@@ -215,6 +255,7 @@ app.use(
 
 // ── Recruitment Service routes ────────────────────────────────
 app.use("/api/jobs", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admit-cards", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/cms", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use(
   "/api/admin/projects",
@@ -234,7 +275,15 @@ app.use(
   proxy(RECRUITMENT_URL, "Recruitment"),
 );
 app.use(
+  "/api/admin/exams",
+  proxy(RECRUITMENT_URL, "Recruitment"),
+);
+app.use(
   "/api/candidate/applications",
+  proxy(RECRUITMENT_URL, "Recruitment"),
+);
+app.use(
+  "/api/candidate/admit-cards",
   proxy(RECRUITMENT_URL, "Recruitment"),
 );
 

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { Building2, ShieldCheck, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { jobService } from "../../services/job.service";
@@ -40,7 +40,7 @@ const About = () => {
         </div>
       </PageHero>
 
-      <section className={`${publicContainer} py-10 space-y-6`}>
+      <section className={`${publicContainer} py-8 lg:py-10 space-y-6`}>
         {isLoading && <LoadingState label="Loading portal statistics..." />}
         {error && <ErrorState message={error.message} />}
 
@@ -104,3 +104,5 @@ const About = () => {
 };
 
 export default About;
+
+

@@ -137,17 +137,17 @@ const Dashboard = () => {
 
   return (
     <AdminLayout title="Dashboard Overview">
-      <div className="min-h-screen bg-[#f7f4ee] px-4 py-4 md:px-5 md:py-4">
+      <div className="min-h-full bg-[#f7f4ee] px-4 py-4 md:px-5 md:py-4">
 
         {/* HEADER */}
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
 
           <div>
-            <p className="text-[10px] font-black text-orange-500 tracking-[0.22em] mb-1">
+            <p className="text-xs font-bold text-orange-500 tracking-normal mb-1">
               ADMIN CONTROL CENTER
             </p>
 
-            <h1 className="text-3xl md:text-[42px] font-black tracking-tight text-[#1f2937] leading-none">
+            <h1 className="text-2xl font-bold tracking-normal text-gray-900 leading-none">
               Recruitment Dashboard
             </h1>
 
@@ -176,8 +176,8 @@ const Dashboard = () => {
               asChild
               variant="outline"
               className="
-                rounded-2xl bg-white/80
-                backdrop-blur-xl border-white/70
+                rounded-2xl bg-white
+                border-gray-200
                 shadow-sm h-10 px-4 text-sm
               "
             >
@@ -206,12 +206,12 @@ const Dashboard = () => {
               className="
                 relative overflow-hidden
                 rounded-[22px]
-                bg-white/90 backdrop-blur-xl
-                border border-white/60
-                shadow-[0_6px_24px_rgba(0,0,0,0.04)]
-                hover:shadow-[0_10px_32px_rgba(0,0,0,0.07)]
-                transition-all duration-500 ease-out
-                hover:-translate-y-[3px]
+                bg-white
+                border border-gray-200
+                shadow-sm
+                hover:shadow-sm
+                transition-all duration-200 ease-out
+                hover:-translate-y-0.5
                 p-4
               "
             >
@@ -224,18 +224,18 @@ const Dashboard = () => {
               <div className="flex items-start justify-between">
 
                 <div>
-                  <p className="text-[10px] font-black tracking-[0.18em] text-gray-400 mb-2">
+                  <p className="text-xs font-bold tracking-normal text-gray-400 mb-2">
                     {stat.title}
                   </p>
 
-                  <h2 className="text-3xl font-black text-[#1f2937] tracking-tight">
+                  <h2 className="text-3xl font-bold text-gray-900 tracking-normal">
                     {stat.value.toLocaleString('en-IN')}
                   </h2>
 
                   <div className="flex items-center gap-2 mt-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
 
-                    <p className="text-[10px] font-medium text-gray-500">
+                    <p className="text-xs font-medium text-gray-500">
                       Live updated
                     </p>
                   </div>
@@ -254,24 +254,25 @@ const Dashboard = () => {
         </div>
 
         {/* MAIN GRID */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-5">
 
           {/* LEFT */}
-          <div className="xl:col-span-2 space-y-5">
+          <div className="xl:col-span-2 flex min-h-0 flex-col gap-5">
 
             {/* FUNNEL */}
             <div className="
+              flex min-h-[300px] flex-col
               rounded-[22px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
               p-5
             ">
 
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex shrink-0 items-center justify-between mb-5">
 
                 <div>
-                  <h3 className="text-xl font-black text-[#1f2937]">
+                  <h3 className="text-lg font-bold text-gray-900">
                     Candidate Conversion Funnel
                   </h3>
 
@@ -295,20 +296,20 @@ const Dashboard = () => {
                   <div
                     key={label}
                     className={`
-                      rounded-2xl p-4 text-center transition-all duration-300
+                      rounded-2xl p-4 text-center transition-all duration-200 ease-out
                       ${
                         index === funnelItems.length - 1
                           ? 'bg-[#111827] text-white shadow-xl'
-                          : 'bg-[#fafafa] border border-gray-100 hover:border-orange-200'
+                          : 'bg-gray-50 border border-gray-100 hover:border-orange-200'
                       }
                     `}
                   >
-                    <h3 className="text-2xl font-black">
+                    <h3 className="text-3xl font-bold">
                       {(value || 0).toLocaleString('en-IN')}
                     </h3>
 
                     <p className={`
-                      text-[10px] mt-2 font-black tracking-[0.12em]
+                      text-xs mt-2 font-bold tracking-normal
                       ${
                         index === funnelItems.length - 1
                           ? 'text-gray-300'
@@ -325,16 +326,16 @@ const Dashboard = () => {
             {/* TOP JOBS */}
             <div className="
               rounded-[22px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
               p-5
             ">
 
               <div className="flex items-center justify-between mb-5">
 
                 <div>
-                  <h3 className="text-xl font-black text-[#1f2937]">
+                  <h3 className="text-lg font-bold text-gray-900">
                     Top Job Performance
                   </h3>
 
@@ -348,7 +349,7 @@ const Dashboard = () => {
                 </Badge>
               </div>
 
-              <div className="space-y-3">
+              <div className="hover-scroll admin-compact-scroll space-y-3 overflow-y-auto pr-1">
 
                 {topJobs.map((job, index) => (
                   <div
@@ -358,7 +359,7 @@ const Dashboard = () => {
                       p-3 flex items-center justify-between
                       hover:border-orange-200
                       hover:bg-orange-50/30
-                      transition-all duration-300
+                      transition-all duration-200 ease-out
                     "
                   >
                     <div className="flex items-center gap-3">
@@ -367,13 +368,13 @@ const Dashboard = () => {
                         w-10 h-10 rounded-xl
                         bg-gradient-to-br from-orange-100 to-orange-200
                         flex items-center justify-center
-                        font-black text-sm text-orange-700
+                        font-bold text-sm text-orange-700
                       ">
                         #{index + 1}
                       </div>
 
                       <div>
-                        <h4 className="font-bold text-sm text-[#1f2937]">
+                        <h4 className="font-bold text-sm text-gray-900">
                           {job.jobTitle}
                         </h4>
 
@@ -384,11 +385,11 @@ const Dashboard = () => {
                     </div>
 
                     <div className="text-right">
-                      <h3 className="text-2xl font-black text-[#1f2937]">
+                      <h3 className="text-3xl font-bold text-gray-900">
                         {job.totalApplications || 0}
                       </h3>
 
-                      <p className="text-[10px] font-bold tracking-[0.12em] text-gray-400">
+                      <p className="text-xs font-bold tracking-normal text-gray-400">
                         APPLICATIONS
                       </p>
                     </div>
@@ -399,17 +400,18 @@ const Dashboard = () => {
 
             {/* RECENT APPLICATIONS */}
             <div className="
+              flex min-h-[360px] flex-col xl:flex-1
               rounded-[22px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
               p-5
             ">
 
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex shrink-0 items-center justify-between mb-5">
 
                 <div>
-                  <h3 className="text-xl font-black text-[#1f2937]">
+                  <h3 className="text-lg font-bold text-gray-900">
                     Recent Applications
                   </h3>
 
@@ -423,7 +425,7 @@ const Dashboard = () => {
                 </Badge>
               </div>
 
-              <div className="space-y-3">
+              <div className="hover-scroll max-h-[460px] space-y-3 overflow-y-auto pr-1 xl:max-h-none xl:flex-1">
 
                 {recentApplications.map((application) => (
                   <div
@@ -434,7 +436,7 @@ const Dashboard = () => {
                       border border-gray-100
                       hover:border-orange-200
                       hover:bg-orange-50/30
-                      transition-all duration-300
+                      transition-all duration-200 ease-out
                     "
                   >
                     <div className="
@@ -447,7 +449,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm text-[#1f2937] truncate">
+                      <h4 className="font-bold text-sm text-gray-900 truncate">
                         {application.applicationId}
                       </h4>
 
@@ -455,7 +457,7 @@ const Dashboard = () => {
                         {application.jobId?.title || 'Job'}
                       </p>
 
-                      <p className="text-[10px] text-gray-400 mt-1 truncate">
+                      <p className="text-xs text-gray-400 mt-1 truncate">
                         {application.candidateId?.email || 'Candidate'}
                       </p>
                     </div>
@@ -479,21 +481,22 @@ const Dashboard = () => {
           </div>
 
           {/* RIGHT */}
-          <div className="space-y-5">
+          <div className="flex h-full min-h-0 flex-col gap-5">
 
             {/* SUPPORT */}
             <div className="
+              shrink-0
               rounded-[22px]
               bg-[#111827]
               text-white
               p-5
-              shadow-[0_20px_60px_rgba(15,23,42,0.28)]
+              shadow-sm
             ">
 
               <div className="flex items-center justify-between mb-5">
 
                 <div>
-                  <h3 className="text-xl font-black">
+                  <h3 className="text-lg font-bold">
                     Support Snapshot
                   </h3>
 
@@ -518,7 +521,7 @@ const Dashboard = () => {
                       Open Tickets
                     </p>
 
-                    <h3 className="text-2xl font-black mt-1">
+                    <h3 className="text-3xl font-bold mt-1">
                       {support.open || 0}
                     </h3>
                   </div>
@@ -540,7 +543,7 @@ const Dashboard = () => {
                       Pending
                     </p>
 
-                    <h3 className="text-2xl font-black mt-1">
+                    <h3 className="text-3xl font-bold mt-1">
                       {support.pending || 0}
                     </h3>
                   </div>
@@ -562,7 +565,7 @@ const Dashboard = () => {
                       Resolved
                     </p>
 
-                    <h3 className="text-2xl font-black mt-1">
+                    <h3 className="text-3xl font-bold mt-1">
                       {support.resolved || 0}
                     </h3>
                   </div>
@@ -592,17 +595,18 @@ const Dashboard = () => {
 
             {/* NOTIFICATIONS */}
             <div className="
+              flex min-h-[320px] flex-1 flex-col
               rounded-[22px]
-              bg-white/90 backdrop-blur-xl
-              border border-white/70
-              shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+              bg-white
+              border border-gray-200
+              shadow-sm
               p-5
             ">
 
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex shrink-0 items-center justify-between mb-5">
 
                 <div>
-                  <h3 className="text-xl font-black text-[#1f2937]">
+                  <h3 className="text-lg font-bold text-gray-900">
                     Notifications
                   </h3>
 
@@ -621,7 +625,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              <div className="hover-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {adminNotifications.length === 0 && (
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-500">
                     No unread notifications.
@@ -665,7 +669,7 @@ const Dashboard = () => {
             {/* Header */}
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-[#1f2937]">Select Project</h3>
+                <h3 className="text-lg font-bold text-gray-900">Select Project</h3>
                 <p className="text-sm text-gray-500 mt-1">Associate this job with a project.</p>
               </div>
               <button
@@ -676,7 +680,7 @@ const Dashboard = () => {
               </button>
             </div>
             {/* Body */}
-            <div className="p-6 space-y-3 max-h-[450px] overflow-y-auto">
+            <div className="hover-scroll p-6 space-y-3 max-h-[450px] overflow-y-auto">
               {projects.length === 0 && (
                 <div className="text-center py-10">
                   <div className="w-16 h-16 rounded-3xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
@@ -702,7 +706,7 @@ const Dashboard = () => {
                       <FolderOpen className="w-5 h-5 text-orange-600" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-[#1f2937]">{project.name}</h4>
+                      <h4 className="font-bold text-gray-900">{project.name}</h4>
                       <p className="text-sm text-gray-500 mt-1">
                         {project.department}{' • '}{project.state}
                       </p>

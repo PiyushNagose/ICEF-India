@@ -51,7 +51,7 @@ const Button = forwardRef(
       `
       inline-flex items-center justify-center
       rounded-xl font-semibold
-      transition-all duration-200
+      transition-all duration-200 ease-out
       focus:outline-none
       disabled:opacity-50
       disabled:pointer-events-none

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { Download, FileText, ListChecks } from "lucide-react";
 import { motion } from "framer-motion";
 import { jobService } from "../../services/job.service";
@@ -48,7 +48,7 @@ const Downloads = () => {
         </div>
       </PageHero>
 
-      <section className={`${publicContainer} py-10 space-y-6`}>
+      <section className={`${publicContainer} py-8 lg:py-10 space-y-6`}>
         <div className="grid gap-5 md:grid-cols-3">
           {[
             { icon: ListChecks, title: "Document Checklist", description: "Review common documents needed for public recruitment applications.", to: "/how-to-apply" },
@@ -105,3 +105,5 @@ const Downloads = () => {
 };
 
 export default Downloads;
+
+

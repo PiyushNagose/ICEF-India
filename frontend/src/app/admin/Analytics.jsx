@@ -61,7 +61,7 @@ const Analytics = () => {
 
   return (
     <AdminLayout title="Analytics">
-      <div className="p-6 space-y-5 max-w-7xl mx-auto">
+      <div className="min-h-full p-6 space-y-5">
 
         {/* Page title */}
         <div>
@@ -73,7 +73,7 @@ const Analytics = () => {
 
           {/* Total Applications */}
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Total Applications</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Total Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-bold text-gray-900">{fmt(total)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
@@ -84,7 +84,7 @@ const Analytics = () => {
 
           {/* Completed Applications */}
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Completed Applications</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Completed Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-bold text-gray-900">{fmt(completed)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
@@ -95,7 +95,7 @@ const Analytics = () => {
 
           {/* Pending Applications */}
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-amber-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Pending Applications</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Pending Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-bold text-gray-900">{fmt(pending)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
@@ -106,7 +106,7 @@ const Analytics = () => {
 
           {/* Payment Success Rate */}
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-blue-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Payment Success Rate</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Payment Success Rate</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-bold text-gray-900">{paySuccessRate}{paySuccessRate !== '—' ? '%' : ''}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
@@ -124,8 +124,8 @@ const Analytics = () => {
               <XCircle className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dropped</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(dropped).toLocaleString('en-IN')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Dropped</p>
+              <p className="text-3xl font-bold text-gray-900">{Number(dropped).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -134,8 +134,8 @@ const Analytics = () => {
               <AlertCircle className="w-5 h-5 text-orange-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Failures</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(payFailed).toLocaleString('en-IN')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Payment Failures</p>
+              <p className="text-3xl font-bold text-gray-900">{Number(payFailed).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -144,8 +144,8 @@ const Analytics = () => {
               <Ticket className="w-5 h-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tickets Raised</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(ticketsRaised).toLocaleString('en-IN')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Raised</p>
+              <p className="text-3xl font-bold text-gray-900">{Number(ticketsRaised).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -154,8 +154,8 @@ const Analytics = () => {
               <BadgeCheck className="w-5 h-5 text-emerald-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tickets Resolved</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Resolved</p>
+              <p className="text-3xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ const Analytics = () => {
         </div>
 
         {/* ── Bottom Row: Top Jobs + Support Snapshot ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-5">
 
           {/* Top Jobs */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -265,7 +265,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Requires immediate attention</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{Number(openTickets).toLocaleString('en-IN')}</p>
+                <p className="text-3xl font-bold text-gray-900">{Number(openTickets).toLocaleString('en-IN')}</p>
               </div>
 
               <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
@@ -278,7 +278,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Solved within 24 hours</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
+                <p className="text-3xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
               </div>
 
               <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
@@ -291,7 +291,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Awaiting user action</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{Number(pendingResponse).toLocaleString('en-IN')}</p>
+                <p className="text-3xl font-bold text-gray-900">{Number(pendingResponse).toLocaleString('en-IN')}</p>
               </div>
 
             </div>
@@ -304,3 +304,8 @@ const Analytics = () => {
 }
 
 export default Analytics
+
+
+
+
+

@@ -219,7 +219,7 @@ const Jobs = () => {
     <AdminLayout title="Jobs">
 
       <div className="
-        min-h-screen
+        min-h-full
         bg-[#f7f4ee]
         p-5 space-y-5
       ">
@@ -235,8 +235,8 @@ const Jobs = () => {
           <div>
 
             <h1 className="
-              text-3xl font-black
-              text-[#1f2937]
+              text-2xl font-bold
+              text-gray-900
             ">
               Jobs
             </h1>
@@ -286,12 +286,12 @@ const Jobs = () => {
               className="
                 relative overflow-hidden
                 rounded-[24px]
-                bg-white/90 backdrop-blur-xl
-                border border-white/70
-                shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+                bg-white
+                border border-gray-200
+                shadow-sm
                 p-5
-                hover:-translate-y-[2px]
-                transition-all duration-300
+                hover:-translate-y-0.5
+                transition-all duration-200 ease-out
               "
             >
 
@@ -309,17 +309,17 @@ const Jobs = () => {
                 <div>
 
                   <p className="
-                    text-[10px]
-                    font-black
-                    tracking-[0.16em]
+                    text-xs
+                    font-bold
+                    tracking-normal
                     text-gray-400 mb-2
                   ">
                     {stat.title}
                   </p>
 
                   <h2 className="
-                    text-3xl font-black
-                    text-[#1f2937]
+                    text-3xl font-bold
+                    text-gray-900
                   ">
                     {Number(
                       stat.value || 0
@@ -345,21 +345,22 @@ const Jobs = () => {
 
         {/* TABLE */}
         <div className="
+          flex min-h-[620px] xl:min-h-[calc(100vh_-_300px)] flex-col
           rounded-[26px]
-          bg-white/90 backdrop-blur-xl
-          border border-white/70
-          shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+          bg-white
+          border border-gray-200
+          shadow-sm
           overflow-hidden
         ">
 
           <div className="
-            overflow-x-auto
+            admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto
           ">
 
             <table className="w-full">
 
               <thead className="
-                bg-[#fafafa]
+                bg-gray-50
                 border-b border-gray-100
               ">
 
@@ -378,10 +379,10 @@ const Jobs = () => {
                       className="
                         text-left
                         px-5 py-4
-                        text-[10px]
-                        font-black
-                        tracking-[0.15em]
-                        text-gray-400
+                        text-xs
+                        font-semibold
+                        tracking-normal
+                        text-gray-500
                         uppercase
                       "
                     >
@@ -456,7 +457,7 @@ const Jobs = () => {
 
                           <h3 className="
                             font-bold
-                            text-[#1f2937]
+                            text-gray-900
                           ">
                             {job.title}
                           </h3>
@@ -492,17 +493,17 @@ const Jobs = () => {
 
                       <div>
                         <h3 className="
-                          font-black
-                          text-[#1f2937]
+                          font-bold
+                          text-gray-900
                         ">
                           {job.totalApplicants || 0}
                         </h3>
 
                         <p className="
-                          text-[10px]
+                          text-xs
                           text-gray-400
                           font-semibold
-                          tracking-[0.12em]
+                          tracking-normal
                         ">
                           APPLICANTS
                         </p>
@@ -685,8 +686,8 @@ const Jobs = () => {
                 <div>
 
                   <h3 className="
-                    text-xl font-black
-                    text-[#1f2937]
+                    text-lg font-bold
+                    text-gray-900
                   ">
                     Select Project
                   </h3>
@@ -718,6 +719,7 @@ const Jobs = () => {
 
               {/* BODY */}
               <div className="
+                hover-scroll
                 p-6 space-y-3
                 max-h-[450px]
                 overflow-y-auto
@@ -805,7 +807,7 @@ const Jobs = () => {
                       ">
 
                         <h4 className="
-                          font-bold text-[#1f2937]
+                          font-bold text-gray-900
                         ">
                           {project.name}
                         </h4>

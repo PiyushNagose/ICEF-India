@@ -1,19 +1,67 @@
-// ============================
+﻿// ============================
 // FILE: PublicLayout.jsx
 // ============================
 
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Bell, Phone, Mail, MapPin } from "lucide-react";
-import { useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
+import { useEffect, useState } from "react";
+import { getDashboardPath, useAuth } from "../../hooks/useAuth";
 import logo from "../../assets/logo.png";
 
 const PublicLayout = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMainHovering, setIsMainHovering] = useState(false);
+  const [hasScrollablePage, setHasScrollablePage] = useState(false);
+  const [scrollThumb, setScrollThumb] = useState({ height: 0, top: 0 });
   const { user, token } = useAuth();
   const isLoggedIn = !!(user && token);
+  const dashboardPath = getDashboardPath(user);
 
   const location = useLocation();
+
+  useEffect(() => {
+    document.documentElement.classList.add("public-scroll-page");
+    document.body.classList.add("public-scroll-page");
+
+    return () => {
+      document.documentElement.classList.remove("public-scroll-page", "public-main-hover");
+      document.body.classList.remove("public-scroll-page", "public-main-hover");
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateScrollThumb = () => {
+      const doc = document.documentElement;
+      const maxScroll = Math.max(doc.scrollHeight - window.innerHeight, 0);
+      const trackHeight = Math.max(window.innerHeight - 16, 0);
+      setHasScrollablePage(maxScroll > 0);
+      const thumbHeight =
+        maxScroll === 0
+          ? trackHeight
+          : Math.max((window.innerHeight / doc.scrollHeight) * trackHeight, 48);
+      const top =
+        maxScroll === 0
+          ? 8
+          : 8 + (window.scrollY / maxScroll) * (trackHeight - thumbHeight);
+
+      setScrollThumb({ height: thumbHeight, top });
+    };
+
+    updateScrollThumb();
+    window.addEventListener("scroll", updateScrollThumb, { passive: true });
+    window.addEventListener("resize", updateScrollThumb);
+
+    return () => {
+      window.removeEventListener("scroll", updateScrollThumb);
+      window.removeEventListener("resize", updateScrollThumb);
+    };
+  }, []);
+
+  const setMainHover = (isHovering) => {
+    setIsMainHovering(isHovering);
+    document.documentElement.classList.toggle("public-main-hover", isHovering);
+    document.body.classList.toggle("public-main-hover", isHovering);
+  };
 
   const navItems = [
     {
@@ -43,7 +91,7 @@ const PublicLayout = ({ children }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f3efe8] overflow-hidden">
+    <div className="min-h-screen bg-[#f3efe8] overflow-x-hidden flex flex-col">
       {/* TOP HEADER */}
 
       <div className="bg-[#1d1d1d] text-white border-b border-white/10">
@@ -139,7 +187,7 @@ const PublicLayout = ({ children }) => {
               )}
               {isLoggedIn && (
                 <Link
-                  to="/candidate/dashboard"
+                  to={dashboardPath}
                   className="hidden sm:flex h-[42px] px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all shadow-lg shadow-orange-200"
                 >
                   Dashboard
@@ -196,7 +244,8 @@ const PublicLayout = ({ children }) => {
               )}
               {isLoggedIn && (
                 <Link
-                  to="/candidate/dashboard"
+                  to={dashboardPath}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-4 flex h-[46px] bg-[#e46a1d] text-white rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                 >
                   Dashboard
@@ -209,19 +258,48 @@ const PublicLayout = ({ children }) => {
 
       {/* MAIN */}
 
-      <main>{children}</main>
+      <main
+        className="public-content-root flex-1"
+        onMouseEnter={() => setMainHover(true)}
+        onMouseLeave={() => setMainHover(false)}
+        onFocus={() => setMainHover(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setMainHover(false);
+          }
+        }}
+      >
+        {children}
+      </main>
+
+      <div
+        aria-hidden="true"
+        className={`fixed right-1 top-0 z-[80] w-2 pointer-events-none transition-opacity duration-200 ${
+          isMainHovering && hasScrollablePage
+            ? "opacity-100"
+            : "opacity-0"
+        }`}
+      >
+        <div
+          className="absolute right-0 w-1.5 rounded-full bg-white/45 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] backdrop-blur-sm"
+          style={{
+            height: `${scrollThumb.height}px`,
+            transform: `translateY(${scrollThumb.top}px)`,
+          }}
+        />
+      </div>
 
       {/* FOOTER */}
 
-      <footer className="bg-[#1b1b1b] text-white mt-20">
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-14">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      <footer className="bg-[#1b1b1b] text-white mt-12">
+        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
             {/* BRAND */}
 
             <div>
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-[6px] bg-[#e46a1d] flex items-center justify-center">
-                  <span className="text-white font-black text-sm">RP</span>
+                <div className="w-11 h-11 rounded-[6px] bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
+                  <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1.5" />
                 </div>
 
                 <div>
@@ -324,7 +402,7 @@ const PublicLayout = ({ children }) => {
 
           <div className="mt-14 pt-8 border-t border-white/10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <p className="text-white/50 text-[13px]">
-              © 2026 Bihar State Recruitment Board. All Rights Reserved.
+              Â© 2026 Bihar State Recruitment Board. All Rights Reserved.
             </p>
 
             <div className="flex items-center gap-6 text-white/40 text-[12px]">
@@ -357,3 +435,4 @@ const PublicLayout = ({ children }) => {
 };
 
 export default PublicLayout;
+

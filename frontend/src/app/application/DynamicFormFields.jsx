@@ -160,7 +160,9 @@ const DynamicFormFields = () => {
 
   const { mutate: saveDynamicForm, isPending } = useMutation({
     mutationFn: (data) =>
-      candidateService.saveDynamicFormResponses(applicationId, data),
+      candidateService.saveDynamicFormResponses(applicationId, data, {
+        sectionIndex,
+      }),
     onSuccess: () => {
       toast.success("Form responses saved");
       if (location.state?.returnToReview) {
@@ -208,7 +210,14 @@ const DynamicFormFields = () => {
       return;
     }
     if (!validateSection()) return;
-    saveDynamicForm(formData);
+    const allowedKeys = new Set();
+    formSections.forEach((section) => {
+      (section.fields || []).forEach((field) => allowedKeys.add(fieldKey(field)));
+    });
+    const cleanFormData = Object.fromEntries(
+      Object.entries(formData).filter(([key]) => allowedKeys.has(key)),
+    );
+    saveDynamicForm(cleanFormData);
   };
 
   const handleBack = () => {

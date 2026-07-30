@@ -109,13 +109,13 @@ const Projects = () => {
 
   return (
     <AdminLayout title="Projects">
-      <div className="min-h-screen bg-[#f7f4ee] p-5 space-y-5">
+      <div className="min-h-full bg-[#f7f4ee] p-5 space-y-5">
 
         {/* HEADER */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 
           <div>
-            <h1 className="text-3xl font-black text-[#1f2937]">
+            <h1 className="text-2xl font-bold text-gray-900">
               Projects
             </h1>
 
@@ -149,11 +149,11 @@ const Projects = () => {
               className="
                 relative overflow-hidden
                 rounded-[22px]
-                bg-white/90 backdrop-blur-xl
-                border border-white/60
-                shadow-[0_6px_24px_rgba(0,0,0,0.04)]
-                hover:-translate-y-[2px]
-                transition-all duration-300
+                bg-white
+                border border-gray-200
+                shadow-sm
+                hover:-translate-y-0.5
+                transition-all duration-200 ease-out
                 p-4
               "
             >
@@ -166,11 +166,11 @@ const Projects = () => {
               <div className="flex items-center justify-between">
 
                 <div>
-                  <p className="text-[10px] tracking-[0.18em] font-black text-gray-400 mb-2">
+                  <p className="text-xs tracking-normal font-bold text-gray-400 mb-2">
                     {stat.title}
                   </p>
 
-                  <h2 className="text-3xl font-black text-[#1f2937]">
+                  <h2 className="text-3xl font-bold text-gray-900">
                     {Number(stat.value || 0).toLocaleString('en-IN')}
                   </h2>
                 </div>
@@ -191,18 +191,19 @@ const Projects = () => {
 
         {/* TABLE */}
         <div className="
+          flex min-h-[620px] xl:min-h-[calc(100vh_-_300px)] flex-col
           rounded-[24px]
-          bg-white/90 backdrop-blur-xl
-          border border-white/70
-          shadow-[0_6px_24px_rgba(0,0,0,0.04)]
+          bg-white
+          border border-gray-200
+          shadow-sm
           overflow-hidden
         ">
 
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto">
 
             <table className="w-full">
 
-              <thead className="bg-[#f8f8f8] border-b border-gray-100">
+              <thead className="bg-gray-50 border-b border-gray-100">
 
                 <tr>
                   {[
@@ -218,10 +219,10 @@ const Projects = () => {
                       key={head}
                       className="
                         text-left px-5 py-4
-                        text-[10px]
-                        font-black
-                        tracking-[0.15em]
-                        text-gray-400
+                        text-xs
+                        font-semibold
+                        tracking-normal
+                        text-gray-500
                         uppercase
                       "
                     >
@@ -267,7 +268,7 @@ const Projects = () => {
 
                     <td className="px-5 py-5">
 
-                      <div className="font-bold text-[#1f2937]">
+                      <div className="font-bold text-gray-900">
                         {project.name}
                       </div>
 

@@ -61,7 +61,7 @@ const AddPaymentGateway = () => {
 
   return (
     <AdminLayout title="Add Payment Gateway">
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="min-h-full p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/payment-settings')}>
@@ -115,14 +115,14 @@ const AddPaymentGateway = () => {
                     >
                       {gw.short}
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">{gw.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-900">{gw.name}</h3>
                   </div>
 
                   {/* Description */}
                   <p className="text-sm text-gray-600 mb-4 leading-relaxed">{gw.description}</p>
 
                   {/* Tagline */}
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-normal mb-3">
                     {gw.tagline}
                   </p>
 
@@ -178,3 +178,8 @@ const AddPaymentGateway = () => {
 }
 
 export default AddPaymentGateway
+
+
+
+
+

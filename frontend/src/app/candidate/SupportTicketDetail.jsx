@@ -193,16 +193,16 @@ const SupportTicketDetail = () => {
 
   return (
     <CandidateLayout title="Support Ticket">
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 w-full">
         {/* Header */}
-        <div className="flex items-start gap-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
           <button
             onClick={() => navigate("/candidate/support")}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors mt-1 flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold text-gray-800 truncate">
               {ticket.title}
             </h1>
@@ -218,7 +218,7 @@ const SupportTicketDetail = () => {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="col-span-2 flex flex-wrap items-center gap-2 lg:col-span-1 lg:justify-end">
             <Badge
               className={
                 PRIORITY_COLORS[ticket.priority] || "bg-gray-100 text-gray-700"
@@ -235,9 +235,9 @@ const SupportTicketDetail = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 items-start gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] items-start gap-6">
           {/* Main — Conversation */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4 min-w-0">
             {/* Original Issue */}
             <Card>
               <CardHeader>
@@ -247,7 +247,7 @@ const SupportTicketDetail = () => {
                 </h3>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
                   {ticket.description}
                 </p>
                 {ticket.attachments?.length > 0 && (
@@ -282,7 +282,7 @@ const SupportTicketDetail = () => {
               </CardHeader>
               <CardContent className="p-0">
                 {/* Messages */}
-                <div className="min-h-[200px] max-h-[420px] overflow-y-auto p-4 space-y-4">
+                <div className="hover-scroll min-h-[260px] max-h-[clamp(360px,52vh,560px)] overflow-y-auto p-4 space-y-4">
                   {replies.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -304,7 +304,7 @@ const SupportTicketDetail = () => {
                           className={`flex ${isAgent ? "justify-start" : "justify-end"}`}
                         >
                           <div
-                            className={`flex items-start gap-2 max-w-[80%] ${isAgent ? "flex-row" : "flex-row-reverse"}`}
+                            className={`flex items-start gap-2 max-w-[88%] sm:max-w-[78%] min-w-0 ${isAgent ? "flex-row" : "flex-row-reverse"}`}
                           >
                             <div
                               className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -331,7 +331,7 @@ const SupportTicketDetail = () => {
                                 </span>
                               </div>
                               <div
-                                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                                className={`rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                                   isAgent
                                     ? "bg-orange-50 border border-orange-200 text-gray-800 rounded-tl-none"
                                     : "bg-blue-600 text-white rounded-tr-none"
@@ -359,11 +359,11 @@ const SupportTicketDetail = () => {
                   </div>
                 ) : (
                   <div className="p-4 border-t border-gray-100">
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <textarea
                         rows={2}
-                        placeholder="Type your message… (Enter to send, Shift+Enter for new line)"
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
+                        placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
+                        className="min-h-[76px] flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -371,7 +371,7 @@ const SupportTicketDetail = () => {
                       <Button
                         onClick={handleSend}
                         disabled={!replyText.trim() || isSending}
-                        className="bg-orange-600 hover:bg-orange-700 text-white self-end px-4 py-3"
+                        className="bg-orange-600 hover:bg-orange-700 text-white sm:self-end px-4 py-3"
                       >
                         {isSending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -387,7 +387,7 @@ const SupportTicketDetail = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0 lg:sticky lg:top-0">
             {/* Ticket Info */}
             <Card>
               <CardHeader>
@@ -588,7 +588,7 @@ const SupportTicketDetail = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0" />
                     <div>
                       <p className="text-xs font-medium text-gray-800">
@@ -600,7 +600,7 @@ const SupportTicketDetail = () => {
                     </div>
                   </div>
                   {replies.length > 0 && (
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-gray-800">
@@ -613,7 +613,7 @@ const SupportTicketDetail = () => {
                     </div>
                   )}
                   {ticket.resolvedAt && (
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-gray-800">
@@ -626,7 +626,7 @@ const SupportTicketDetail = () => {
                     </div>
                   )}
                   {ticket.closedAt && (
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="w-2 h-2 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-gray-800">

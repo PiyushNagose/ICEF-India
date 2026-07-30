@@ -37,6 +37,7 @@ const roleSchema = new mongoose.Schema(
       support: { type: permissionSchema, default: () => ({}) },
       projects: { type: permissionSchema, default: () => ({}) },
       results: { type: permissionSchema, default: () => ({}) },
+      admitCards: { type: permissionSchema, default: () => ({}) },
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

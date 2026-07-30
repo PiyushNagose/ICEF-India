@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -21,6 +21,7 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import heroBg from "../../assets/herobg.jpg";
 import { jobService } from "../../services/job.service";
 import { getStoredUser } from "../../services/auth.service";
+import { getDashboardPath, isAdminUser, isCandidateUser } from "../../hooks/useAuth";
 import CustomSelect from "../../components/ui/CustomSelect";
 import ShareJobButton from "../../components/ui/ShareJobButton";
 
@@ -46,7 +47,7 @@ const Home = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const [tickerIdx, setTickerIdx] = useState(0);
 
-  // ── Detect logged-in candidate's state ───────────────────────
+  // â”€â”€ Detect logged-in candidate's state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const storedUser = getStoredUser();
   const candidateState = storedUser?.state || "";
 
@@ -68,11 +69,13 @@ const Home = () => {
     navigate("/eligible-jobs", { state: eligibilityForm });
   };
 
-  // Apply Now — redirect to login if not logged in as candidate
+  // Apply Now â€” redirect to login if not logged in as candidate
   const handleApplyNow = (jobId) => {
     const user = getStoredUser();
-    if (user && user.role === "candidate") {
+    if (isCandidateUser(user)) {
       navigate(`/candidate/jobs/${jobId}`);
+    } else if (isAdminUser(user)) {
+      navigate("/admin/dashboard");
     } else {
       navigate("/auth/candidate-login", {
         state: { jobId, redirectTo: `/candidate/jobs/${jobId}` },
@@ -82,8 +85,8 @@ const Home = () => {
 
   const handleNewUser = () => {
     const user = getStoredUser();
-    if (user && user.role === "candidate") {
-      navigate("/");
+    if (user) {
+      navigate(getDashboardPath(user));
     } else {
       navigate("/auth/register");
     }
@@ -91,8 +94,8 @@ const Home = () => {
 
   const handleLogin = () => {
     const user = getStoredUser();
-    if (user && user.role === "candidate") {
-      navigate("/candidate/dashboard");
+    if (user) {
+      navigate(getDashboardPath(user));
     } else {
       navigate("/auth/candidate-login");
     }
@@ -125,31 +128,31 @@ const Home = () => {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f3efe8]">
+      <div className="min-h-[calc(100vh-122px)] bg-[#f3efe8]">
         {/* HERO */}
 
         <section
-          className="relative bg-cover bg-center overflow-hidden h-[88vh]"
+          className="relative bg-cover bg-center overflow-hidden min-h-[560px] lg:min-h-[calc(100vh-110px)]"
           style={{
             backgroundImage: `url(${
               stateBanner?.bannerImage ? stateBanner.bannerImage : heroBg
             })`,
           }}
         >
-          {/* OVERLAY — lighter when CMS image is set so it shows clearly */}
+          {/* OVERLAY â€” lighter when CMS image is set so it shows clearly */}
           <div className={`absolute inset-0 ${stateBanner?.bannerImage ? 'bg-black/35' : 'bg-black/55'}`} />
           <div className={`absolute inset-0 bg-gradient-to-r ${stateBanner?.bannerImage ? 'from-black/50 via-black/20 to-transparent' : 'from-black/70 via-black/40 to-black/20'}`} />
 
-          {/* ── CMS State personalisation (tag + ticker) ── */}
+          {/* â”€â”€ CMS State personalisation (tag + ticker) â”€â”€ */}
           {stateBanner && (
             <>
               {/* State tag top-left */}
               <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-orange-500/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
                 <MapPin className="w-3.5 h-3.5" />
-                {stateBanner.state} — Personalised
+                {stateBanner.state} â€” Personalised
               </div>
 
-              {/* Announcements ticker — bottom of hero */}
+              {/* Announcements ticker â€” bottom of hero */}
               {announcements.length > 0 && (
                 <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/70 backdrop-blur-sm border-t border-white/10">
                   <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-3 py-2">
@@ -197,16 +200,16 @@ const Home = () => {
             </>
           )}
 
-          <div className="relative max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 lg:pt-14 pb-10">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-center h-[78vh]">
+          <div className="relative max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-8 lg:gap-10 items-center lg:min-h-[calc(100vh-220px)]">
               {/* LEFT */}
 
-              <div className="max-w-[560px]">
+              <div className="max-w-[760px] flex flex-col gap-8 lg:gap-[3.25rem] xl:gap-14 lg:self-center">
                 <motion.h1
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, ease: "easeOut" }}
-                  className="text-[28px] sm:text-[42px] lg:text-[52px] leading-[0.95] tracking-[-1.5px] font-black text-white"
+                  className="text-[28px] sm:text-[42px] lg:text-[44px] xl:text-[48px] leading-[1.02] tracking-[-1.5px] font-black text-white"
                 >
                   {stateBanner?.heroTitle
                     ? stateBanner.heroTitle
@@ -218,7 +221,7 @@ const Home = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-                  className="mt-5 text-[13px] sm:text-[15px] leading-7 text-white/80 max-w-[500px]"
+                  className="text-[13px] sm:text-[15px] leading-6 text-white/80 max-w-[560px]"
                 >
                   {stateBanner?.heroSubtitle ||
                     "Transparent, accessible, and reliable government job opportunities for every qualified citizen. Find your role today."}
@@ -228,7 +231,7 @@ const Home = () => {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
-                  className="mt-7 inline-flex items-center gap-2 text-orange-300 text-[12px] font-bold"
+                  className="inline-flex items-center gap-2 text-orange-300 text-[12px] font-bold"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   Official Government Employment Gateway
@@ -241,7 +244,7 @@ const Home = () => {
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
-                className="bg-[#f8f5f0] rounded-[6px] border border-[#d8d0c6] shadow-[0_25px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                className="h-fit lg:self-center bg-[#f8f5f0] rounded-[6px] border border-[#d8d0c6] shadow-[0_25px_50px_rgba(0,0,0,0.35)] overflow-hidden"
               >
                 <div className="px-6 pt-6">
                   <h3 className="text-[20px] tracking-[-0.5px] font-black text-[#1f1d1b]">
@@ -365,7 +368,7 @@ const Home = () => {
 
         {/* QUICK ACTIONS */}
 
-        <section className="py-12">
+        <section className="py-10 lg:py-12">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
@@ -406,7 +409,7 @@ const Home = () => {
                   viewport={{ once: true, amount: 0.2 }}
                   whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   onClick={card.onClick}
-                  className="bg-white rounded-[8px] border border-[#e0d7cd] p-7 text-center cursor-pointer"
+                  className="h-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 text-center cursor-pointer flex flex-col"
                 >
                   <div
                     className={`w-14 h-14 rounded-full ${card.bg} flex items-center justify-center mx-auto`}
@@ -419,7 +422,7 @@ const Home = () => {
                   <p className="mt-3 text-[#6d6761] text-[14px] leading-7">
                     {card.desc}
                   </p>
-                  <button className="mt-5 text-[#e46a1d] text-[12px] uppercase tracking-[0.12em] font-black flex items-center gap-1.5 mx-auto">
+                  <button className="mt-auto pt-5 text-[#e46a1d] text-[12px] uppercase tracking-[0.12em] font-black flex items-center gap-1.5 mx-auto">
                     {card.action}
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -431,7 +434,7 @@ const Home = () => {
 
         {/* FEATURED JOBS */}
 
-        <section className="pb-14">
+        <section className="pb-12">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* HEADER */}
 
@@ -440,7 +443,7 @@ const Home = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, amount: 0.2 }}
-              className="flex items-center justify-between mb-8"
+              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6"
             >
               <div>
                 <h2 className="text-[28px] font-black tracking-[-1px] text-[#1f1d1b]">
@@ -463,7 +466,7 @@ const Home = () => {
 
             {/* CARDS */}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
               {jobsLoading && (
                 <div className="col-span-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 text-[#6d6761]">
                   Loading active opportunities...
@@ -485,7 +488,7 @@ const Home = () => {
                   whileInView="visible"
                   viewport={{ once: true, amount: 0.15 }}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
-                  className="bg-white rounded-[8px] border border-[#e0d7cd] p-6"
+                  className="h-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 flex flex-col"
                 >
                   {/* TOP */}
 
@@ -558,7 +561,7 @@ const Home = () => {
 
                   {/* BUTTONS */}
 
-                  <div className="flex gap-4 mt-7">
+                  <div className="flex gap-4 mt-auto pt-7">
                     <button
                       onClick={() => navigate(`/jobs/${job._id}`)}
                       className="flex-1 h-[46px] border border-[#e0d7cd] hover:bg-[#f6f1ea] text-[#1f1d1b] rounded-[4px] uppercase tracking-[0.12em] text-[11px] font-black transition-all"
@@ -581,14 +584,14 @@ const Home = () => {
 
         {/* HELPLINE */}
 
-        <section className="pb-14">
+        <section className="pb-12">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               variants={fadeUp}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, amount: 0.2 }}
-              className="bg-[#e46a1d] rounded-[8px] px-7 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 text-white"
+              className="bg-[#e46a1d] rounded-[8px] px-6 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 text-white"
             >
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 rounded-full bg-white/15 flex items-center justify-center">
@@ -621,7 +624,7 @@ const Home = () => {
 
         {/* FAQ */}
 
-        <section className="pb-20">
+        <section className="pb-14">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               variants={fadeUp}
@@ -697,3 +700,5 @@ const Home = () => {
 };
 
 export default Home;
+
+

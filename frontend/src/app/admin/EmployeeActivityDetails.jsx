@@ -149,7 +149,7 @@ const EmployeeActivityDetails = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <h2 className="text-xl font-bold text-gray-900">{empName}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{empName}</h2>
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> ACTIVE NOW
                   </span>
@@ -190,10 +190,10 @@ const EmployeeActivityDetails = () => {
           ].map(({ label, value, sub, subColor, icon: Icon, border }) => (
             <div key={label} className={`bg-white rounded-2xl border border-gray-200 border-t-4 ${border} p-4 shadow-sm`}>
               <div className="flex items-start justify-between mb-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal leading-tight">{label}</p>
                 <Icon className="w-4 h-4 text-gray-300 flex-shrink-0" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
+              <p className="text-3xl font-bold text-gray-900">{value}</p>
               {sub && <p className={`text-xs font-medium mt-0.5 ${subColor || 'text-gray-400'}`}>{sub}</p>}
             </div>
           ))}
@@ -224,12 +224,12 @@ const EmployeeActivityDetails = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="admin-data-scroll hover-scroll overflow-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Module / Project','Action','Details','IP Address','Date & Time'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -258,7 +258,7 @@ const EmployeeActivityDetails = () => {
                         </div>
                       </td>
                       <td className="py-4 px-5">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${acfg.bg} ${acfg.text}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '—'}
                         </span>
                       </td>
@@ -271,7 +271,7 @@ const EmployeeActivityDetails = () => {
                         <span className="text-xs font-mono text-gray-500">{log.ipAddress || '—'}</span>
                       </td>
                       <td className="py-4 px-5">
-                        <p className="text-sm font-medium text-gray-800">
+                        <p className="text-sm font-medium text-gray-900">
                           {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
@@ -288,7 +288,7 @@ const EmployeeActivityDetails = () => {
         </div>
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-2 gap-5">
           {/* Activity Chart */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Activity Intensity (Last 7 Days)</h3>
@@ -343,3 +343,8 @@ const EmployeeActivityDetails = () => {
 }
 
 export default EmployeeActivityDetails
+
+
+
+
+

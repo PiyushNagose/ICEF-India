@@ -16,7 +16,10 @@ const projectSchema = new mongoose.Schema(
       default: "Upcoming",
     },
     startDate: { type: Date },
+    // endDate is the recruitment/project closure date. It should cover the
+    // entire lifecycle through result publication and final closure.
     endDate: { type: Date },
+    closureDate: { type: Date },
 
     // Aggregated stats (updated via background jobs)
     totalJobs: { type: Number, default: 0 },
@@ -35,5 +38,11 @@ const projectSchema = new mongoose.Schema(
 projectSchema.index({ status: 1 });
 projectSchema.index({ department: 1 });
 projectSchema.index({ state: 1 });
+
+projectSchema.pre("validate", function syncProjectClosure(next) {
+  if (this.closureDate && !this.endDate) this.endDate = this.closureDate;
+  if (this.endDate && !this.closureDate) this.closureDate = this.endDate;
+  next();
+});
 
 module.exports = mongoose.model("Project", projectSchema);

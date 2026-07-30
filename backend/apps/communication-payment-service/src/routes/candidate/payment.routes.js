@@ -32,6 +32,8 @@ router.post(
 );
 
 // ── Authenticated routes ──────────────────────────────────────
+router.use(express.json({ limit: "10mb" }));
+router.use(express.urlencoded({ extended: true }));
 router.use(authenticate, authorize("candidate"));
 
 router.post("/initiate", validate(initiatePaymentSchema), paymentController.initiatePayment);

@@ -191,14 +191,14 @@ const CandidateDashboard = () => {
         <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-6 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-2xl font-bold text-white">
                 Welcome back,{" "}
                 {user?.fullName?.split(" ")[0] ||
                   user?.email?.split("@")[0] ||
                   "Candidate"}{" "}
                 👋
               </h1>
-              <p className="text-orange-100 text-sm mt-1">
+              <p className="text-white/90 text-sm mt-1">
                 {draftCount > 0
                   ? `You have ${draftCount} draft application${draftCount > 1 ? "s" : ""} waiting to be completed.`
                   : "Track your applications and stay updated on recruitment news."}
@@ -219,7 +219,7 @@ const CandidateDashboard = () => {
           {completionPct < 100 && (
             <div className="mt-4 pt-4 border-t border-orange-500/40">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-orange-100">
+                <span className="text-xs text-white/90">
                   Profile Completion
                 </span>
                 <span className="text-xs font-bold text-white">
@@ -234,7 +234,7 @@ const CandidateDashboard = () => {
               </div>
               <Link
                 to="/candidate/profile"
-                className="text-xs text-orange-200 hover:text-white mt-1.5 inline-flex items-center gap-1"
+                className="text-xs text-white/90 hover:text-white mt-1.5 inline-flex items-center gap-1"
               >
                 Complete your profile <ChevronRight className="w-3 h-3" />
               </Link>
@@ -271,9 +271,9 @@ const CandidateDashboard = () => {
         </div>
 
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 items-start gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 items-stretch gap-6">
           {/* Applications — 2/3 width */}
-          <Card className="lg:col-span-2 overflow-hidden">
+          <Card className="lg:col-span-2 overflow-hidden h-full flex flex-col">
             <CardHeader className="p-5 pb-4 border-b border-gray-100">
               <div className="flex justify-between items-center gap-4">
                 <h3 className="font-semibold text-gray-800">My Applications</h3>
@@ -285,7 +285,7 @@ const CandidateDashboard = () => {
                 </Link>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto customer-data-scroll">
               {isLoading && (
                 <div className="p-6 space-y-3">
                   {[1, 2, 3].map((i) => (
@@ -386,9 +386,9 @@ const CandidateDashboard = () => {
           </Card>
 
           {/* Right column */}
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-5 min-w-0">
             {/* Active Jobs */}
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden h-full flex flex-col">
               <CardHeader className="p-5 pb-4 border-b border-gray-100">
                 <div className="flex justify-between items-center gap-3">
                   <h3 className="font-semibold text-gray-800">Active Jobs</h3>
@@ -400,7 +400,7 @@ const CandidateDashboard = () => {
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto">
                 {jobs.length === 0 && (
                   <div className="min-h-[132px] px-5 py-6 text-center flex flex-col items-center justify-center">
                     <Briefcase className="w-8 h-8 text-gray-300 mb-2" />
@@ -413,7 +413,7 @@ const CandidateDashboard = () => {
                     <Link
                       key={job._id}
                       to={`/jobs/${job._id}`}
-                      className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 last:border-0 hover:bg-orange-50 transition-colors group"
+                      className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-3 px-5 py-3.5 border-b border-gray-100 last:border-0 hover:bg-orange-50 transition-colors group"
                     >
                       <div className="min-w-0">
                         <p className="font-medium text-gray-800 text-sm truncate group-hover:text-orange-600 transition-colors">
@@ -425,7 +425,7 @@ const CandidateDashboard = () => {
                       </div>
                       {days !== null && (
                         <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
+                          className={`justify-self-end text-center min-w-10 text-xs font-bold px-2 py-0.5 rounded-full ${
                             days < 0
                               ? "bg-red-100 text-red-700"
                               : days <= 7
@@ -443,7 +443,7 @@ const CandidateDashboard = () => {
             </Card>
 
             {/* Notifications */}
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden h-full flex flex-col">
               <CardHeader className="p-5 pb-4 border-b border-gray-100">
                 <div className="flex justify-between items-center gap-3">
                   <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -462,7 +462,7 @@ const CandidateDashboard = () => {
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto">
                 {unreadNotifications.length === 0 && (
                   <div className="min-h-[132px] px-5 py-6 text-center flex flex-col items-center justify-center">
                     <Bell className="w-8 h-8 text-gray-300 mb-2" />
@@ -508,7 +508,7 @@ const CandidateDashboard = () => {
             </Card>
 
             {/* Quick links */}
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden h-full flex flex-col">
               <CardHeader className="p-5 pb-4 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-800">Quick Actions</h3>
               </CardHeader>

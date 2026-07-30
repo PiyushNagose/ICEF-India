@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { Mail, MapPin, Phone, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -33,7 +33,7 @@ const Contact = () => (
       description="Use the official support channels for application, payment, document, and portal access queries. Logged-in candidates can also raise support tickets from their dashboard."
     />
 
-    <section className={`${publicContainer} py-10`}>
+    <section className={`${publicContainer} py-8 lg:py-10`}>
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
         <div className="grid gap-5 md:grid-cols-2">
           {contactCards.map((card, i) => (
@@ -73,3 +73,5 @@ const Contact = () => (
 );
 
 export default Contact;
+
+

@@ -1,6 +1,6 @@
 import axios from "axios";
 import toast from "react-hot-toast";
-import { API_BASE_URL, STORAGE_KEYS } from "./config";
+import { API_BASE_URL, AUTH_SESSION_EVENT, STORAGE_KEYS } from "./config";
 
 const getStoredToken = () => localStorage.getItem(STORAGE_KEYS.accessToken);
 const getStoredRefreshToken = () =>
@@ -15,12 +15,15 @@ const clearSession = () => {
   localStorage.removeItem(STORAGE_KEYS.accessToken);
   localStorage.removeItem(STORAGE_KEYS.refreshToken);
   localStorage.removeItem(STORAGE_KEYS.user);
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_EVENT));
 };
 
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;
   if (!window.location.pathname.startsWith("/auth")) {
-    window.location.href = "/auth/candidate-login";
+    window.location.href = window.location.pathname.startsWith("/admin")
+      ? "/auth/admin-login"
+      : "/auth/candidate-login";
   }
 };
 
@@ -56,8 +59,10 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
-    const isAuthEndpoint = originalRequest?.url?.startsWith("/auth/");
+    const requestUrl = originalRequest?.url || "";
+    const isAuthEndpoint = requestUrl.startsWith("/auth/");
     const isRefreshEndpoint = originalRequest?.url?.includes("/auth/refresh-token");
+    const canRefreshAuthEndpoint = requestUrl === "/auth/me";
     const message = resolveErrorMessage(error);
 
     if (isRequestCanceled(error)) {
@@ -72,7 +77,7 @@ apiClient.interceptors.response.use(
     if (
       status === 401 &&
       !originalRequest?._retry &&
-      !isAuthEndpoint &&
+      (!isAuthEndpoint || canRefreshAuthEndpoint) &&
       !isRefreshEndpoint
     ) {
       originalRequest._retry = true;
@@ -102,11 +107,20 @@ apiClient.interceptors.response.use(
         if (newRefreshToken) {
           localStorage.setItem(STORAGE_KEYS.refreshToken, newRefreshToken);
         }
+        window.dispatchEvent(new CustomEvent(AUTH_SESSION_EVENT));
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return apiClient(originalRequest);
       } catch {
         clearSession();
         redirectToLogin();
+        return Promise.reject({
+          status: 401,
+          message: "Session expired. Please login again.",
+          errors: [],
+          toastShown: true,
+          raw: error,
+        });
       }
     }
 
@@ -115,15 +129,18 @@ apiClient.interceptors.response.use(
       if (now > rateLimitToastUntil) {
         toast.error("Too many requests. Please wait a moment and try again.");
         rateLimitToastUntil = now + 15000;
+        error.__toastShown = true;
       }
     } else if (status !== 401 && status !== 404 && status !== 409) {
       toast.error(message);
+      error.__toastShown = true;
     }
 
     return Promise.reject({
       status,
       message,
       errors: error.response?.data?.errors || [],
+      toastShown: error.__toastShown === true,
       raw: error,
     });
   },

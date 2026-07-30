@@ -58,10 +58,10 @@ export const candidateService = {
     );
     return unwrapData(response);
   },
-  async saveDynamicFormResponses(id, data) {
+  async saveDynamicFormResponses(id, data, meta = {}) {
     const response = await apiClient.put(
       `/candidate/applications/${id}/form-responses`,
-      { formResponses: data },
+      { formResponses: data, ...meta },
     );
     return unwrapData(response);
   },
@@ -185,5 +185,15 @@ export const candidateService = {
       `/candidate/payments/${transactionId}`,
     );
     return unwrapData(response);
+  },
+  async getMyAdmitCards() {
+    const response = await apiClient.get("/candidate/admit-cards");
+    return unwrapData(response);
+  },
+  getAdmitCardHtmlUrl(id) {
+    return `/api/candidate/admit-cards/${id}/html`;
+  },
+  getAdmitCardPdfUrl(id) {
+    return `/api/candidate/admit-cards/${id}/pdf`;
   },
 };

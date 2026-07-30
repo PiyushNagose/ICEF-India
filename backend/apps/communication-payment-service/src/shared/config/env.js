@@ -1,5 +1,5 @@
 require("dotenv").config({
-  path: require("path").join(__dirname, "../../../../.env"),
+  path: require("path").join(__dirname, "../../../../../.env"),
 });
 
 const envName = process.env.NODE_ENV || "development";
@@ -36,6 +36,12 @@ const env = {
     "WEBHOOK_BASE_URL",
     process.env.CLIENT_URL || "http://localhost:5173",
   ),
+
+  // Razorpay
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || process.env.TEST_API_KEY,
+  RAZORPAY_KEY_SECRET:
+    process.env.RAZORPAY_KEY_SECRET || process.env.TEST_SECRET_KEY,
+  RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
 
   // Redis
   REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",

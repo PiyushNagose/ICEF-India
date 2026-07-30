@@ -106,6 +106,137 @@ export const adminService = {
     return unwrapData(response);
   },
 
+  // ── Exams / Admit Cards ───────────────────────────────────
+  async getExamCenters(params = {}) {
+    const response = await apiClient.get("/admin/exams/centers", { params });
+    return unwrapData(response);
+  },
+  async createExamCenter(data) {
+    const response = await apiClient.post("/admin/exams/centers", data);
+    return unwrapData(response);
+  },
+  async getExamCenter(id) {
+    const response = await apiClient.get(`/admin/exams/centers/${id}`);
+    return unwrapData(response);
+  },
+  async updateExamCenter(id, data) {
+    const response = await apiClient.put(`/admin/exams/centers/${id}`, data);
+    return unwrapData(response);
+  },
+  async getExamRooms(centerId) {
+    const response = await apiClient.get(`/admin/exams/centers/${centerId}/rooms`);
+    return unwrapData(response);
+  },
+  async createExamRoom(centerId, data) {
+    const response = await apiClient.post(`/admin/exams/centers/${centerId}/rooms`, data);
+    return unwrapData(response);
+  },
+  async updateExamRoom(roomId, data) {
+    const response = await apiClient.put(`/admin/exams/rooms/${roomId}`, data);
+    return unwrapData(response);
+  },
+  async getExamSchedules(params = {}) {
+    const response = await apiClient.get("/admin/exams/schedules", { params });
+    return unwrapData(response);
+  },
+  async createExamSchedule(data) {
+    const response = await apiClient.post("/admin/exams/schedules", data);
+    return unwrapData(response);
+  },
+  async getExamSchedule(id) {
+    const response = await apiClient.get(`/admin/exams/schedules/${id}`);
+    return unwrapData(response);
+  },
+  async updateExamSchedule(id, data) {
+    const response = await apiClient.put(`/admin/exams/schedules/${id}`, data);
+    return unwrapData(response);
+  },
+  async getExamScheduleStats(id) {
+    const response = await apiClient.get(`/admin/exams/schedules/${id}/stats`);
+    return unwrapData(response);
+  },
+  async previewExamAllocation(id, data = {}) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/preview`, data);
+    return unwrapData(response);
+  },
+  async runExamAllocation(id, data = {}) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/run`, data);
+    return unwrapData(response);
+  },
+  async queueExamAllocation(id, data = {}) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/run-job`, data);
+    return unwrapData(response);
+  },
+  async lockExamAllocation(id) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/lock`);
+    return unwrapData(response);
+  },
+  async getExamAllocations(id, params = {}) {
+    const response = await apiClient.get(`/admin/exams/schedules/${id}/allocations`, { params });
+    return unwrapData(response);
+  },
+  async generateAdmitCards(id) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/generate`);
+    return unwrapData(response);
+  },
+  async queueAdmitCardGeneration(id) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/generate-job`);
+    return unwrapData(response);
+  },
+  async publishAdmitCards(id) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/publish`);
+    return unwrapData(response);
+  },
+  async unpublishAdmitCards(id, reason) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/unpublish`, { reason });
+    return unwrapData(response);
+  },
+  async regenerateAdmitCards(id, reason) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/regenerate`, { reason });
+    return unwrapData(response);
+  },
+  async getScheduleAdmitCards(id, params = {}) {
+    const response = await apiClient.get(`/admin/exams/schedules/${id}/admit-cards`, { params });
+    return unwrapData(response);
+  },
+  getAdminAdmitCardHtmlUrl(id) {
+    return `/api/admin/exams/admit-cards/${id}/html`;
+  },
+  getAdminAdmitCardPdfUrl(id) {
+    return `/api/admin/exams/admit-cards/${id}/pdf`;
+  },
+  getAttendanceSheetHtmlUrl(id) {
+    return `/api/admin/exams/schedules/${id}/attendance-sheet/html`;
+  },
+  getAttendanceSheetPdfUrl(id) {
+    return `/api/admin/exams/schedules/${id}/attendance-sheet/pdf`;
+  },
+  getCenterAttendanceSheetHtmlUrl(id, centerId) {
+    return `/api/admin/exams/schedules/${id}/attendance-sheet/html?centerId=${encodeURIComponent(centerId)}`;
+  },
+  getCenterAttendanceSheetPdfUrl(id, centerId) {
+    return `/api/admin/exams/schedules/${id}/attendance-sheet/pdf?centerId=${encodeURIComponent(centerId)}`;
+  },
+  async queueBulkAdmitCards(id, data = {}) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/bulk/admit-cards`, data);
+    return unwrapData(response);
+  },
+  async queueBulkAttendance(id, data = {}) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/bulk/attendance`, data);
+    return unwrapData(response);
+  },
+  async getBulkExamJob(jobId) {
+    const response = await apiClient.get(`/admin/exams/jobs/${jobId}`);
+    return unwrapData(response);
+  },
+  async retryBulkExamJob(jobId) {
+    const response = await apiClient.post(`/admin/exams/jobs/${jobId}/retry`);
+    return unwrapData(response);
+  },
+  getBulkExamJobDownloadUrl(jobId) {
+    return `/api/admin/exams/jobs/${jobId}/download`;
+  },
+
   // ── Employees ─────────────────────────────────────────────
   async getEmployees(params = {}) {
     const response = await apiClient.get("/admin/employees", { params });

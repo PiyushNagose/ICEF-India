@@ -4,7 +4,7 @@ const Card = ({ className, children, ...props }) => {
   return (
     <div
       className={cn(
-        'bg-surface rounded-2xl shadow-soft border border-border',
+        'card bg-surface rounded-2xl shadow-soft border border-border min-w-0 overflow-hidden',
         className
       )}
       {...props}
@@ -28,7 +28,7 @@ const CardHeader = ({ className, children, ...props }) => {
 const CardContent = ({ className, children, ...props }) => {
   return (
     <div
-      className={cn('p-6', className)}
+      className={cn('p-6 min-w-0', className)}
       {...props}
     >
       {children}

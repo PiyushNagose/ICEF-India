@@ -10,6 +10,7 @@ import {
   CreditCard,
   FolderOpen,
   Layers,
+  FileBadge,
   X
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -21,6 +22,7 @@ const menuItems = [
   { icon: FolderOpen,      label: 'Projects',            path: '/admin/projects' },
   { icon: Briefcase,       label: 'Jobs',                path: '/admin/jobs' },
   { icon: Users,           label: 'Applications',        path: '/admin/applications' },
+  { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards' },
   { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics' },
   { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs' },
   { icon: HeadphonesIcon,  label: 'Support',             path: '/admin/support' },
@@ -37,19 +39,19 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
     <div className="bg-white border-r border-orange-100 h-full flex flex-col shadow-sm overflow-hidden">
       {/* Logo */}
       <div className={cn(
-        'flex items-center border-b border-orange-100 bg-white flex-shrink-0',
-        isCollapsed && !isMobile ? 'p-3 justify-center' : 'p-4'
+        'flex h-[72px] items-center border-b border-orange-100 bg-white flex-shrink-0',
+        isCollapsed && !isMobile ? 'justify-center px-3' : 'justify-center px-5'
       )}>
         {isCollapsed && !isMobile ? (
           <Link to="/admin/dashboard">
-            <div className="w-9 h-9 rounded-lg bg-[#1f1d1b] flex items-center justify-center p-1.5">
-              <img src={logo} alt="Logo" className="w-full h-full object-contain" />
+            <div className="w-9 h-9 rounded-lg bg-[#1f1d1b] flex items-center justify-center p-1.5 overflow-hidden">
+              <img src={logo} alt="ICEF India" className="w-full h-full object-contain" />
             </div>
           </Link>
         ) : (
-          <Link to="/admin/dashboard" className="flex items-center flex-1 min-w-0">
-            <div className="h-10 px-4 rounded-lg bg-[#1f1d1b] inline-flex items-center justify-center">
-              <img src={logo} alt="Recruitment Portal" className="h-7 w-auto object-contain" />
+          <Link to="/admin/dashboard" className="flex h-full items-center justify-center min-w-0">
+            <div className="h-[50px] w-[126px] rounded-lg bg-[#1f1d1b] inline-flex items-center justify-center px-3">
+              <img src={logo} alt="ICEF India" className="max-h-8 max-w-full object-contain" />
             </div>
           </Link>
         )}
@@ -86,7 +88,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
               onClick={isMobile ? onClose : undefined}
               title={isCollapsed && !isMobile ? item.label : undefined}
               className={cn(
-                'flex items-center rounded-lg transition-all duration-150 group relative',
+                'flex items-center rounded-lg transition-all duration-200 ease-out group relative',
                 isCollapsed && !isMobile
                   ? 'px-2 py-2.5 justify-center'
                   : 'px-3 py-2.5 space-x-3',

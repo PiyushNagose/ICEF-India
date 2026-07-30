@@ -16,11 +16,18 @@ import {
 const JobDocuments = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('project')
+  const savedDraft = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    } catch {
+      return {}
+    }
+  })()
+  const projectId = searchParams.get('project') || savedDraft.projectId || null
   const returnToReview = searchParams.get('returnTo') === 'review'
   
   const [documents, setDocuments] = useState(() => {
-    const saved = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
+    const saved = savedDraft
     if (saved.documentRequirements?.length) {
       return saved.documentRequirements.map((doc, index) => ({
         id: index + 1,
@@ -122,11 +129,11 @@ const JobDocuments = () => {
   return (
     <AdminLayout title="Create Job - Documents">
       <div className="p-4 sm:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Create Job Posting</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create Job Posting</h1>
               <p className="text-gray-500 text-sm mt-0.5">Step 4 of 6: Required Documents</p>
             </div>
           </div>
@@ -140,7 +147,7 @@ const JobDocuments = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <FileText className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Document Requirements</h3>
+                  <h3 className="font-semibold text-gray-900">Document Requirements</h3>
                 </div>
                 <Button
                   onClick={() => setShowAddForm(true)}
@@ -157,7 +164,7 @@ const JobDocuments = () => {
               {showAddForm && (
                 <div className="p-4 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-800">New Document</h4>
+                    <h4 className="font-medium text-gray-900">New Document</h4>
                     <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
                       <X className="w-4 h-4" />
                     </Button>
@@ -308,3 +315,8 @@ const JobDocuments = () => {
 }
 
 export default JobDocuments
+
+
+
+
+

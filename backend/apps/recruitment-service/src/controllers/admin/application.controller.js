@@ -84,6 +84,8 @@ const getApplications = asyncHandler(async (req, res) => {
       $match: {
         $or: [
           { applicationId: new RegExp(search, "i") },
+          { "personalDetails.fullName": new RegExp(search, "i") },
+          { "personalDetails.registeredMobile": new RegExp(search, "i") },
           { "candidate.fullName": new RegExp(search, "i") },
           { "candidate.email": new RegExp(search, "i") },
           { "job.title": new RegExp(search, "i") },
@@ -112,6 +114,7 @@ const getApplications = asyncHandler(async (req, res) => {
       paymentStatus: 1,
       documentStatus: 1,
       totalFee: 1,
+      personalDetails: 1,
       submittedAt: 1,
       createdAt: 1,
       "job.title": 1,

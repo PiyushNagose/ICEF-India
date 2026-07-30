@@ -144,7 +144,7 @@ const SupportTicketDetails = () => {
   if (isLoading)
     return (
       <AdminLayout title="Ticket Details">
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-full">
           <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
         </div>
       </AdminLayout>
@@ -174,7 +174,7 @@ const SupportTicketDetails = () => {
 
   return (
     <AdminLayout title="Ticket Details">
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="min-h-full p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -212,7 +212,7 @@ const SupportTicketDetails = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Ticket Info */}
@@ -249,13 +249,13 @@ const SupportTicketDetails = () => {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Created</p>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-medium text-gray-900">
                       {formatTime(ticket.createdAt)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Last Updated</p>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-medium text-gray-900">
                       {formatTime(ticket.updatedAt)}
                     </p>
                   </div>
@@ -268,7 +268,7 @@ const SupportTicketDetails = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Conversation</h3>
+                  <h3 className="font-semibold text-gray-900">Conversation</h3>
                   <span className="text-sm text-gray-500">
                     ({replies.length} messages)
                   </span>
@@ -276,7 +276,7 @@ const SupportTicketDetails = () => {
               </CardHeader>
               <CardContent className="p-0">
                 {/* Messages */}
-                <div className="max-h-96 overflow-y-auto p-6 space-y-4">
+                <div className="hover-scroll max-h-96 overflow-y-auto p-6 space-y-4">
                   {replies.length === 0 ? (
                     <p className="text-gray-500 text-sm text-center py-4">
                       No messages yet.
@@ -383,7 +383,7 @@ const SupportTicketDetails = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <User className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">
+                  <h3 className="font-semibold text-gray-900">
                     Candidate Info
                   </h3>
                 </div>
@@ -413,7 +413,7 @@ const SupportTicketDetails = () => {
             {/* Actions */}
             <Card>
               <CardHeader>
-                <h3 className="font-semibold text-gray-800">Update Ticket</h3>
+                <h3 className="font-semibold text-gray-900">Update Ticket</h3>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -485,7 +485,7 @@ const SupportTicketDetails = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Edit3 className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">
+                  <h3 className="font-semibold text-gray-900">
                     Linked Application
                   </h3>
                 </div>
@@ -502,13 +502,13 @@ const SupportTicketDetails = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-xs text-gray-500">Status</p>
-                        <p className="text-sm font-medium text-gray-800">
+                        <p className="text-sm font-medium text-gray-900">
                           {linkedApplication.status}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Payment</p>
-                        <p className="text-sm font-medium text-gray-800">
+                        <p className="text-sm font-medium text-gray-900">
                           {linkedApplication.paymentStatus}
                         </p>
                       </div>
@@ -561,7 +561,7 @@ const SupportTicketDetails = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">
+                  <h3 className="font-semibold text-gray-900">
                     Payment Information
                   </h3>
                 </div>
@@ -577,7 +577,7 @@ const SupportTicketDetails = () => {
                     </div>
                     <div className="flex justify-between gap-3">
                       <span className="text-xs text-gray-500">Transaction</span>
-                      <span className="text-xs font-mono text-gray-800">
+                      <span className="text-xs font-mono text-gray-900">
                         {linkedPayment.transactionId}
                       </span>
                     </div>
@@ -614,7 +614,7 @@ const SupportTicketDetails = () => {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-800">Timeline</h3>
+                  <h3 className="font-semibold text-gray-900">Timeline</h3>
                 </div>
               </CardHeader>
               <CardContent>
@@ -622,7 +622,7 @@ const SupportTicketDetails = () => {
                   <div className="flex gap-3">
                     <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0" />
                     <div>
-                      <p className="text-xs font-medium text-gray-800">
+                      <p className="text-xs font-medium text-gray-900">
                         Ticket Created
                       </p>
                       <p className="text-xs text-gray-500">
@@ -634,7 +634,7 @@ const SupportTicketDetails = () => {
                     <div className="flex gap-3">
                       <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-medium text-gray-800">
+                        <p className="text-xs font-medium text-gray-900">
                           Assigned
                         </p>
                         <p className="text-xs text-gray-500">
@@ -647,7 +647,7 @@ const SupportTicketDetails = () => {
                     <div className="flex gap-3">
                       <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-medium text-gray-800">
+                        <p className="text-xs font-medium text-gray-900">
                           Resolved
                         </p>
                         <p className="text-xs text-gray-500">
@@ -660,7 +660,7 @@ const SupportTicketDetails = () => {
                     <div className="flex gap-3">
                       <div className="w-2 h-2 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-medium text-gray-800">
+                        <p className="text-xs font-medium text-gray-900">
                           Closed
                         </p>
                         <p className="text-xs text-gray-500">
@@ -680,3 +680,8 @@ const SupportTicketDetails = () => {
 };
 
 export default SupportTicketDetails;
+
+
+
+
+

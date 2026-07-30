@@ -8,8 +8,8 @@ import { authService } from '../../services/auth.service'
 
 const pageVariants = {
   initial:  { opacity: 0, y: 14 },
-  animate:  { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
-  exit:     { opacity: 0, y: -8, transition: { duration: 0.15 } },
+  animate:  { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+  exit:     { opacity: 0, y: -8, transition: { duration: 0.16, ease: 'easeOut' } },
 }
 
 const AdminLayout = ({ children, title }) => {
@@ -40,10 +40,10 @@ const AdminLayout = ({ children, title }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] flex text-[#1f2937]">
+    <div className="admin-motion-root h-screen overflow-hidden bg-[#f7f4ee] flex text-[#1f2937]">
 
       {/* DESKTOP SIDEBAR */}
-      <aside className={`hidden lg:flex flex-col fixed left-0 top-0 h-full z-30 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[78px]' : 'w-[260px]'}`}>
+      <aside className={`hidden lg:flex flex-col fixed left-0 top-0 h-full z-30 transition-all duration-200 ease-out ${sidebarCollapsed ? 'w-[78px]' : 'w-[260px]'}`}>
         <AdminSidebar isCollapsed={sidebarCollapsed} />
       </aside>
 
@@ -58,7 +58,7 @@ const AdminLayout = ({ children, title }) => {
             />
             <motion.div
               initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
               className="relative flex flex-col w-[260px] max-w-xs bg-white shadow-2xl z-50"
             >
               <AdminSidebar isCollapsed={false} isMobile={true} onClose={() => setMobileSidebarOpen(false)} />
@@ -68,7 +68,7 @@ const AdminLayout = ({ children, title }) => {
       </AnimatePresence>
 
       {/* MAIN CONTENT */}
-      <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-[78px]' : 'lg:ml-[260px]'}`}>
+      <div className={`flex h-screen flex-col flex-1 min-w-0 transition-all duration-200 ease-out ${sidebarCollapsed ? 'lg:ml-[78px]' : 'lg:ml-[260px]'}`}>
 
         {/* HEADER — passes logout trigger down */}
         <div className="sticky top-0 z-20 backdrop-blur-md">
@@ -81,7 +81,7 @@ const AdminLayout = ({ children, title }) => {
         </div>
 
         {/* PAGE CONTENT with animation */}
-        <main className="flex-1 min-h-0 overflow-auto">
+        <main className="hover-scroll flex-1 min-h-0 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -89,7 +89,7 @@ const AdminLayout = ({ children, title }) => {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="h-full"
+              className="admin-page-root min-h-full w-full [&>*]:min-h-full [&>*]:w-full"
             >
               {children}
             </motion.div>

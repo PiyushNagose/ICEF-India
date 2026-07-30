@@ -479,7 +479,7 @@ const PasswordSection = () => {
         </h3>
       </CardHeader>
       <CardContent className="p-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,480px)_1fr] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,480px)_1fr] gap-6 items-stretch">
           <div className="space-y-4">
             <PasswordInput
               field="currentPassword"
@@ -627,10 +627,10 @@ const Profile = () => {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold truncate">
+                <h2 className="text-xl font-bold truncate text-white">
                   {user?.fullName || "Complete your profile"}
                 </h2>
-                <p className="text-orange-100 text-sm mt-0.5">{user?.email}</p>
+                <p className="text-white/90 text-sm mt-0.5">{user?.email}</p>
                 <div className="flex flex-wrap items-center gap-3 mt-2">
                   {user?.category && (
                     <Badge className="bg-white/20 text-white border-0 text-xs uppercase">
@@ -643,7 +643,7 @@ const Profile = () => {
                     </Badge>
                   )}
                   {user?.registeredMobile && (
-                    <span className="text-orange-100 text-xs flex items-center gap-1">
+                    <span className="text-white/90 text-xs flex items-center gap-1">
                       <Phone className="w-3 h-3" />
                       +91 {user.registeredMobile}
                     </span>
@@ -653,8 +653,8 @@ const Profile = () => {
 
               {/* Completion */}
               <div className="hidden sm:block text-right flex-shrink-0">
-                <div className="text-3xl font-bold">{completion}%</div>
-                <div className="text-orange-100 text-xs mt-0.5">
+                <div className="text-3xl font-bold text-white">{completion}%</div>
+                <div className="text-white/90 text-xs mt-0.5">
                   Profile Complete
                 </div>
                 <div className="w-24 bg-white/20 rounded-full h-1.5 mt-2">

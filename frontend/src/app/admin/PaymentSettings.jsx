@@ -43,7 +43,7 @@ const GatewayCard = ({ gateway, onConfigure, onToggle, isToggling }) => {
       {sysBadge && (
         <div className="px-4 pt-3 pb-0 flex justify-end">
           <span
-            className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+            className="text-xs font-bold uppercase tracking-normal px-2 py-0.5 rounded"
             style={{ color: sysBadge.color, background: sysBadge.bg }}
           >
             {sysBadge.label}
@@ -156,7 +156,7 @@ const PaymentSettings = () => {
 
   return (
     <AdminLayout title="Payment Settings">
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="min-h-full p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
@@ -223,7 +223,7 @@ const PaymentSettings = () => {
                 <h3 className="font-semibold text-gray-900">Settlement Target Completion</h3>
                 <p className="text-sm text-gray-500 mt-0.5">Monthly reconciliation progress across all gateways</p>
               </div>
-              <span className="text-2xl font-bold text-orange-600">{settlementPct}%</span>
+              <span className="text-3xl font-bold text-orange-600">{settlementPct}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
               <div
@@ -251,7 +251,7 @@ const PaymentSettings = () => {
         </Card>
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-5">
           {/* Security Protocol */}
           <div className="lg:col-span-2">
             <Card className="bg-white h-full">
@@ -299,3 +299,8 @@ const PaymentSettings = () => {
 }
 
 export default PaymentSettings
+
+
+
+
+

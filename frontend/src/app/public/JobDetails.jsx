@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+﻿import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -32,7 +32,7 @@ import {
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
 
-// ── Helpers ───────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const daysLeft = (deadline) => {
   if (!deadline) return null;
@@ -48,7 +48,7 @@ const formatDate = (d) =>
       })
     : "Not announced";
 
-// ── Sub-components ────────────────────────────────────────────
+// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Info = ({ icon: Icon, label, value }) => (
   <div className="bg-[#faf7f4] border border-[#ede3dc] rounded-lg px-5 py-4">
@@ -77,7 +77,7 @@ const Section = ({ title, children }) => (
   </motion.div>
 );
 
-// ── Apply Sidebar ─────────────────────────────────────────────
+// â”€â”€ Apply Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ApplySidebar = ({
   job,
@@ -122,7 +122,7 @@ const ApplySidebar = ({
             <>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm font-semibold text-orange-800 mb-1">
-                  Draft — Not Submitted
+                  Draft â€” Not Submitted
                 </p>
                 <p className="text-xs text-orange-700">
                   Step {existingApp.currentStep || 1}/9 completed
@@ -168,7 +168,7 @@ const ApplySidebar = ({
             onClick={() => navigate("/candidate/applications")}
             className="w-full text-center text-xs text-gray-500 hover:text-orange-600 transition-colors"
           >
-            Go to My Applications →
+            Go to My Applications â†’
           </button>
         </div>
       </div>
@@ -200,7 +200,7 @@ const ApplySidebar = ({
             <div className="text-center py-2">
               <p className="text-xs text-gray-500">Application Fee</p>
               <p className="text-2xl font-bold text-orange-600">
-                ₹{fee.toLocaleString("en-IN")}
+                â‚¹{fee.toLocaleString("en-IN")}
               </p>
             </div>
           )}
@@ -272,7 +272,7 @@ const ApplySidebar = ({
           <div className="text-center py-2">
             <p className="text-xs text-gray-500">Application Fee</p>
             <p className="text-2xl font-bold text-orange-600">
-              ₹{fee.toLocaleString("en-IN")}
+              â‚¹{fee.toLocaleString("en-IN")}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">Non-refundable</p>
           </div>
@@ -301,7 +301,7 @@ const ApplySidebar = ({
   );
 };
 
-// ── Main Component ────────────────────────────────────────────
+// â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const JobDetails = () => {
   const { id } = useParams();
@@ -344,8 +344,8 @@ const JobDetails = () => {
     },
     onError: (err) => {
       if (err.status === 409) {
-        // Already applied — refresh applications list and show correct state
-        toast("You have already applied for this job", { icon: "ℹ️" });
+        // Already applied â€” refresh applications list and show correct state
+        toast("You have already applied for this job", { icon: "â„¹ï¸" });
         navigate("/candidate/applications");
       } else {
         toast.error(err.message || "Failed to start application");
@@ -357,7 +357,7 @@ const JobDetails = () => {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f5efe9] py-8">
+      <div className="min-h-[calc(100vh-122px)] bg-[#f5efe9] py-6 lg:py-8">
         <div className={publicContainer}>
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-[#8c7a72] mb-6">
@@ -408,15 +408,15 @@ const JobDetails = () => {
 
           {/* Job content */}
           {job && !isLoading && (
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
-              {/* Left — Main content */}
-              <div className="space-y-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+              {/* Left â€” Main content */}
+              <div className="space-y-5 min-w-0">
                 {/* Hero card */}
                 <motion.div
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, ease: "easeOut" }}
-                  className="bg-white border border-[#eadfd7] rounded-lg p-7 shadow-sm"
+                  className="bg-white border border-[#eadfd7] rounded-lg p-5 sm:p-6 lg:p-7 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="inline-flex items-center gap-2 bg-[#ecfdf3] text-[#16a34a] border border-[#bbf7d0] px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide">
@@ -440,7 +440,7 @@ const JobDetails = () => {
                     )}
                   </div>
 
-                  <h1 className="text-3xl lg:text-4xl leading-tight font-extrabold text-[#2d2a27] mb-3">
+                  <h1 className="text-2xl lg:text-3xl leading-tight font-extrabold text-[#2d2a27] mb-3">
                     {job.title}
                   </h1>
                   <div className="flex items-center gap-2 text-[#6b625d] text-sm mb-6">
@@ -448,7 +448,7 @@ const JobDetails = () => {
                     <span>{job.department}</span>
                     {job.postCode && (
                       <>
-                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-300">Â·</span>
                         <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">
                           {job.postCode}
                         </span>
@@ -484,7 +484,7 @@ const JobDetails = () => {
                           job.applicationFee?.amount ||
                           0) === 0
                           ? "Free"
-                          : `₹${(job.applicationFee?.general || job.applicationFee?.amount || 0).toLocaleString("en-IN")}`
+                          : `â‚¹${(job.applicationFee?.general || job.applicationFee?.amount || 0).toLocaleString("en-IN")}`
                       }
                     />
                   </div>
@@ -516,7 +516,7 @@ const JobDetails = () => {
                           Salary:
                         </span>
                         <span>
-                          ₹{job.salaryRange?.min?.toLocaleString("en-IN")} – ₹
+                          â‚¹{job.salaryRange?.min?.toLocaleString("en-IN")} â€“ â‚¹
                           {job.salaryRange?.max?.toLocaleString("en-IN")} per
                           month
                         </span>
@@ -540,7 +540,7 @@ const JobDetails = () => {
                           Age Limit:
                         </span>
                         <span>
-                          {job.ageLimit.min}–{job.ageLimit.max} years
+                          {job.ageLimit.min}â€“{job.ageLimit.max} years
                         </span>
                       </div>
                     )}
@@ -567,7 +567,7 @@ const JobDetails = () => {
                                   {cat}
                                 </p>
                                 <p className="font-bold text-orange-600">
-                                  {fee === 0 ? "Free" : `₹${fee}`}
+                                  {fee === 0 ? "Free" : `â‚¹${fee}`}
                                 </p>
                               </div>
                             ))}
@@ -655,8 +655,8 @@ const JobDetails = () => {
                 )}
               </div>
 
-              {/* Right — Sidebar */}
-              <aside className="space-y-5">
+              {/* Right â€” Sidebar */}
+              <aside className="space-y-5 xl:sticky xl:top-24">
                 <ApplySidebar
                   job={job}
                   isLoggedIn={isLoggedIn}
@@ -728,3 +728,5 @@ const JobDetails = () => {
 };
 
 export default JobDetails;
+
+

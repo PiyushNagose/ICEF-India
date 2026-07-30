@@ -9,6 +9,7 @@ const { paginationMeta } = require("../utils/ApiResponse");
 const { emitToCandidate, emitToAdmins, SOCKET_EVENTS } = require("../socket/index");
 const { sendPaymentSuccessEmail } = require("./email.service");
 const { notifyAdmins } = require("../utils/notifyAdmins");
+const { assertPaymentWindowOpen } = require("../utils/timeline");
 const env = require("../config/env");
 
 // ─────────────────────────────────────────────────────────────
@@ -31,6 +32,40 @@ const getActiveGatewayConfig = async (gatewayName) => {
   };
 };
 
+const getRazorpayEnvConfig = () => {
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) return null;
+
+  return {
+    name: "Razorpay",
+    mode: env.RAZORPAY_KEY_ID.startsWith("rzp_live_") ? "Live" : "Test",
+    apiKey: env.RAZORPAY_KEY_ID,
+    secretKey: env.RAZORPAY_KEY_SECRET,
+    webhookSecret: env.RAZORPAY_WEBHOOK_SECRET || null,
+  };
+};
+
+const getRazorpayConfig = async () => {
+  const dbConfig = await getActiveGatewayConfig("Razorpay").catch(() => null);
+  if (dbConfig?.apiKey && dbConfig?.secretKey) return dbConfig;
+
+  const envConfig = getRazorpayEnvConfig();
+  if (envConfig) return envConfig;
+
+  throw new ApiError(
+    400,
+    "Razorpay test credentials are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, or configure Razorpay in Admin Payment Settings.",
+  );
+};
+
+const validateRazorpayMode = (config) => {
+  if (config.mode === "Test" && !config.apiKey.startsWith("rzp_test_")) {
+    throw new ApiError(400, "Razorpay is in Test mode but the key is not a test key.");
+  }
+  if (config.mode === "Live" && !config.apiKey.startsWith("rzp_live_")) {
+    throw new ApiError(400, "Razorpay is in Live mode but the key is not a live key.");
+  }
+};
+
 const getDefaultGateway = async () => {
   let gw = await PaymentGateway.findOne({ isDefault: true, status: "ACTIVE" });
   if (!gw) gw = await PaymentGateway.findOne({ status: "ACTIVE" });
@@ -42,6 +77,7 @@ const getDefaultGateway = async () => {
 // ─────────────────────────────────────────────────────────────
 
 const createRazorpayOrder = async (config, amount, currency, receipt) => {
+  validateRazorpayMode(config);
   const Razorpay = require("razorpay");
   const instance = new Razorpay({ key_id: config.apiKey, key_secret: config.secretKey });
   return instance.orders.create({ amount: amount * 100, currency, receipt, payment_capture: 1 });
@@ -51,6 +87,12 @@ const verifyRazorpaySignature = (orderId, paymentId, signature, secret) => {
   const expected = crypto.createHmac("sha256", secret)
     .update(`${orderId}|${paymentId}`).digest("hex");
   return expected === signature;
+};
+
+const calculateProcessingFee = (baseAmount, processingPercent = 0) => {
+  const amount = Number(baseAmount) || 0;
+  const percent = Math.max(0, Number(processingPercent) || 0);
+  return Math.round((amount * percent) / 100);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -229,14 +271,19 @@ const verifyPaytmChecksum = (body, checksum, key) => {
 
 const initiatePayment = async (applicationId, candidateId, gatewayName) => {
   const application = await Application.findOne({ _id: applicationId, candidateId })
+    .populate("jobId", "paymentConfig applicationDeadline")
     .populate("appliedPosts");
   if (!application) throw new ApiError(404, "Application not found");
   if (application.paymentStatus === "paid")
     throw new ApiError(400, "Payment already completed");
+  assertPaymentWindowOpen(application.jobId);
 
-  let totalFee = application.totalFee || 0;
-  if (!totalFee && application.appliedPosts?.length > 0)
-    totalFee = application.appliedPosts.reduce((s, p) => s + (p.fee || 0), 0);
+  let applicationFee = application.totalFee || 0;
+  if (!applicationFee && application.appliedPosts?.length > 0)
+    applicationFee = application.appliedPosts.reduce((s, p) => s + (p.fee || 0), 0);
+  const processingPercent = application.jobId?.paymentConfig?.processingFee || 0;
+  const processingFee = calculateProcessingFee(applicationFee, processingPercent);
+  const totalFee = applicationFee + processingFee;
   // Allow ₹0 fee — free applications still need a payment record for tracking
   // if (totalFee === 0) throw new ApiError(400, "No fee applicable for this application");
 
@@ -257,7 +304,7 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
 
   try {
     if (normalizedGateway === "razorpay") {
-      const config = await getActiveGatewayConfig("Razorpay").catch(() => null);
+      const config = await getRazorpayConfig();
       if (config?.apiKey && config?.secretKey) {
         const order    = await createRazorpayOrder(config, totalFee, "INR", transactionId);
         gatewayOrderId = order.id;
@@ -295,6 +342,9 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
     }
   } catch (err) {
     console.warn(`[Payment] Gateway order creation failed (${normalizedGateway}): ${err.message}`);
+    if (normalizedGateway === "razorpay") {
+      throw err.statusCode ? err : new ApiError(502, `Razorpay order creation failed: ${err.message}`);
+    }
   }
 
   return {
@@ -302,6 +352,12 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
     amount: totalFee, currency: "INR",
     gateway: normalizedGateway,
     gatewayOrderId, gatewayKeyId, gatewayData,
+    feeBreakdown: {
+      applicationFee,
+      processingFee,
+      processingPercent,
+      totalFee,
+    },
     applicationId: application.applicationId,
   };
 };
@@ -313,14 +369,14 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
 const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, gatewaySignature, status }) => {
   const payment = await Payment.findOne({ transactionId });
   if (!payment) throw new ApiError(404, "Transaction not found");
-  if (payment.status === "success") throw new ApiError(400, "Payment already verified");
+  if (payment.status === "success") return payment;
 
   let verified = false;
 
   try {
     if (payment.gateway === "razorpay" && gatewayPaymentId && gatewaySignature) {
-      // Try to verify signature — if gateway not configured, fall back to trusting status
-      const config = await getActiveGatewayConfig("Razorpay").catch(() => null);
+      // Verify the checkout response server-side using the configured Razorpay secret.
+      const config = await getRazorpayConfig();
       if (config?.secretKey) {
         const orderId = gatewayOrderId || payment.gatewayOrderId;
         verified = verifyRazorpaySignature(orderId, gatewayPaymentId, gatewaySignature, config.secretKey);
@@ -330,9 +386,6 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
           await payment.save();
           throw new ApiError(400, "Payment signature verification failed");
         }
-      } else {
-        // Gateway not configured — trust the status from frontend (dev/test mode)
-        verified = status === "success";
       }
     } else if (payment.gateway === "razorpay" && !gatewayPaymentId) {
       // No Razorpay response fields — trust status (free/simulation)
@@ -373,9 +426,23 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
   await payment.save();
 
   const application = await Application.findById(payment.applicationId)
-    .populate("candidateId", "email fullName");
+    .populate("candidateId", "email fullName")
+    .populate("jobId", "paymentConfig applicationDeadline");
 
   if (application) {
+    if (verified) {
+      try {
+        assertPaymentWindowOpen(application.jobId);
+      } catch (err) {
+        payment.status = "failed";
+        payment.failureReason = err.message || "Payment deadline has passed";
+        await payment.save();
+        application.paymentStatus = "failed";
+        application.transactionId = transactionId;
+        await application.save();
+        throw err;
+      }
+    }
     application.paymentStatus = verified ? "paid" : "failed";
     application.transactionId = transactionId;
     if (verified && application.status === "draft") {
@@ -410,7 +477,7 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
 // ─────────────────────────────────────────────────────────────
 
 const handleRazorpayWebhook = async (rawBody, signature) => {
-  const config = await getActiveGatewayConfig("Razorpay").catch(() => null);
+  const config = await getRazorpayConfig().catch(() => null);
   if (!config?.webhookSecret) return { processed: false, reason: "No webhook secret" };
 
   const expected = crypto.createHmac("sha256", config.webhookSecret).update(rawBody).digest("hex");
@@ -565,8 +632,11 @@ const upsertGateway = async (name, data, updatedBy) => {
 
 const testGatewayConnection = async (name) => {
   try {
-    const config = await getActiveGatewayConfig(name);
+    const config = name === "Razorpay"
+      ? await getRazorpayConfig()
+      : await getActiveGatewayConfig(name);
     if (name === "Razorpay" && config.apiKey && config.secretKey) {
+      validateRazorpayMode(config);
       const Razorpay = require("razorpay");
       const instance = new Razorpay({ key_id: config.apiKey, key_secret: config.secretKey });
       await instance.orders.all({ count: 1 });

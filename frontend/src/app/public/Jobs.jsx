@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -31,7 +31,7 @@ import {
 } from "../../utils/applicationFlow";
 import ShareJobButton from "../../components/ui/ShareJobButton";
 
-// ── Helpers ───────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const daysLeft = (deadline) => {
   if (!deadline) return null;
@@ -45,7 +45,7 @@ const formatDate = (d) =>
         month: "short",
         year: "numeric",
       })
-    : "—";
+    : "â€”";
 
 const DaysChip = ({ deadline }) => {
   const days = daysLeft(deadline);
@@ -75,7 +75,7 @@ const DaysChip = ({ deadline }) => {
   );
 };
 
-// ── Job Card ──────────────────────────────────────────────────
+// â”€â”€ Job Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const JobCard = ({
   job,
@@ -155,12 +155,12 @@ const JobCard = ({
 
   return (
     <div
-      className={`bg-white border-2 rounded-xl overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+      className={`h-full bg-white border-2 rounded-xl overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md flex flex-col ${
         isApplied ? "border-green-400" : "border-[#e0d7cd] hover:border-orange-300"
       }`}
     >
-      <div className="p-5">
-        {/* Header row — title + chips */}
+      <div className="p-5 flex h-full flex-col">
+        {/* Header row â€” title + chips */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <h2 className="font-black text-lg text-[#1f1d1b] leading-snug truncate">
@@ -170,7 +170,7 @@ const JobCard = ({
               {job.department}
             </p>
           </div>
-          {/* Right side: days chip + applied badge + share icon — all inline */}
+          {/* Right side: days chip + applied badge + share icon â€” all inline */}
           <div className="flex items-center gap-1.5 shrink-0">
             <DaysChip deadline={job.applicationDeadline} />
             {isApplied && (
@@ -192,14 +192,14 @@ const JobCard = ({
             <span>{job.totalPosts || 0} vacancies</span>
             {fee > 0 && (
               <>
-                <span className="text-gray-300 mx-1">·</span>
+                <span className="text-gray-300 mx-1">Â·</span>
                 <IndianRupee className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                <span>₹{fee.toLocaleString("en-IN")} fee</span>
+                <span>â‚¹{fee.toLocaleString("en-IN")} fee</span>
               </>
             )}
             {fee === 0 && (
               <>
-                <span className="text-gray-300 mx-1">·</span>
+                <span className="text-gray-300 mx-1">Â·</span>
                 <span className="text-green-600 font-medium">Free</span>
               </>
             )}
@@ -224,7 +224,7 @@ const JobCard = ({
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-3 border-t border-[#f0e8e0]">
+        <div className="flex gap-2 pt-3 border-t border-[#f0e8e0] mt-auto">
           <Link
             to={`/jobs/${job._id}`}
             className="flex-1 flex items-center justify-center h-10 rounded-lg text-sm font-bold border-2 border-[#e0d7cd] text-[#5f5752] hover:border-orange-400 hover:text-orange-600 transition-all"
@@ -238,10 +238,10 @@ const JobCard = ({
   );
 };
 
-// ── Skeleton ──────────────────────────────────────────────────
+// â”€â”€ Skeleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SkeletonCard = () => (
-  <div className="bg-white border border-[#e0d7cd] rounded-lg p-5 animate-pulse">
+  <div className="h-full bg-white border border-[#e0d7cd] rounded-lg p-5 animate-pulse">
     <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
     <div className="h-3 bg-gray-100 rounded w-1/2 mb-4" />
     <div className="space-y-2 mb-4">
@@ -255,7 +255,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-// ── Main Page ─────────────────────────────────────────────────
+// â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Jobs = () => {
   const navigate = useNavigate();
@@ -333,7 +333,7 @@ const Jobs = () => {
     onError: (err, jobId) => {
       setApplyingId(null);
       if (err.status === 409) {
-        toast("You have already applied for this job", { icon: "ℹ️" });
+        toast("You have already applied for this job", { icon: "â„¹ï¸" });
         navigate("/candidate/applications");
       } else {
         toast.error(err.message || "Failed to start application");
@@ -354,8 +354,8 @@ const Jobs = () => {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f5efe9] py-10">
-        <div className={`${publicContainer} space-y-6`}>
+      <div className="min-h-[calc(100vh-122px)] bg-[#f5efe9] py-8 lg:py-10">
+        <div className={`${publicContainer} space-y-5`}>
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -379,8 +379,8 @@ const Jobs = () => {
           </div>
 
           {/* Search + Filter */}
-          <div className="flex gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 value={search}
@@ -462,7 +462,7 @@ const Jobs = () => {
 
           {/* Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
@@ -471,7 +471,7 @@ const Jobs = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-[#e0d7cd] rounded-lg p-12 text-center shadow-sm"
+                className="bg-white border border-[#e0d7cd] rounded-lg p-8 sm:p-10 text-center shadow-sm"
             >
               <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-semibold">No jobs found</p>
@@ -493,7 +493,7 @@ const Jobs = () => {
               )}
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
               {jobs.map((job, index) => (
                 <motion.div
                   key={job._id}
@@ -501,6 +501,7 @@ const Jobs = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: "easeOut", delay: index * 0.06 }}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  className="h-full"
                 >
                   <JobCard
                     job={job}
@@ -570,3 +571,5 @@ const Jobs = () => {
 };
 
 export default Jobs;
+
+

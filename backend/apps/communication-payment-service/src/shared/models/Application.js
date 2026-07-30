@@ -30,23 +30,8 @@ const addressSchema = new mongoose.Schema(
 
 const documentSchema = new mongoose.Schema(
   {
-    type: {
-      type: String,
-      enum: [
-        "passport_photo",
-        "signature",
-        "tenth_certificate",
-        "twelfth_certificate",
-        "graduation_certificate",
-        "category_certificate",
-        "aadhar_card",
-        "driving_license",
-        "computer_certificate",
-        "domicile_certificate",
-        "other",
-      ],
-      required: true,
-    },
+    type: { type: String, required: true },
+    name: { type: String },
     cloudinaryUrl: { type: String },
     cloudinaryPublicId: { type: String },
     originalName: { type: String },

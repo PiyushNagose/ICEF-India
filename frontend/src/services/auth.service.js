@@ -1,5 +1,5 @@
 import { apiClient, unwrapData } from "../api/client";
-import { STORAGE_KEYS } from "../api/config";
+import { AUTH_SESSION_EVENT, STORAGE_KEYS } from "../api/config";
 
 // Normalise the user object so it always has a `role` field.
 // The Employee model has no role field — we infer it from employeeId / officialEmail.
@@ -11,6 +11,19 @@ const normaliseUser = (user) => {
   return user;
 };
 
+export const notifyAuthSessionChanged = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_EVENT));
+  }
+};
+
+export const clearStoredSession = () => {
+  localStorage.removeItem(STORAGE_KEYS.accessToken);
+  localStorage.removeItem(STORAGE_KEYS.refreshToken);
+  localStorage.removeItem(STORAGE_KEYS.user);
+  notifyAuthSessionChanged();
+};
+
 const saveSession = ({ user, accessToken, refreshToken }) => {
   if (accessToken) localStorage.setItem(STORAGE_KEYS.accessToken, accessToken);
   if (refreshToken)
@@ -18,6 +31,7 @@ const saveSession = ({ user, accessToken, refreshToken }) => {
   const normalisedUser = normaliseUser(user);
   if (normalisedUser)
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(normalisedUser));
+  notifyAuthSessionChanged();
   return { user: normalisedUser, accessToken, refreshToken };
 };
 
@@ -59,7 +73,10 @@ export const authService = {
     const response = await apiClient.get("/auth/me");
     const data = unwrapData(response);
     const user = normaliseUser(data?.user);
-    if (user) localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+      notifyAuthSessionChanged();
+    }
     return user;
   },
 
@@ -86,9 +103,7 @@ export const authService = {
       return null;
     } catch (error) {
       // Refresh failed - clear session
-      localStorage.removeItem(STORAGE_KEYS.accessToken);
-      localStorage.removeItem(STORAGE_KEYS.refreshToken);
-      localStorage.removeItem(STORAGE_KEYS.user);
+      clearStoredSession();
       return null;
     }
   },
@@ -97,9 +112,7 @@ export const authService = {
     try {
       await apiClient.post("/auth/logout");
     } finally {
-      localStorage.removeItem(STORAGE_KEYS.accessToken);
-      localStorage.removeItem(STORAGE_KEYS.refreshToken);
-      localStorage.removeItem(STORAGE_KEYS.user);
+      clearStoredSession();
     }
   },
 
@@ -113,7 +126,10 @@ export const authService = {
     const result = unwrapData(response);
     // Update stored user with fresh data
     const user = normaliseUser(result?.user);
-    if (user) localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+      notifyAuthSessionChanged();
+    }
     return user;
   },
 
