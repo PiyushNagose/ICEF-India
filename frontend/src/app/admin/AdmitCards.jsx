@@ -515,7 +515,7 @@ const AdmitCards = () => {
           <Stat icon={FileBadge} label="Capacity" value={stats.totalCapacity} />
         </div>
 
-        <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(380px,440px)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(380px,440px)_minmax(0,1fr)] xl:items-stretch">
           <div className="space-y-5">
             <Card>
               <CardHeader>
@@ -851,30 +851,30 @@ const AdmitCards = () => {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:grid-rows-[minmax(250px,auto)_minmax(340px,0.9fr)_minmax(280px,0.9fr)]">
-            <Card className="min-h-[250px] xl:col-span-2">
+          <div className="grid min-w-0 content-stretch gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.65fr)] xl:grid-rows-[auto_auto_minmax(520px,1fr)]">
+            <Card className="self-start xl:col-span-2">
               <CardHeader>
                 <h2 className="font-semibold text-gray-900">Selected Exam Lifecycle</h2>
               </CardHeader>
               <CardContent>
                 {selectedSchedule ? (
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-                    <div className="min-h-[136px] rounded-xl border border-gray-200 bg-gray-50 p-5">
+                    <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Exam</p>
                       <p className="mt-1 font-bold text-gray-900">{selectedSchedule.examName}</p>
                       <p className="text-xs text-gray-500">{selectedSchedule.shiftName || 'No shift'} - {selectedSchedule.examCode}</p>
                     </div>
-                    <div className="min-h-[136px] rounded-xl border border-gray-200 bg-gray-50 p-5">
+                    <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Date & Time</p>
                       <p className="mt-1 font-bold text-gray-900">{new Date(selectedSchedule.examDate).toLocaleDateString('en-IN')}</p>
                       <p className="text-xs text-gray-500">{selectedSchedule.examStartTime} to {selectedSchedule.examEndTime || 'end not set'}</p>
                     </div>
-                    <div className="min-h-[136px] rounded-xl border border-gray-200 bg-gray-50 p-5">
+                    <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Selected Centers</p>
                       <p className="mt-1 font-bold text-gray-900">{managedCenters.length}</p>
                       <p className="text-xs text-gray-500">{managedCenters.reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)} usable seats</p>
                     </div>
-                    <div className="min-h-[136px] rounded-xl border border-gray-200 bg-gray-50 p-5">
+                    <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Current Phase</p>
                       <p className="mt-1 font-bold capitalize text-gray-900">{selectedSchedule.status}</p>
                       <p className="text-xs text-gray-500">
@@ -892,7 +892,7 @@ const AdmitCards = () => {
               </CardContent>
             </Card>
 
-            <Card className="flex min-h-[340px] flex-col xl:col-span-2">
+            <Card className="flex min-h-[500px] min-w-0 flex-col overflow-hidden">
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="font-semibold text-gray-900">Exam Schedules</h2>
@@ -900,8 +900,14 @@ const AdmitCards = () => {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden">
-                <div className="hover-scroll max-h-[305px] overflow-auto pr-1">
-                  <table className="w-full text-sm">
+                <div className="hover-scroll max-h-[465px] overflow-y-auto overflow-x-hidden pr-1">
+                  <table className="w-full table-fixed text-sm">
+                    <colgroup>
+                      <col className="w-[38%]" />
+                      <col className="w-[17%]" />
+                      <col className="w-[21%]" />
+                      <col className="w-[24%]" />
+                    </colgroup>
                     <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500">
                       <tr>
                         <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-normal">Exam</th>
@@ -913,20 +919,20 @@ const AdmitCards = () => {
                     <tbody>
                       {schedules.map((schedule) => (
                         <tr key={schedule._id} className="border-t border-gray-100">
-                          <td className="px-3 py-3">
-                            <p className="font-semibold text-gray-900">{schedule.examName}</p>
-                            <p className="text-xs text-gray-500">{schedule.examCode}</p>
+                          <td className="min-w-0 px-3 py-3 align-middle">
+                            <p className="truncate font-semibold text-gray-900" title={schedule.examName}>{schedule.examName}</p>
+                            <p className="truncate text-xs text-gray-500" title={schedule.examCode}>{schedule.examCode}</p>
                           </td>
-                          <td className="px-3 py-3">{new Date(schedule.examDate).toLocaleDateString('en-IN')}</td>
-                          <td className="px-3 py-3">
+                          <td className="whitespace-nowrap px-3 py-3 align-middle">{new Date(schedule.examDate).toLocaleDateString('en-IN')}</td>
+                          <td className="px-3 py-3 align-middle">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusTone[schedule.status] || statusTone.draft}`}>
                               {schedule.status}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-3 py-3 text-right align-middle">
                             <button
                               onClick={() => setSelectedScheduleId(schedule._id)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                              className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${
                                 activeScheduleId === schedule._id
                                   ? 'bg-orange-600 text-white border-orange-600'
                                   : 'text-gray-600 border-gray-200 hover:border-orange-300'
@@ -946,7 +952,7 @@ const AdmitCards = () => {
               </CardContent>
             </Card>
 
-            <Card className="flex min-h-[500px] flex-col">
+            <Card className="flex min-h-[500px] min-w-0 flex-col">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1157,7 +1163,7 @@ const AdmitCards = () => {
               </CardContent>
             </Card>
 
-            <Card className="flex min-h-[280px] flex-col">
+            <Card className="flex min-h-[520px] min-w-0 flex-col overflow-hidden xl:col-span-2">
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="font-semibold text-gray-900">Generated Admit Cards</h2>
@@ -1165,26 +1171,26 @@ const AdmitCards = () => {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search roll no."
-                    className="w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm sm:w-56"
                   />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden">
-                <div className="hover-scroll max-h-[340px] overflow-auto pr-1">
-                  <table className="w-full text-sm">
+                <div className="hover-scroll h-full overflow-y-auto overflow-x-hidden pr-1">
+                  <table className="w-full table-fixed text-sm">
                     <tbody>
                       {admitCards.map((card) => (
                         <tr key={card._id} className="border-t border-gray-100">
                           <td className="px-3 py-3">
                             <p className="font-semibold text-gray-900">{card.rollNumber}</p>
-                            <p className="text-xs text-gray-500">{card.applicationId?.applicationId}</p>
+                            <p className="truncate text-xs text-gray-500">{card.applicationId?.applicationId}</p>
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="w-[120px] px-3 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${card.status === 'published' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                               {card.status}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="w-[230px] px-3 py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"

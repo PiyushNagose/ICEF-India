@@ -19,10 +19,10 @@ const SIDE_IMAGE =
   "https://images.unsplash.com/photo-1551434678-e076c223a692?w=480&q=80&fit=crop";
 
 const FEATURES = [
-  "Manage All Recruitment Campaigns",
-  "Real-Time Application Reviews",
-  "Employee & Role Management",
-  "Advanced Analytics & Reports",
+  "Role-Based Module Access",
+  "Application Review Workflows",
+  "Assigned Recruitment Operations",
+  "Secure Employee Workspace",
 ];
 
 const STATS = [
@@ -44,7 +44,7 @@ const TRUST = [
 const inputCls =
   "w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
 
-const AdminLogin = () => {
+const EmployeeLogin = () => {
   const navigate = useNavigate();
   const { user, isLoading: isAuthChecking } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -67,8 +67,8 @@ const AdminLogin = () => {
     setError("");
     setIsLoading(true);
     try {
-      const result = await authService.adminLogin(formData);
-      toast.success("Super Admin login successful");
+      const result = await authService.employeeLogin(formData);
+      toast.success("Employee login successful");
       navigate(
         result?.user?.mustChangePassword
           ? "/admin/settings-profile"
@@ -107,17 +107,17 @@ const AdminLogin = () => {
                   Recruitment Portal
                 </p>
                 <p className="text-gray-400 text-[9px] font-bold tracking-widest uppercase">
-                  Super Admin
+                  Employee Access
                 </p>
               </div>
             </Link>
 
             <h2 className="text-[26px] font-black text-gray-900 leading-tight mb-2">
-              Super Admin Login
+              Employee Login
             </h2>
             <p className="text-xs text-gray-500 leading-relaxed mb-4">
-              Sign in with the root administrator account to manage platform
-              configuration, employees, roles, and global controls.
+              Sign in with your official employee account to access the
+              recruitment modules assigned to your role.
             </p>
 
             <ul className="space-y-2 mb-5">
@@ -169,14 +169,16 @@ const AdminLogin = () => {
                     className="h-full w-full object-contain p-1"
                   />
                 </div>
-                <p className="font-bold text-gray-800 text-sm">Super Admin</p>
+                <p className="font-bold text-gray-800 text-sm">
+                  Employee Access
+                </p>
               </Link>
 
               <h1 className="text-2xl font-black text-gray-900 mb-1">
                 Sign In
               </h1>
               <p className="text-xs text-gray-400 mb-7">
-                Access the root administration workspace
+                Access your assigned recruitment workspace
               </p>
 
               <form onSubmit={handleLogin} className="space-y-5">
@@ -187,7 +189,7 @@ const AdminLogin = () => {
                   <input
                     type="email"
                     required
-                    placeholder="superadmin@recruitment.gov.in"
+                    placeholder="employee@recruitment.gov.in"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     className={inputCls}
@@ -232,7 +234,7 @@ const AdminLogin = () => {
                     Remember me
                   </label>
                   <Link
-                    to="/auth/admin/forgot-password"
+                    to="/auth/employee/forgot-password"
                     className="text-xs font-semibold text-orange-500 hover:text-orange-600"
                   >
                     Forgot Password?
@@ -254,14 +256,14 @@ const AdminLogin = () => {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Shield className="w-4 h-4" /> Access Super Admin
+                      <Shield className="w-4 h-4" /> Sign In as Employee
                     </>
                   )}
                 </button>
                 <div className="rounded-lg border border-orange-100 bg-orange-50/70 px-4 py-4 text-center">
                   <p className="text-xs font-medium text-orange-700">
-                    Restricted access for authorized Super Administrator
-                    accounts only.
+                    Use your official employee credentials issued by the portal
+                    administrator.
                   </p>
                 </div>
               </form>
@@ -289,4 +291,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default EmployeeLogin;

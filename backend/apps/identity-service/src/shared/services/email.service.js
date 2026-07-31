@@ -87,20 +87,24 @@ const sendOTPEmail = async (to, otp, name) => {
   return sendEmail({ to, subject, html });
 };
 
-const sendWelcomeEmail = async (to, name, employeeId, tempPassword) => {
-  const subject = "Welcome to Recruitment Portal";
+const sendWelcomeEmail = async (to, name, employeeId, tempPassword, mode = "created") => {
+  const isReset = mode === "reset";
+  const subject = isReset
+    ? "Recruitment Portal Password Reset"
+    : "Welcome to Recruitment Portal";
+  const loginUrl = `${env.CLIENT_URL}/auth/employee-login`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Welcome to Recruitment Portal!</h2>
+      <h2 style="color: #333;">${isReset ? "Password Reset" : "Welcome to Recruitment Portal!"}</h2>
       <p>Hello ${name},</p>
-      <p>Your employee account has been created successfully.</p>
+      <p>Your employee account has been ${isReset ? "updated with a new temporary password" : "created successfully"}.</p>
       <div style="background: #f4f4f4; padding: 20px; margin: 20px 0;">
         <p><strong>Employee ID:</strong> ${employeeId}</p>
         <p><strong>Email:</strong> ${to}</p>
         <p><strong>Temporary Password:</strong> ${tempPassword}</p>
       </div>
       <p><strong>Important:</strong> Please change your password after first login.</p>
-      <p>Login at: <a href="${env.CLIENT_URL}/admin/login">${env.CLIENT_URL}/admin/login</a></p>
+      <p>Login at: <a href="${loginUrl}">${loginUrl}</a></p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
       <p style="color: #666; font-size: 12px;">Government Recruitment Portal</p>
     </div>
@@ -109,8 +113,9 @@ const sendWelcomeEmail = async (to, name, employeeId, tempPassword) => {
   return sendEmail({ to, subject, html });
 };
 
-const sendPasswordResetEmail = async (to, otp, name) => {
+const sendPasswordResetEmail = async (to, otp, name, accountType = "candidate") => {
   const subject = "Password Reset Request";
+  const resetUrl = `${env.CLIENT_URL}/auth/forgot-password?type=${accountType}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #333;">Password Reset</h2>
@@ -120,6 +125,7 @@ const sendPasswordResetEmail = async (to, otp, name) => {
         ${otp}
       </div>
       <p>This OTP is valid for 10 minutes.</p>
+      <p>Reset here: <a href="${resetUrl}">${resetUrl}</a></p>
       <p>If you didn't request this, please ignore this email and your password will remain unchanged.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
       <p style="color: #666; font-size: 12px;">Government Recruitment Portal</p>

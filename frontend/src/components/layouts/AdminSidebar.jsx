@@ -15,25 +15,31 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
+import { hasPermission, useAuth } from '../../hooks/useAuth'
 import logo from '../../assets/logo.png'
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard',          path: '/admin/dashboard' },
-  { icon: FolderOpen,      label: 'Projects',            path: '/admin/projects' },
-  { icon: Briefcase,       label: 'Jobs',                path: '/admin/jobs' },
-  { icon: Users,           label: 'Applications',        path: '/admin/applications' },
-  { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards' },
-  { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics' },
-  { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs' },
-  { icon: HeadphonesIcon,  label: 'Support',             path: '/admin/support' },
-  { icon: UserCheck,       label: 'Employees',           path: '/admin/employees' },
-  { icon: Shield,          label: 'Roles & Permissions', path: '/admin/roles' },
-  { icon: CreditCard,      label: 'Payment Settings',    path: '/admin/payment-settings' },
-  { icon: Layers,          label: 'CMS',                 path: '/admin/cms' },
+  { icon: FolderOpen,      label: 'Projects',            path: '/admin/projects',         permission: ['projects', 'view'] },
+  { icon: Briefcase,       label: 'Jobs',                path: '/admin/jobs',             permission: ['jobs', 'view'] },
+  { icon: Users,           label: 'Applications',        path: '/admin/applications',     permission: ['applications', 'view'] },
+  { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards',      permission: ['admitCards', 'view'] },
+  { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics',        permission: ['analytics', 'view'] },
+  { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs',    permission: ['employees', 'view'] },
+  { icon: HeadphonesIcon,  label: 'Support',             path: '/admin/support',          permission: ['support', 'view'] },
+  { icon: UserCheck,       label: 'Employees',           path: '/admin/employees',        permission: ['employees', 'view'] },
+  { icon: Shield,          label: 'Roles & Permissions', path: '/admin/roles',            permission: ['employees', 'view'] },
+  { icon: CreditCard,      label: 'Payment Settings',    path: '/admin/payment-settings', permission: ['paymentSettings', 'view'] },
+  { icon: Layers,          label: 'CMS',                 path: '/admin/cms',              permission: ['projects', 'edit'] },
 ]
 
 const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
   const location = useLocation()
+  const { user } = useAuth()
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (!item.permission) return true
+    return hasPermission(user, item.permission[0], item.permission[1])
+  })
 
   return (
     <div className="bg-white border-r border-orange-100 h-full flex flex-col shadow-sm overflow-hidden">
@@ -74,7 +80,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
           </p>
         ) : null}
 
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon
           // Highlight active: exact match OR sub-path (but not cross-contaminating)
           const isActive =

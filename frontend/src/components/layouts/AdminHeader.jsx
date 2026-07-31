@@ -60,9 +60,7 @@ const AdminHeader = ({ onToggleSidebar, title = 'Admin Panel', isCollapsed, onLo
               <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-orange-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
-            ) : (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
-            )}
+            ) : null}
           </Link>
 
           <button className="hidden sm:flex p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">

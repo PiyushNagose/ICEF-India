@@ -137,11 +137,28 @@ const loginCandidate = asyncHandler(async (req, res) => {
  *       401: { description: Invalid credentials }
  */
 const loginAdmin = asyncHandler(async (req, res) => {
-  const result = await authService.loginAdmin(req.body);
+  const result = await authService.loginAdmin({ ...req.body, loginAs: "admin" }, {
+    ipAddress: req.ip || req.headers["x-forwarded-for"],
+  });
   authService.setAuthCookies(res, result.accessToken, result.refreshToken);
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "Admin login successful", {
+    new ApiResponse(StatusCodes.OK, "Super Admin login successful", {
+      user: result.employee,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    }),
+  );
+});
+
+const loginEmployee = asyncHandler(async (req, res) => {
+  const result = await authService.loginAdmin({ ...req.body, loginAs: "employee" }, {
+    ipAddress: req.ip || req.headers["x-forwarded-for"],
+  });
+  authService.setAuthCookies(res, result.accessToken, result.refreshToken);
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Employee login successful", {
       user: result.employee,
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
@@ -192,7 +209,7 @@ const refreshToken = asyncHandler(async (req, res) => {
  *       404: { description: Email not found }
  */
 const forgotPassword = asyncHandler(async (req, res) => {
-  const result = await authService.forgotPassword(req.body.email);
+  const result = await authService.forgotPassword(req.body);
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, result.message));
@@ -276,23 +293,55 @@ const getMe = asyncHandler(async (req, res) => {
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "User fetched", {
-      user: user.toSafeObject(),
+      user: {
+        ...user.toSafeObject(),
+        role:
+          user.systemRole?.roleName?.trim().toLowerCase() === "super admin"
+            ? "admin"
+            : req.user.role,
+      },
     }),
   );
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
   const User = require("../shared/models/User");
+  const Employee = require("../shared/models/Employee");
   const ApiError = require("../shared/utils/ApiError");
 
   if (req.user.role !== "candidate") {
-    throw new ApiError(
-      403,
-      "Only candidates can update profile via this endpoint",
+    const allowed = [
+      "fullName",
+      "contactNumber",
+      "department",
+      "roleDesignation",
+      "dateOfJoining",
+    ];
+    const updates = {};
+    allowed.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
+    if (Object.keys(updates).length === 0) {
+      throw new ApiError(400, "No valid fields to update");
+    }
+
+    const employee = await Employee.findById(req.user.id).populate(
+      "systemRole",
+      "roleName permissions",
+    );
+    if (!employee) throw new ApiError(404, "User not found");
+
+    Object.assign(employee, updates);
+    await employee.save({ validateBeforeSave: false });
+
+    return res.status(StatusCodes.OK).json(
+      new ApiResponse(StatusCodes.OK, "Profile updated successfully", {
+        user: employee.toSafeObject(),
+      }),
     );
   }
 
-  // Fields allowed to be updated
   const allowed = [
     "fullName",
     "dateOfBirth",
@@ -352,6 +401,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 
 const changePassword = asyncHandler(async (req, res) => {
   const User = require("../shared/models/User");
+  const Employee = require("../shared/models/Employee");
   const ApiError = require("../shared/utils/ApiError");
   const { currentPassword, newPassword } = req.body;
 
@@ -362,13 +412,18 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "New password must be at least 8 characters");
   }
 
-  const user = await User.findById(req.user.id).select("+password");
+  const Model = req.user.role === "candidate" ? User : Employee;
+  const user = await Model.findById(req.user.id).select("+password");
   if (!user) throw new ApiError(404, "User not found");
 
   const isMatch = await user.comparePassword(currentPassword);
   if (!isMatch) throw new ApiError(401, "Current password is incorrect");
 
   user.password = newPassword; // pre-save hook will hash it
+  if (req.user.role !== "candidate") {
+    user.mustChangePassword = false;
+    user.passwordChangedAt = new Date();
+  }
   await user.save({ validateBeforeSave: false });
 
   res
@@ -407,6 +462,7 @@ module.exports = {
   verifyOTP,
   loginCandidate,
   loginAdmin,
+  loginEmployee,
   refreshToken,
   forgotPassword,
   resetPassword,

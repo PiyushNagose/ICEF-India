@@ -18,10 +18,28 @@ export const isCandidateUser = (user) => {
   return user?.role === "candidate" && !user?.employeeId;
 };
 
+export const isSuperAdminUser = (user) =>
+  user?.role === "admin" ||
+  user?.systemRole?.roleName?.trim().toLowerCase() === "super admin" ||
+  user?.roleDesignation?.trim().toLowerCase() === "super administrator" ||
+  user?.fullName?.trim().toLowerCase() === "super admin" ||
+  user?.employeeId?.trim().toLowerCase() === "emp-super-001";
+
+export const getInternalLoginPath = (user) =>
+  isSuperAdminUser(user)
+    ? "/auth/admin-login"
+    : localStorage.getItem(STORAGE_KEYS.internalLoginPath) || "/auth/employee-login";
+
 export const getDashboardPath = (user) => {
   if (isAdminUser(user)) return "/admin/dashboard";
   if (isCandidateUser(user)) return "/candidate/dashboard";
   return "/auth/candidate-login";
+};
+
+export const hasPermission = (user, module, action = "view") => {
+  if (!module) return true;
+  const permissions = user?.systemRole?.permissions || user?.permissions || {};
+  return Boolean(permissions?.[module]?.[action]);
 };
 
 /**

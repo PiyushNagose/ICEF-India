@@ -54,7 +54,15 @@ const EditEmployee = () => {
     queryKey: ['admin-roles'],
     queryFn: () => adminService.getRoles(),
   })
-  const roles = rolesData?.data?.roles || rolesData?.roles || []
+  const allRoles = rolesData?.data?.roles || rolesData?.roles || []
+  const selectedRole = allRoles.find((role) => role._id === formData.systemRole)
+  const isEditingSuperAdmin =
+    selectedRole?.roleName?.trim().toLowerCase() === 'super admin'
+  const roles = allRoles.filter(
+    (role) =>
+      role.roleName?.trim().toLowerCase() !== 'super admin' ||
+      role._id === formData.systemRole
+  )
 
   useEffect(() => {
     if (employeeData?.employee) {
@@ -115,7 +123,7 @@ const EditEmployee = () => {
       department: formData.department,
       roleDesignation: formData.roleDesignation.trim(),
       dateOfJoining: formData.dateOfJoining,
-      systemRole: formData.systemRole,
+      ...(!isEditingSuperAdmin && { systemRole: formData.systemRole }),
       status: formData.status,
       ...(formData.dateOfBirth && { dateOfBirth: formData.dateOfBirth }),
       ...(formData.gender && { gender: formData.gender }),
@@ -273,15 +281,17 @@ const EditEmployee = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {(roles.length > 0 ? roles : []).map(role => {
                 const isSelected = formData.systemRole === role._id
+                const isReserved = role.roleName?.trim().toLowerCase() === 'super admin'
                 return (
-                  <label key={role._id} className={`relative flex flex-col gap-2 p-4 border-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <label key={role._id} className={`relative flex flex-col gap-2 p-4 border-2 rounded-xl transition-all ${isReserved ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
                     <input type="radio" name="systemRole" value={role._id} checked={isSelected}
+                      disabled={isReserved}
                       onChange={e => set('systemRole', e.target.value)} className="absolute top-3 right-3 accent-orange-600" />
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-orange-100' : 'bg-gray-100'}`}>
                       <Shield className={`w-5 h-5 ${isSelected ? 'text-orange-600' : 'text-gray-500'}`} />
                     </div>
                     <p className="font-semibold text-gray-900 text-sm">{role.roleName}</p>
-                    <p className="text-xs text-gray-500">{role.description || 'System role'}</p>
+                    <p className="text-xs text-gray-500">{role.roleDescription || role.description || 'System role'}</p>
                   </label>
                 )
               })}

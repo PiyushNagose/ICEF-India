@@ -72,6 +72,12 @@ const employeeSchema = new mongoose.Schema(
     refreshToken: { type: String, select: false },
     lastLoginAt: { type: Date },
     lastLoginIP: { type: String },
+    mustChangePassword: { type: Boolean, default: false },
+    passwordChangedAt: { type: Date },
+    failedLoginAttempts: { type: Number, default: 0, select: false },
+    lockedUntil: { type: Date, select: false },
+    otp: { type: String, select: false },
+    otpExpiry: { type: Date, select: false },
 
     // ── Metadata ──────────────────────────────────────────────
     createdBy: {
@@ -91,6 +97,7 @@ const employeeSchema = new mongoose.Schema(
 // Note: employeeId and officialEmail already have unique indexes from schema definition
 employeeSchema.index({ department: 1 });
 employeeSchema.index({ status: 1 });
+employeeSchema.index({ systemRole: 1 });
 
 // ── Hash password before save ─────────────────────────────────
 employeeSchema.pre("save", async function (next) {

@@ -215,6 +215,14 @@ const getRole = asyncHandler(async (req, res) => {
  */
 const createRole = asyncHandler(async (req, res) => {
   const { roleName, roleDescription, permissions } = req.body;
+  const normalizedRoleName = roleName?.trim().toLowerCase();
+
+  if (normalizedRoleName === "super admin") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Super Admin is a reserved system role",
+    );
+  }
 
   const existing = await Role.findOne({ roleName });
   if (existing)
@@ -276,6 +284,12 @@ const createRole = asyncHandler(async (req, res) => {
 const updateRole = asyncHandler(async (req, res) => {
   const role = await Role.findById(req.params.id);
   if (!role) throw new ApiError(StatusCodes.NOT_FOUND, "Role not found");
+  if (role.isSystemRole) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "System roles are locked and cannot be modified",
+    );
+  }
 
   const { roleName, roleDescription, permissions } = req.body;
 
@@ -328,6 +342,12 @@ const updateRole = asyncHandler(async (req, res) => {
 const deleteRole = asyncHandler(async (req, res) => {
   const role = await Role.findById(req.params.id);
   if (!role) throw new ApiError(StatusCodes.NOT_FOUND, "Role not found");
+  if (role.isSystemRole) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "System roles are locked and cannot be deleted",
+    );
+  }
 
   const employeeCount = await Employee.countDocuments({ systemRole: role._id });
   if (employeeCount > 0) {

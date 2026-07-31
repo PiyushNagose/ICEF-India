@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
-import { API_BASE_URL } from '../../api/config'
+import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
+import { hasPermission, useAuth } from '../../hooks/useAuth'
 
 // ── Action badge config ───────────────────────────────────
 const ACTION_CFG = {
@@ -70,7 +71,7 @@ const Pagination = ({ page, totalPages, total, showing, onPage }) => {
         </button>
         {pages.map((p, i) =>
           p === '...' ? (
-            <span key={`dot-${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">…</span>
+            <span key={`dot-${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">...</span>
           ) : (
             <button
               key={p}
@@ -99,6 +100,7 @@ const Pagination = ({ page, totalPages, total, showing, onPage }) => {
 
 const ActivityLogs = () => {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ module: '', action: '', employee: '', dateRange: '30' })
 
@@ -121,9 +123,10 @@ const ActivityLogs = () => {
   const set = (key, val) => { setFilters(f => ({ ...f, [key]: val })); setPage(1) }
   const clearAll = () => { setFilters({ module: '', action: '', employee: '', dateRange: '30' }); setPage(1) }
   const hasFilters = filters.module || filters.action || filters.employee
+  const canDownload = hasPermission(user, 'employees', 'download')
 
   const handleExport = () => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem(STORAGE_KEYS.accessToken)
     const params = new URLSearchParams({
       ...(filters.module && { module: filters.module }),
       ...(filters.action && { action: filters.action }),
@@ -155,12 +158,14 @@ const ActivityLogs = () => {
             <p className="text-sm text-gray-500 mt-0.5">System Audit &amp; Compliance Tracking for Recruitment Modules</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" /> Download CSV
-            </button>
+            {canDownload && (
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" /> Download CSV
+              </button>
+            )}
             <div className="relative">
               <select
                 value={filters.dateRange}
@@ -298,7 +303,7 @@ const ActivityLogs = () => {
                     <tr key={log._id} className="hover:bg-orange-50/40 transition-colors cursor-pointer" onClick={() => log.employeeId?._id && navigate(`/admin/activity-logs/${log.employeeId._id}`, { state: { employee: log.employeeId } })}>
                       <td className="py-4 px-5 align-middle">
                         <p className="text-sm font-semibold text-gray-900">
-                          {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </p>
                         <p className="text-xs text-orange-500 font-mono mt-0.5">
                           {log.createdAt ? new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
@@ -315,7 +320,7 @@ const ActivityLogs = () => {
                       </td>
                       <td className="py-4 px-5 align-middle">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
-                          {actionKey || '—'}
+                          {actionKey || '-'}
                         </span>
                       </td>
                       <td className="py-4 px-5 align-middle">
@@ -323,12 +328,12 @@ const ActivityLogs = () => {
                           <div className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <ModuleIcon className="w-3 h-3 text-orange-600" />
                           </div>
-                          <span className="truncate text-sm text-gray-900">{log.module || '—'}</span>
+                          <span className="truncate text-sm text-gray-900">{log.module || '-'}</span>
                         </div>
                       </td>
                       <td className="py-4 px-5 align-middle">
                         <p className="truncate text-sm text-gray-600" title={log.details || log.description}>
-                          {log.details || log.description || '—'}
+                          {log.details || log.description || '-'}
                         </p>
                       </td>
                     </tr>

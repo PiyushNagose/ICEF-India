@@ -25,14 +25,26 @@ const STORAGE_KEY = "job_draft";
 
 // Build the update payload — only sends fields the backend updateJobSchema accepts
 const buildUpdatePayload = (draft) => {
-  const num = (v) => (v !== undefined && v !== null && v !== "" ? Number(v) : undefined);
-  const str = (v) => (v !== undefined && v !== null && v !== "" ? String(v) : undefined);
-  const def = (v) => (v !== undefined && v !== null && v !== "" ? v : undefined);
+  const num = (v) =>
+    v !== undefined && v !== null && v !== "" ? Number(v) : undefined;
+  const str = (v) =>
+    v !== undefined && v !== null && v !== "" ? String(v) : undefined;
+  const def = (v) =>
+    v !== undefined && v !== null && v !== "" ? v : undefined;
 
   const payload = {};
 
-  const CATEGORY_MAP = { general:'General', technical:'Technical', administrative:'Administrative', teaching:'Teaching' };
-  const JOB_TYPE_MAP = { permanent:'Permanent', contract:'Contract', temporary:'Temporary' };
+  const CATEGORY_MAP = {
+    general: "General",
+    technical: "Technical",
+    administrative: "Administrative",
+    teaching: "Teaching",
+  };
+  const JOB_TYPE_MAP = {
+    permanent: "Permanent",
+    contract: "Contract",
+    temporary: "Temporary",
+  };
 
   if (def(draft.category)) {
     const cat = draft.category;
@@ -44,30 +56,30 @@ const buildUpdatePayload = (draft) => {
   }
   if (def(draft.workLocation)) payload.workLocation = draft.workLocation;
   if (def(draft.description)) payload.description = draft.description;
-  if (num(draft.totalPosts))  payload.totalPosts  = num(draft.totalPosts);
+  if (num(draft.totalPosts)) payload.totalPosts = num(draft.totalPosts);
 
   // Posts — normalise types, strip _id so Zod doesn't choke on ObjectId format
   if (Array.isArray(draft.posts) && draft.posts.length > 0) {
     payload.posts = draft.posts
       .filter((p) => p?.title && p?.designation)
       .map((p) => ({
-        postCode:    p.postCode    || "",
-        title:       p.title,
+        postCode: p.postCode || "",
+        title: p.title,
         designation: p.designation,
-        department:  p.department  || "",
-        category:    p.category    || "",
-        vacancies:   Math.max(1, Math.round(Number(p.vacancies) || 1)),
-        payLevel:    p.payLevel    || "",
-        location:    p.location    || "",
-        status:      "active",
+        department: p.department || "",
+        category: p.category || "",
+        vacancies: Math.max(1, Math.round(Number(p.vacancies) || 1)),
+        payLevel: p.payLevel || "",
+        location: p.location || "",
+        status: "active",
       }));
   }
 
   // Reserved posts
   if (draft.reservedPosts) {
     payload.reservedPosts = {
-      sc:  num(draft.reservedPosts.sc)  || 0,
-      st:  num(draft.reservedPosts.st)  || 0,
+      sc: num(draft.reservedPosts.sc) || 0,
+      st: num(draft.reservedPosts.st) || 0,
       obc: num(draft.reservedPosts.obc) || 0,
       ews: num(draft.reservedPosts.ews) || 0,
       pwd: num(draft.reservedPosts.pwd) || 0,
@@ -86,30 +98,39 @@ const buildUpdatePayload = (draft) => {
   if (draft.applicationFee) {
     payload.applicationFee = {
       general: num(draft.applicationFee.general) || 0,
-      obc:     num(draft.applicationFee.obc)     || 0,
-      scSt:    num(draft.applicationFee.scSt)    || 0,
-      ews:     num(draft.applicationFee.ews)     || 0,
-      pwd:     num(draft.applicationFee.pwd)     || 0,
+      obc: num(draft.applicationFee.obc) || 0,
+      scSt: num(draft.applicationFee.scSt) || 0,
+      ews: num(draft.applicationFee.ews) || 0,
+      pwd: num(draft.applicationFee.pwd) || 0,
     };
   }
 
   // Dates
-  if (def(draft.applicationDeadline)) payload.applicationDeadline = draft.applicationDeadline;
-  if (def(draft.examDate))            payload.examDate            = draft.examDate;
-  if (def(draft.applicationStartDate)) payload.applicationStartDate = draft.applicationStartDate;
-  if (def(draft.correctionStartDate)) payload.correctionStartDate = draft.correctionStartDate;
-  if (def(draft.correctionDeadline)) payload.correctionDeadline = draft.correctionDeadline;
-  if (def(draft.admitCardReleaseDate)) payload.admitCardReleaseDate = draft.admitCardReleaseDate;
+  if (def(draft.applicationDeadline))
+    payload.applicationDeadline = draft.applicationDeadline;
+  if (def(draft.examDate)) payload.examDate = draft.examDate;
+  if (def(draft.applicationStartDate))
+    payload.applicationStartDate = draft.applicationStartDate;
+  if (def(draft.correctionStartDate))
+    payload.correctionStartDate = draft.correctionStartDate;
+  if (def(draft.correctionDeadline))
+    payload.correctionDeadline = draft.correctionDeadline;
+  if (def(draft.admitCardReleaseDate))
+    payload.admitCardReleaseDate = draft.admitCardReleaseDate;
   if (def(draft.resultDate)) payload.resultDate = draft.resultDate;
 
   // Eligibility
   if (draft.ageLimit) {
     payload.ageLimit = {
-      ...(num(draft.ageLimit.min) !== undefined && { min: num(draft.ageLimit.min) }),
-      ...(num(draft.ageLimit.max) !== undefined && { max: num(draft.ageLimit.max) }),
+      ...(num(draft.ageLimit.min) !== undefined && {
+        min: num(draft.ageLimit.min),
+      }),
+      ...(num(draft.ageLimit.max) !== undefined && {
+        max: num(draft.ageLimit.max),
+      }),
       relaxation: {
-        sc:  num(draft.ageLimit.relaxation?.sc)  || 0,
-        st:  num(draft.ageLimit.relaxation?.st)  || 0,
+        sc: num(draft.ageLimit.relaxation?.sc) || 0,
+        st: num(draft.ageLimit.relaxation?.st) || 0,
         obc: num(draft.ageLimit.relaxation?.obc) || 0,
         pwd: num(draft.ageLimit.relaxation?.pwd) || 0,
       },
@@ -118,28 +139,39 @@ const buildUpdatePayload = (draft) => {
 
   if (draft.education) {
     payload.education = {
-      essential: Array.isArray(draft.education.essential) ? draft.education.essential : [],
-      desirable: Array.isArray(draft.education.desirable) ? draft.education.desirable : [],
+      essential: Array.isArray(draft.education.essential)
+        ? draft.education.essential
+        : [],
+      desirable: Array.isArray(draft.education.desirable)
+        ? draft.education.desirable
+        : [],
     };
   }
 
   if (draft.experience) {
     payload.experience = {
-      required:    !!draft.experience.required,
-      years:       num(draft.experience.years) || 0,
-      type:        str(draft.experience.type)  || "",
+      required: !!draft.experience.required,
+      years: num(draft.experience.years) || 0,
+      type: str(draft.experience.type) || "",
       description: str(draft.experience.description) || "",
     };
   }
 
-  if (draft.physicalStandards) payload.physicalStandards = draft.physicalStandards;
-  if (draft.medicalStandards)  payload.medicalStandards  = draft.medicalStandards;
+  if (draft.physicalStandards)
+    payload.physicalStandards = draft.physicalStandards;
+  if (draft.medicalStandards) payload.medicalStandards = draft.medicalStandards;
 
-  if (Array.isArray(draft.otherRequirements) && draft.otherRequirements.length > 0) {
+  if (
+    Array.isArray(draft.otherRequirements) &&
+    draft.otherRequirements.length > 0
+  ) {
     payload.otherRequirements = draft.otherRequirements.filter(Boolean);
   }
 
-  if (Array.isArray(draft.documentRequirements) && draft.documentRequirements.length > 0) {
+  if (
+    Array.isArray(draft.documentRequirements) &&
+    draft.documentRequirements.length > 0
+  ) {
     const validDocs = draft.documentRequirements.filter((d) => d?.name?.trim());
     if (validDocs.length > 0) payload.documentRequirements = validDocs;
   }
@@ -185,11 +217,17 @@ const buildUpdatePayload = (draft) => {
   // Payment config — only safe fields
   if (draft.paymentConfig) {
     payload.paymentConfig = {
-      applicationFee:  num(draft.paymentConfig.applicationFee) || 0,
-      processingFee:   num(draft.paymentConfig.processingFee)  || 0,
-      paymentMethods:  Array.isArray(draft.paymentConfig.paymentMethods) ? draft.paymentConfig.paymentMethods : [],
-      ...(def(draft.paymentConfig.refundPolicy)    && { refundPolicy:        draft.paymentConfig.refundPolicy }),
-      ...(def(draft.paymentConfig.paymentDeadline) && { paymentDeadline:     draft.paymentConfig.paymentDeadline }),
+      applicationFee: num(draft.paymentConfig.applicationFee) || 0,
+      processingFee: num(draft.paymentConfig.processingFee) || 0,
+      paymentMethods: Array.isArray(draft.paymentConfig.paymentMethods)
+        ? draft.paymentConfig.paymentMethods
+        : [],
+      ...(def(draft.paymentConfig.refundPolicy) && {
+        refundPolicy: draft.paymentConfig.refundPolicy,
+      }),
+      ...(def(draft.paymentConfig.paymentDeadline) && {
+        paymentDeadline: draft.paymentConfig.paymentDeadline,
+      }),
     };
   }
 
@@ -221,9 +259,7 @@ const JobReview = () => {
     !/^[a-f\d]{24}$/i.test(draft.projectId || "");
 
   // For PUBLISH: also need posts + applicationDeadline
-  const missingRequired =
-    missingForDraft ||
-    !draft.posts?.length;
+  const missingRequired = missingForDraft || !draft.posts?.length;
 
   const missingFields = [
     (!draft.projectId || !/^[a-f\d]{24}$/i.test(draft.projectId)) &&
@@ -271,8 +307,11 @@ const JobReview = () => {
       const jobId = res?.job?._id;
       if (jobId) {
         // Store the jobId in draft so retries skip the create step
-        const current = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, _jobId: jobId }));
+        const current = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ ...current, _jobId: jobId }),
+        );
       }
       return jobId || null;
     } catch (err) {
@@ -283,14 +322,21 @@ const JobReview = () => {
           const jobId = res?.job?._id;
           if (jobId) {
             // Cache it for future retries
-            const current = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, _jobId: jobId }));
+            const current = JSON.parse(
+              sessionStorage.getItem(STORAGE_KEY) || "{}",
+            );
+            sessionStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({ ...current, _jobId: jobId }),
+            );
             return jobId;
           }
         } catch {
           // lookup failed
         }
-        toast.error(`Post code "${draft.postCode}" is already used. Go to Step 1 and change it.`);
+        toast.error(
+          `Post code "${draft.postCode}" is already used. Go to Step 1 and change it.`,
+        );
         return null;
       }
       throw err;
@@ -299,7 +345,9 @@ const JobReview = () => {
 
   const handleSaveDraft = async () => {
     if (missingForDraft) {
-      toast.error("Please complete Step 1 (Basic Info) first — title, post code, department, and project are required.");
+      toast.error(
+        "Please complete Step 1 (Basic Info) first — title, post code, department, and project are required.",
+      );
       return;
     }
     try {
@@ -312,7 +360,6 @@ const JobReview = () => {
           await updateJob({ id: jobId, data: updatePayload });
         } catch (updateErr) {
           // Log for debugging but don't block — job was created as draft
-          console.error("Update payload error:", updateErr?.errors || updateErr?.message);
           toast.success("Job saved as draft (some optional fields skipped)");
           sessionStorage.removeItem(STORAGE_KEY);
           queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
@@ -560,7 +607,9 @@ const JobReview = () => {
               </Card>
 
               {/* Documents */}
-              {draft.formSections?.some((section) => section.fields?.length > 0) && (
+              {draft.formSections?.some(
+                (section) => section.fields?.length > 0,
+              ) && (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -735,7 +784,9 @@ const JobReview = () => {
                     label="Application Start"
                     value={
                       draft.applicationStartDate
-                        ? new Date(draft.applicationStartDate).toLocaleDateString("en-IN")
+                        ? new Date(
+                            draft.applicationStartDate,
+                          ).toLocaleDateString("en-IN")
                         : "-"
                     }
                   />
@@ -753,7 +804,9 @@ const JobReview = () => {
                     label="Payment Deadline"
                     value={
                       draft.paymentConfig?.paymentDeadline
-                        ? new Date(draft.paymentConfig.paymentDeadline).toLocaleDateString("en-IN")
+                        ? new Date(
+                            draft.paymentConfig.paymentDeadline,
+                          ).toLocaleDateString("en-IN")
                         : "-"
                     }
                   />
@@ -769,7 +822,9 @@ const JobReview = () => {
                     label="Admit Card Release"
                     value={
                       draft.admitCardReleaseDate
-                        ? new Date(draft.admitCardReleaseDate).toLocaleDateString("en-IN")
+                        ? new Date(
+                            draft.admitCardReleaseDate,
+                          ).toLocaleDateString("en-IN")
                         : "-"
                     }
                   />
@@ -848,7 +903,8 @@ const JobReview = () => {
                 disabled={isPublishing}
               >
                 Save Draft
-              </Button>              <Button
+              </Button>{" "}
+              <Button
                 onClick={handlePublish}
                 disabled={isPublishing || missingRequired}
                 className="bg-orange-600 hover:bg-orange-700 text-white px-8"
@@ -871,8 +927,3 @@ const JobReview = () => {
 };
 
 export default JobReview;
-
-
-
-
-

@@ -17,7 +17,7 @@ const STATES = [
 ];
 
 const SIDE_IMAGE =
-  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=480&q=80&fit=crop";
+  "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=640&h=220&q=80&fit=crop&crop=faces";
 
 const FEATURES = [
   "Secure Application Tracking",
@@ -144,7 +144,7 @@ const Register = () => {
               <img
                 src={SIDE_IMAGE}
                 alt="Candidate"
-                className="w-full h-24 object-cover"
+                className="w-full h-24 object-cover object-center"
                 onError={(e) => { e.currentTarget.style.display = "none"; }}
               />
             </div>

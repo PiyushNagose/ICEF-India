@@ -40,6 +40,12 @@ router.post(
   validate(loginSchema),
   authController.loginAdmin,
 );
+router.post(
+  "/employee/login",
+  authLimiter,
+  validate(loginSchema),
+  authController.loginEmployee,
+);
 router.post("/refresh-token", authController.refreshToken);
 router.post(
   "/forgot-password",
@@ -49,6 +55,7 @@ router.post(
 );
 router.post(
   "/reset-password",
+  otpLimiter,
   validate(resetPasswordSchema),
   authController.resetPassword,
 );

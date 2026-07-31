@@ -19,6 +19,7 @@ import Home from "../app/public/Home";
 const Login = lazy(() => import("../app/auth/Login"));
 const CandidateLogin = lazy(() => import("../app/auth/CandidateLogin"));
 const AdminLogin = lazy(() => import("../app/auth/AdminLogin"));
+const EmployeeLogin = lazy(() => import("../app/auth/EmployeeLogin"));
 const Register = lazy(() => import("../app/auth/Register"));
 const ForgotPassword = lazy(() => import("../app/auth/ForgotPassword"));
 const VerifyOTP = lazy(() => import("../app/auth/VerifyOTP"));
@@ -53,7 +54,6 @@ const Contact = lazy(() => import("../app/public/Contact"));
 const HowToApply = lazy(() => import("../app/public/HowToApply"));
 const HelpCenter = lazy(() => import("../app/public/HelpCenter"));
 const TechnicalSupport = lazy(() => import("../app/public/TechnicalSupport"));
-const AuthDebug = lazy(() => import("../app/test/AuthDebug"));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import("../app/admin/Dashboard"));
@@ -135,8 +135,21 @@ const AppRoutes = () => {
         {/* Auth Routes */}
         <Route path="/auth/candidate-login" element={<CandidateLogin />} />
         <Route path="/auth/admin-login" element={<AdminLogin />} />
+        <Route path="/auth/employee-login" element={<EmployeeLogin />} />
         <Route path="/auth/register" element={<Register />} />
-        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+        {/* Separate Forgot Password routes for each account type */}
+        <Route
+          path="/auth/forgot-password"
+          element={<ForgotPassword accountType="candidate" />}
+        />
+        <Route
+          path="/auth/admin/forgot-password"
+          element={<ForgotPassword accountType="admin" />}
+        />
+        <Route
+          path="/auth/employee/forgot-password"
+          element={<ForgotPassword accountType="employee" />}
+        />
         <Route path="/auth/verify-otp" element={<VerifyOTP />} />
 
         {/* Application Flow Routes (after OTP verification) */}
@@ -236,7 +249,6 @@ const AppRoutes = () => {
         <Route path="/how-to-apply" element={<HowToApply />} />
         <Route path="/help-center" element={<HelpCenter />} />
         <Route path="/technical-support" element={<TechnicalSupport />} />
-        <Route path="/auth-debug" element={<AuthDebug />} />
 
         {/* Admin Routes */}
         <Route
@@ -254,7 +266,10 @@ const AppRoutes = () => {
         <Route
           path="/admin/payment-settings"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute
+              role="admin"
+              permission={["paymentSettings", "view"]}
+            >
               <PaymentSettings />
             </ProtectedRoute>
           }
@@ -262,7 +277,10 @@ const AppRoutes = () => {
         <Route
           path="/admin/payment-settings/add-gateway"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute
+              role="admin"
+              permission={["paymentSettings", "create"]}
+            >
               <AddPaymentGateway />
             </ProtectedRoute>
           }
@@ -270,7 +288,10 @@ const AppRoutes = () => {
         <Route
           path="/admin/payment-settings/:name"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute
+              role="admin"
+              permission={["paymentSettings", "edit"]}
+            >
               <GatewayConfig />
             </ProtectedRoute>
           }
@@ -278,7 +299,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/projects"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "view"]}>
               <Projects />
             </ProtectedRoute>
           }
@@ -286,7 +307,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/projects/create"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "create"]}>
               <CreateProject />
             </ProtectedRoute>
           }
@@ -294,7 +315,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/projects/:id"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "view"]}>
               <ProjectDetails />
             </ProtectedRoute>
           }
@@ -302,7 +323,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "view"]}>
               <AdminJobs />
             </ProtectedRoute>
           }
@@ -310,7 +331,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobCreate />
             </ProtectedRoute>
           }
@@ -318,7 +339,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/basic-info"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobBasicInfo />
             </ProtectedRoute>
           }
@@ -326,7 +347,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/eligibility"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobEligibility />
             </ProtectedRoute>
           }
@@ -334,7 +355,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/form-builder"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobFormBuilder />
             </ProtectedRoute>
           }
@@ -342,7 +363,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/documents"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobDocuments />
             </ProtectedRoute>
           }
@@ -350,7 +371,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/payment"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobPayment />
             </ProtectedRoute>
           }
@@ -358,7 +379,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/jobs/create/review"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["jobs", "create"]}>
               <JobReview />
             </ProtectedRoute>
           }
@@ -366,7 +387,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/applications"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["applications", "view"]}>
               <AdminApplications />
             </ProtectedRoute>
           }
@@ -374,7 +395,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/applications/:id"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["applications", "view"]}>
               <ApplicationDetails />
             </ProtectedRoute>
           }
@@ -382,7 +403,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/admit-cards"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["admitCards", "view"]}>
               <AdminAdmitCards />
             </ProtectedRoute>
           }
@@ -390,7 +411,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/analytics"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["analytics", "view"]}>
               <Analytics />
             </ProtectedRoute>
           }
@@ -398,7 +419,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/analytics/funnel"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["analytics", "view"]}>
               <FunnelAnalysis />
             </ProtectedRoute>
           }
@@ -406,7 +427,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/activity-logs"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "view"]}>
               <ActivityLogs />
             </ProtectedRoute>
           }
@@ -414,7 +435,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/activity-logs/:id"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "view"]}>
               <EmployeeActivityDetails />
             </ProtectedRoute>
           }
@@ -422,7 +443,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/employees"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "view"]}>
               <Employees />
             </ProtectedRoute>
           }
@@ -430,7 +451,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/employees/add"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "create"]}>
               <AddEmployee />
             </ProtectedRoute>
           }
@@ -438,7 +459,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/employees/:id/edit"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "edit"]}>
               <EditEmployee />
             </ProtectedRoute>
           }
@@ -446,7 +467,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/employees/:id/activity"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "view"]}>
               <EmployeeActivity />
             </ProtectedRoute>
           }
@@ -454,7 +475,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/roles"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "view"]}>
               <Roles />
             </ProtectedRoute>
           }
@@ -462,7 +483,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/roles/create"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "create"]}>
               <CreateRole />
             </ProtectedRoute>
           }
@@ -470,7 +491,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/roles/:id/edit"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["employees", "edit"]}>
               <EditRole />
             </ProtectedRoute>
           }
@@ -478,7 +499,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/support"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["support", "view"]}>
               <AdminSupport />
             </ProtectedRoute>
           }
@@ -486,7 +507,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/support/kanban"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["support", "view"]}>
               <SupportKanban />
             </ProtectedRoute>
           }
@@ -494,7 +515,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/support/ticket/:id"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["support", "view"]}>
               <SupportTicketDetails />
             </ProtectedRoute>
           }
@@ -518,7 +539,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
               <CmsHome />
             </ProtectedRoute>
           }
@@ -526,7 +547,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms/create"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
               <CmsCreate />
             </ProtectedRoute>
           }
@@ -534,7 +555,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms/edit/:state"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
               <CmsEdit />
             </ProtectedRoute>
           }

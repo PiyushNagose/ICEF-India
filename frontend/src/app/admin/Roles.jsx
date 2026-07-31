@@ -5,6 +5,7 @@ import { Plus, Shield, Edit, Trash2, Eye, Users, Activity, ChevronLeft, ChevronR
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
+import { hasPermission, useAuth } from '../../hooks/useAuth'
 
 // Role type badge config
 const ROLE_TYPE = {
@@ -45,16 +46,25 @@ const AvatarStack = ({ count }) => {
   )
 }
 
-const LIMIT = 5
+const LIMIT = 10
+
+const getRoleRank = (role) => {
+  const name = role.roleName?.toLowerCase() || ''
+  if (name === 'super admin') return 0
+  if (name.includes('super') || name.includes('admin')) return 1
+  if (role.isSystemRole) return 2
+  return 3
+}
 
 const Roles = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [page, setPage] = useState(1)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-roles'],
-    queryFn: () => adminService.getRoles(),
+    queryFn: () => adminService.getRoles({ limit: 100 }),
   })
 
   const { mutate: deleteRole } = useMutation({
@@ -71,10 +81,17 @@ const Roles = () => {
     if (window.confirm(`Delete role "${role.roleName}"?`)) deleteRole(role._id)
   }
 
-  const roles      = data?.roles || []
+  const roles      = [...(data?.roles || [])].sort((a, b) => {
+    const rankDiff = getRoleRank(a) - getRoleRank(b)
+    if (rankDiff !== 0) return rankDiff
+    return (a.roleName || '').localeCompare(b.roleName || '')
+  })
   const totalRoles = roles.length
   const totalPages = Math.ceil(totalRoles / LIMIT) || 1
   const paged      = roles.slice((page - 1) * LIMIT, page * LIMIT)
+  const canCreate = hasPermission(user, 'employees', 'create')
+  const canEdit = hasPermission(user, 'employees', 'edit')
+  const canDelete = hasPermission(user, 'employees', 'delete')
 
   // Real assigned users from employeeCount populated by backend
   const totalAssigned = roles.reduce((s, r) => s + (r.employeeCount || 0), 0)
@@ -97,12 +114,14 @@ const Roles = () => {
               Define institutional hierarchies and control administrative access across the Bihar Recruitment Portal.
             </p>
           </div>
-          <button
-            onClick={() => navigate('/admin/roles/create')}
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" /> Create Role
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => navigate('/admin/roles/create')}
+              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Create Role
+            </button>
+          )}
         </div>
 
         {/* Stat Cards */}
@@ -113,7 +132,7 @@ const Roles = () => {
               <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
                 <Shield className="w-5 h-5 text-orange-500" />
               </div>
-              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+12% vs LY</span>
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
             </div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Active Roles</p>
             <p className="text-3xl font-bold text-gray-900">{String(totalRoles).padStart(2, '0')}</p>
@@ -138,8 +157,8 @@ const Roles = () => {
               </div>
               <div className="w-8 h-1 bg-amber-400 rounded-full mt-3" />
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">System Load</p>
-            <p className="text-3xl font-bold text-gray-900">64%</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Permission Modules</p>
+            <p className="text-3xl font-bold text-gray-900">9</p>
           </div>
         </div>
 
@@ -184,7 +203,7 @@ const Roles = () => {
 
                       {/* Description */}
                       <td className="py-4 px-5 max-w-xs">
-                        <p className="text-sm text-gray-600 line-clamp-2">{role.roleDescription || '—'}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2">{role.roleDescription || '-'}</p>
                       </td>
 
                       {/* Assigned Users */}
@@ -195,7 +214,7 @@ const Roles = () => {
                       {/* Last Updated */}
                       <td className="py-4 px-5">
                         <p className="text-sm font-medium text-gray-900">
-                          {role.updatedAt ? new Date(role.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          {role.updatedAt ? new Date(role.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {role.createdBy?.fullName ? `by ${role.createdBy.fullName}` : 'by System'}
@@ -212,21 +231,30 @@ const Roles = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => navigate(`/admin/roles/${role._id}/edit`)}
-                            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(role)}
-                            disabled={role.isSystemRole}
-                            className={`p-2 rounded-lg transition-colors ${role.isSystemRole ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                            title={role.isSystemRole ? 'Cannot delete system role' : 'Delete'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => navigate(`/admin/roles/${role._id}/edit`)}
+                              disabled={role.isSystemRole}
+                              className={`p-2 rounded-lg transition-colors ${
+                                role.isSystemRole
+                                  ? 'text-gray-200 cursor-not-allowed'
+                                  : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
+                              }`}
+                              title={role.isSystemRole ? 'System role is locked' : 'Edit'}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(role)}
+                              disabled={role.isSystemRole}
+                              className={`p-2 rounded-lg transition-colors ${role.isSystemRole ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                              title={role.isSystemRole ? 'Cannot delete system role' : 'Delete'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -258,7 +286,7 @@ const Roles = () => {
           </div>
         </div>
 
-        {/* Quarterly Permission Audit Banner */}
+        {/* Permission Audit Banner */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md">
@@ -267,26 +295,13 @@ const Roles = () => {
             <div>
               <h4 className="font-semibold text-gray-900">Quarterly Permission Audit</h4>
               <p className="text-sm text-gray-500 mt-0.5 max-w-lg">
-                The next security review is scheduled for <strong>January 15th, 2024</strong>. Ensure all
-                temporary access roles are revoked before the compliance deadline.
+                Review employee role assignments regularly and revoke temporary access as soon as operational work is complete.
               </p>
             </div>
           </div>
-          <button className="bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex-shrink-0">
-            Schedule Review
+          <button onClick={() => navigate('/admin/activity-logs')} className="bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex-shrink-0">
+            View Audit Logs
           </button>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-gray-400 px-1">
-          <div className="flex items-center gap-4">
-            <span>SERVER: BRP-ADMIN-04</span>
-            <span>UPTIME: 99.98%</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-            DATA ENCRYPTED (AES-256)
-          </div>
         </div>
 
       </div>

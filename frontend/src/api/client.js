@@ -18,11 +18,33 @@ const clearSession = () => {
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EVENT));
 };
 
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || "null");
+  } catch {
+    return null;
+  }
+};
+
+const getInternalLoginPath = () => {
+  const lastPath = localStorage.getItem(STORAGE_KEYS.internalLoginPath);
+  if (lastPath) return lastPath;
+
+  const user = getStoredUser();
+  return user?.role === "admin" ||
+    user?.systemRole?.roleName?.trim().toLowerCase() === "super admin" ||
+    user?.roleDesignation?.trim().toLowerCase() === "super administrator" ||
+    user?.fullName?.trim().toLowerCase() === "super admin" ||
+    user?.employeeId?.trim().toLowerCase() === "emp-super-001"
+    ? "/auth/admin-login"
+    : "/auth/employee-login";
+};
+
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;
   if (!window.location.pathname.startsWith("/auth")) {
     window.location.href = window.location.pathname.startsWith("/admin")
-      ? "/auth/admin-login"
+      ? getInternalLoginPath()
       : "/auth/candidate-login";
   }
 };

@@ -4,9 +4,18 @@ const Payment = require("../models/Payment");
 const Application = require("../models/Application");
 const PaymentGateway = require("../models/PaymentGateway");
 const ApiError = require("../utils/ApiError");
-const { generateUUID, getPaginationParams, encrypt, decrypt } = require("../utils/helpers");
+const {
+  generateUUID,
+  getPaginationParams,
+  encrypt,
+  decrypt,
+} = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
-const { emitToCandidate, emitToAdmins, SOCKET_EVENTS } = require("../socket/index");
+const {
+  emitToCandidate,
+  emitToAdmins,
+  SOCKET_EVENTS,
+} = require("../socket/index");
 const { sendPaymentSuccessEmail } = require("./email.service");
 const { notifyAdmins } = require("../utils/notifyAdmins");
 const { assertPaymentWindowOpen } = require("../utils/timeline");
@@ -17,18 +26,19 @@ const env = require("../config/env");
 // ─────────────────────────────────────────────────────────────
 
 const getActiveGatewayConfig = async (gatewayName) => {
-  const gw = await PaymentGateway.findOne({ name: gatewayName })
-    .select("+apiKey +secretKey +webhookSecret +merchantId");
+  const gw = await PaymentGateway.findOne({ name: gatewayName }).select(
+    "+apiKey +secretKey +webhookSecret +merchantId",
+  );
   if (!gw) throw new ApiError(404, `Gateway ${gatewayName} not configured`);
   if (gw.status !== "ACTIVE")
     throw new ApiError(400, `Gateway ${gatewayName} is not active`);
   return {
     name: gw.name,
     mode: gw.mode,
-    apiKey:        gw.apiKey        ? decrypt(gw.apiKey)        : null,
-    secretKey:     gw.secretKey     ? decrypt(gw.secretKey)     : null,
+    apiKey: gw.apiKey ? decrypt(gw.apiKey) : null,
+    secretKey: gw.secretKey ? decrypt(gw.secretKey) : null,
     webhookSecret: gw.webhookSecret ? decrypt(gw.webhookSecret) : null,
-    merchantId:    gw.merchantId    ? decrypt(gw.merchantId)    : null,
+    merchantId: gw.merchantId ? decrypt(gw.merchantId) : null,
   };
 };
 
@@ -59,10 +69,16 @@ const getRazorpayConfig = async () => {
 
 const validateRazorpayMode = (config) => {
   if (config.mode === "Test" && !config.apiKey.startsWith("rzp_test_")) {
-    throw new ApiError(400, "Razorpay is in Test mode but the key is not a test key.");
+    throw new ApiError(
+      400,
+      "Razorpay is in Test mode but the key is not a test key.",
+    );
   }
   if (config.mode === "Live" && !config.apiKey.startsWith("rzp_live_")) {
-    throw new ApiError(400, "Razorpay is in Live mode but the key is not a live key.");
+    throw new ApiError(
+      400,
+      "Razorpay is in Live mode but the key is not a live key.",
+    );
   }
 };
 
@@ -79,13 +95,23 @@ const getDefaultGateway = async () => {
 const createRazorpayOrder = async (config, amount, currency, receipt) => {
   validateRazorpayMode(config);
   const Razorpay = require("razorpay");
-  const instance = new Razorpay({ key_id: config.apiKey, key_secret: config.secretKey });
-  return instance.orders.create({ amount: amount * 100, currency, receipt, payment_capture: 1 });
+  const instance = new Razorpay({
+    key_id: config.apiKey,
+    key_secret: config.secretKey,
+  });
+  return instance.orders.create({
+    amount: amount * 100,
+    currency,
+    receipt,
+    payment_capture: 1,
+  });
 };
 
 const verifyRazorpaySignature = (orderId, paymentId, signature, secret) => {
-  const expected = crypto.createHmac("sha256", secret)
-    .update(`${orderId}|${paymentId}`).digest("hex");
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
   return expected === signature;
 };
 
@@ -103,18 +129,19 @@ const calculateProcessingFee = (baseAmount, processingPercent = 0) => {
 const createCashfreeOrder = async (config, amount, orderId, candidateId) => {
   const { Cashfree } = require("cashfree-pg");
   // Set environment based on mode
-  Cashfree.XClientId     = config.apiKey;
+  Cashfree.XClientId = config.apiKey;
   Cashfree.XClientSecret = config.secretKey;
-  Cashfree.XEnvironment  = config.mode === "Live"
-    ? Cashfree.Environment.PRODUCTION
-    : Cashfree.Environment.SANDBOX;
+  Cashfree.XEnvironment =
+    config.mode === "Live"
+      ? Cashfree.Environment.PRODUCTION
+      : Cashfree.Environment.SANDBOX;
 
   const request = {
-    order_amount:   amount,
+    order_amount: amount,
     order_currency: "INR",
-    order_id:       orderId,
+    order_id: orderId,
     customer_details: {
-      customer_id:    candidateId.toString(),
+      customer_id: candidateId.toString(),
       customer_phone: "9999999999", // placeholder — real phone from application
     },
   };
@@ -125,18 +152,27 @@ const createCashfreeOrder = async (config, amount, orderId, candidateId) => {
 
 const verifyCashfreePayment = async (config, orderId) => {
   const { Cashfree } = require("cashfree-pg");
-  Cashfree.XClientId     = config.apiKey;
+  Cashfree.XClientId = config.apiKey;
   Cashfree.XClientSecret = config.secretKey;
-  Cashfree.XEnvironment  = config.mode === "Live"
-    ? Cashfree.Environment.PRODUCTION
-    : Cashfree.Environment.SANDBOX;
+  Cashfree.XEnvironment =
+    config.mode === "Live"
+      ? Cashfree.Environment.PRODUCTION
+      : Cashfree.Environment.SANDBOX;
   const response = await Cashfree.PGFetchOrder("2023-08-01", orderId);
   return response.data?.order_status === "PAID";
 };
 
-const verifyCashfreeWebhookSignature = (rawBody, timestamp, signature, secret) => {
+const verifyCashfreeWebhookSignature = (
+  rawBody,
+  timestamp,
+  signature,
+  secret,
+) => {
   const data = `${timestamp}${rawBody}`;
-  const expected = crypto.createHmac("sha256", secret).update(data).digest("base64");
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(data)
+    .digest("base64");
   return expected === signature;
 };
 
@@ -145,36 +181,45 @@ const verifyCashfreeWebhookSignature = (rawBody, timestamp, signature, secret) =
 // Docs: https://developer.phonepe.com/v1/docs
 // ─────────────────────────────────────────────────────────────
 
-const createPhonePeOrder = async (config, amount, transactionId, candidateId) => {
-  const BASE_URL = config.mode === "Live"
-    ? "https://api.phonepe.com/apis/hermes"
-    : "https://api-preprod.phonepe.com/apis/pg-sandbox";
+const createPhonePeOrder = async (
+  config,
+  amount,
+  transactionId,
+  candidateId,
+) => {
+  const BASE_URL =
+    config.mode === "Live"
+      ? "https://api.phonepe.com/apis/hermes"
+      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
 
   const payload = {
-    merchantId:            config.merchantId,
+    merchantId: config.merchantId,
     merchantTransactionId: transactionId,
-    merchantUserId:        `USER_${candidateId}`,
-    amount:                amount * 100, // paise
-    redirectUrl:           `${env.CLIENT_URL}/application/payment-callback?gateway=phonepe&txn=${transactionId}`,
-    redirectMode:          "REDIRECT",
-    callbackUrl:           `${env.WEBHOOK_BASE_URL}/api/candidate/payments/phonepe/webhook`,
-    paymentInstrument:     { type: "PAY_PAGE" },
+    merchantUserId: `USER_${candidateId}`,
+    amount: amount * 100, // paise
+    redirectUrl: `${env.CLIENT_URL}/application/payment-callback?gateway=phonepe&txn=${transactionId}`,
+    redirectMode: "REDIRECT",
+    callbackUrl: `${env.WEBHOOK_BASE_URL}/api/candidate/payments/phonepe/webhook`,
+    paymentInstrument: { type: "PAY_PAGE" },
   };
 
   const base64Payload = Buffer.from(JSON.stringify(payload)).toString("base64");
-  const saltKey   = config.secretKey;
+  const saltKey = config.secretKey;
   const saltIndex = 1;
-  const checksum  = crypto.createHash("sha256")
-    .update(`${base64Payload}/pg/v1/pay${saltKey}`)
-    .digest("hex") + `###${saltIndex}`;
+  const checksum =
+    crypto
+      .createHash("sha256")
+      .update(`${base64Payload}/pg/v1/pay${saltKey}`)
+      .digest("hex") + `###${saltIndex}`;
 
   const response = await fetch(`${BASE_URL}/pg/v1/pay`, {
-    method:  "POST",
+    method: "POST",
     headers: { "Content-Type": "application/json", "X-VERIFY": checksum },
-    body:    JSON.stringify({ request: base64Payload }),
+    body: JSON.stringify({ request: base64Payload }),
   });
   const data = await response.json();
-  if (!data.success) throw new Error(data.message || "PhonePe order creation failed");
+  if (!data.success)
+    throw new Error(data.message || "PhonePe order creation failed");
 
   return {
     merchantTransactionId: transactionId,
@@ -183,21 +228,22 @@ const createPhonePeOrder = async (config, amount, transactionId, candidateId) =>
 };
 
 const verifyPhonePePayment = async (config, transactionId) => {
-  const BASE_URL = config.mode === "Live"
-    ? "https://api.phonepe.com/apis/hermes"
-    : "https://api-preprod.phonepe.com/apis/pg-sandbox";
+  const BASE_URL =
+    config.mode === "Live"
+      ? "https://api.phonepe.com/apis/hermes"
+      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
 
-  const saltKey   = config.secretKey;
+  const saltKey = config.secretKey;
   const saltIndex = 1;
-  const path      = `/pg/v1/status/${config.merchantId}/${transactionId}`;
-  const checksum  = crypto.createHash("sha256")
-    .update(`${path}${saltKey}`)
-    .digest("hex") + `###${saltIndex}`;
+  const path = `/pg/v1/status/${config.merchantId}/${transactionId}`;
+  const checksum =
+    crypto.createHash("sha256").update(`${path}${saltKey}`).digest("hex") +
+    `###${saltIndex}`;
 
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      "X-VERIFY":     checksum,
+      "X-VERIFY": checksum,
       "X-MERCHANT-ID": config.merchantId,
     },
   });
@@ -211,19 +257,20 @@ const verifyPhonePePayment = async (config, transactionId) => {
 // ─────────────────────────────────────────────────────────────
 
 const createPaytmOrder = async (config, amount, orderId, candidateId) => {
-  const BASE_URL = config.mode === "Live"
-    ? "https://securegw.paytm.in"
-    : "https://securegw-stage.paytm.in";
+  const BASE_URL =
+    config.mode === "Live"
+      ? "https://securegw.paytm.in"
+      : "https://securegw-stage.paytm.in";
 
   const paytmParams = {
     body: {
-      requestType:   "Payment",
-      mid:           config.merchantId,
-      websiteName:   config.mode === "Live" ? "WEBPROD" : "WEBSTAGING",
+      requestType: "Payment",
+      mid: config.merchantId,
+      websiteName: config.mode === "Live" ? "WEBPROD" : "WEBSTAGING",
       orderId,
-      callbackUrl:   `${env.WEBHOOK_BASE_URL}/api/candidate/payments/paytm/webhook`,
-      txnAmount:     { value: amount.toString(), currency: "INR" },
-      userInfo:      { custId: candidateId.toString() },
+      callbackUrl: `${env.WEBHOOK_BASE_URL}/api/candidate/payments/paytm/webhook`,
+      txnAmount: { value: amount.toString(), currency: "INR" },
+      userInfo: { custId: candidateId.toString() },
     },
   };
 
@@ -234,14 +281,19 @@ const createPaytmOrder = async (config, amount, orderId, candidateId) => {
   const response = await fetch(
     `${BASE_URL}/theia/api/v1/initiateTransaction?mid=${config.merchantId}&orderId=${orderId}`,
     {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ body: paytmParams.body, head: { signature: checksum } }),
-    }
+      body: JSON.stringify({
+        body: paytmParams.body,
+        head: { signature: checksum },
+      }),
+    },
   );
   const data = await response.json();
   if (data.body?.resultInfo?.resultStatus !== "S")
-    throw new Error(data.body?.resultInfo?.resultMsg || "Paytm order creation failed");
+    throw new Error(
+      data.body?.resultInfo?.resultMsg || "Paytm order creation failed",
+    );
 
   return { orderId, txnToken: data.body.txnToken };
 };
@@ -259,10 +311,15 @@ const verifyPaytmChecksum = (body, checksum, key) => {
     const parts = checksum.split("####");
     if (parts.length !== 2) return false;
     const [hash, salt] = parts;
-    const data     = `${body}${salt}`;
-    const expected = crypto.createHmac("sha256", key).update(data).digest("hex");
+    const data = `${body}${salt}`;
+    const expected = crypto
+      .createHmac("sha256", key)
+      .update(data)
+      .digest("hex");
     return expected === hash;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -270,7 +327,10 @@ const verifyPaytmChecksum = (body, checksum, key) => {
 // ─────────────────────────────────────────────────────────────
 
 const initiatePayment = async (applicationId, candidateId, gatewayName) => {
-  const application = await Application.findOne({ _id: applicationId, candidateId })
+  const application = await Application.findOne({
+    _id: applicationId,
+    candidateId,
+  })
     .populate("jobId", "paymentConfig applicationDeadline")
     .populate("appliedPosts");
   if (!application) throw new ApiError(404, "Application not found");
@@ -280,78 +340,116 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
 
   let applicationFee = application.totalFee || 0;
   if (!applicationFee && application.appliedPosts?.length > 0)
-    applicationFee = application.appliedPosts.reduce((s, p) => s + (p.fee || 0), 0);
-  const processingPercent = application.jobId?.paymentConfig?.processingFee || 0;
-  const processingFee = calculateProcessingFee(applicationFee, processingPercent);
+    applicationFee = application.appliedPosts.reduce(
+      (s, p) => s + (p.fee || 0),
+      0,
+    );
+  const processingPercent =
+    application.jobId?.paymentConfig?.processingFee || 0;
+  const processingFee = calculateProcessingFee(
+    applicationFee,
+    processingPercent,
+  );
   const totalFee = applicationFee + processingFee;
   // Allow ₹0 fee — free applications still need a payment record for tracking
   // if (totalFee === 0) throw new ApiError(400, "No fee applicable for this application");
 
-  const resolvedGateway  = gatewayName || (await getDefaultGateway());
-  const normalizedGateway = resolvedGateway ? resolvedGateway.toLowerCase() : "simulation";
-  const transactionId    = `TXN-${Date.now()}-${generateUUID().slice(0, 8).toUpperCase()}`;
+  const resolvedGateway = gatewayName || (await getDefaultGateway());
+  const normalizedGateway = resolvedGateway
+    ? resolvedGateway.toLowerCase()
+    : "simulation";
+  const transactionId = `TXN-${Date.now()}-${generateUUID().slice(0, 8).toUpperCase()}`;
 
   const payment = await Payment.create({
-    transactionId, applicationId, candidateId,
-    amount:  totalFee,
-    gateway: normalizedGateway === "simulation" ? "razorpay" : normalizedGateway,
-    status:  "initiated",
+    transactionId,
+    applicationId,
+    candidateId,
+    amount: totalFee,
+    gateway:
+      normalizedGateway === "simulation" ? "razorpay" : normalizedGateway,
+    status: "initiated",
   });
 
   let gatewayOrderId = null;
-  let gatewayKeyId   = null;
-  let gatewayData    = {};
+  let gatewayKeyId = null;
+  let gatewayData = {};
 
   try {
     if (normalizedGateway === "razorpay") {
       const config = await getRazorpayConfig();
       if (config?.apiKey && config?.secretKey) {
-        const order    = await createRazorpayOrder(config, totalFee, "INR", transactionId);
+        const order = await createRazorpayOrder(
+          config,
+          totalFee,
+          "INR",
+          transactionId,
+        );
         gatewayOrderId = order.id;
-        gatewayKeyId   = config.apiKey;
+        gatewayKeyId = config.apiKey;
         payment.gatewayOrderId = gatewayOrderId;
         await payment.save();
       }
     } else if (normalizedGateway === "cashfree") {
       const config = await getActiveGatewayConfig("Cashfree").catch(() => null);
       if (config?.apiKey && config?.secretKey) {
-        const result   = await createCashfreeOrder(config, totalFee, transactionId, candidateId);
+        const result = await createCashfreeOrder(
+          config,
+          totalFee,
+          transactionId,
+          candidateId,
+        );
         gatewayOrderId = result.order_id;
-        gatewayData    = { paymentSessionId: result.payment_session_id };
+        gatewayData = { paymentSessionId: result.payment_session_id };
         payment.gatewayOrderId = gatewayOrderId;
         await payment.save();
       }
     } else if (normalizedGateway === "phonepe") {
       const config = await getActiveGatewayConfig("PhonePe").catch(() => null);
       if (config?.apiKey && config?.merchantId) {
-        const result   = await createPhonePeOrder(config, totalFee, transactionId, candidateId);
+        const result = await createPhonePeOrder(
+          config,
+          totalFee,
+          transactionId,
+          candidateId,
+        );
         gatewayOrderId = result.merchantTransactionId;
-        gatewayData    = { redirectUrl: result.redirectUrl };
+        gatewayData = { redirectUrl: result.redirectUrl };
         payment.gatewayOrderId = gatewayOrderId;
         await payment.save();
       }
     } else if (normalizedGateway === "paytm") {
       const config = await getActiveGatewayConfig("Paytm").catch(() => null);
       if (config?.merchantId && config?.secretKey) {
-        const result   = await createPaytmOrder(config, totalFee, transactionId, candidateId);
+        const result = await createPaytmOrder(
+          config,
+          totalFee,
+          transactionId,
+          candidateId,
+        );
         gatewayOrderId = result.orderId;
-        gatewayData    = { txnToken: result.txnToken, mid: config.merchantId };
+        gatewayData = { txnToken: result.txnToken, mid: config.merchantId };
         payment.gatewayOrderId = gatewayOrderId;
         await payment.save();
       }
     }
   } catch (err) {
-    console.warn(`[Payment] Gateway order creation failed (${normalizedGateway}): ${err.message}`);
+    // Gateway order creation failed - will be logged by error handler
     if (normalizedGateway === "razorpay") {
-      throw err.statusCode ? err : new ApiError(502, `Razorpay order creation failed: ${err.message}`);
+      throw err.statusCode
+        ? err
+        : new ApiError(502, `Razorpay order creation failed: ${err.message}`);
     }
   }
 
   return {
-    transactionId, paymentId: payment._id,
-    amount: totalFee, currency: "INR",
+    transactionId,
+    paymentId: payment._id,
+    amount: totalFee,
+    currency: "INR",
     gateway: normalizedGateway,
-    gatewayOrderId, gatewayKeyId, gatewayData,
+    gatewayOrderId,
+    gatewayKeyId,
+    gatewayData,
     feeBreakdown: {
       applicationFee,
       processingFee,
@@ -366,7 +464,13 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
 // VERIFY PAYMENT  (called by frontend after gateway callback)
 // ─────────────────────────────────────────────────────────────
 
-const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, gatewaySignature, status }) => {
+const verifyPayment = async ({
+  transactionId,
+  gatewayOrderId,
+  gatewayPaymentId,
+  gatewaySignature,
+  status,
+}) => {
   const payment = await Payment.findOne({ transactionId });
   if (!payment) throw new ApiError(404, "Transaction not found");
   if (payment.status === "success") return payment;
@@ -374,12 +478,21 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
   let verified = false;
 
   try {
-    if (payment.gateway === "razorpay" && gatewayPaymentId && gatewaySignature) {
+    if (
+      payment.gateway === "razorpay" &&
+      gatewayPaymentId &&
+      gatewaySignature
+    ) {
       // Verify the checkout response server-side using the configured Razorpay secret.
       const config = await getRazorpayConfig();
       if (config?.secretKey) {
         const orderId = gatewayOrderId || payment.gatewayOrderId;
-        verified = verifyRazorpaySignature(orderId, gatewayPaymentId, gatewaySignature, config.secretKey);
+        verified = verifyRazorpaySignature(
+          orderId,
+          gatewayPaymentId,
+          gatewaySignature,
+          config.secretKey,
+        );
         if (!verified) {
           payment.status = "failed";
           payment.failureReason = "Signature verification failed";
@@ -422,7 +535,8 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
   if (gatewayOrderId) payment.gatewayOrderId = gatewayOrderId;
   payment.status = verified ? "success" : "failed";
   if (verified) payment.paidAt = new Date();
-  if (!verified && !payment.failureReason) payment.failureReason = "Payment failed at gateway";
+  if (!verified && !payment.failureReason)
+    payment.failureReason = "Payment failed at gateway";
   await payment.save();
 
   const application = await Application.findById(payment.applicationId)
@@ -453,19 +567,36 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
 
     const cid = application.candidateId?._id?.toString();
     if (verified && cid) {
-      emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_SUCCESS, { transactionId, amount: payment.amount, applicationId: application.applicationId });
-      emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, { type: "payment_received", amount: payment.amount });
-      try { await sendPaymentSuccessEmail(application.candidateId.email, application.candidateId.fullName, transactionId, payment.amount); } catch (_) {}
+      emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_SUCCESS, {
+        transactionId,
+        amount: payment.amount,
+        applicationId: application.applicationId,
+      });
+      emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
+        type: "payment_received",
+        amount: payment.amount,
+      });
+      try {
+        await sendPaymentSuccessEmail(
+          application.candidateId.email,
+          application.candidateId.fullName,
+          transactionId,
+          payment.amount,
+        );
+      } catch (_) {}
       // Notify all admins about the new payment
       notifyAdmins({
-        type:    "payment_success",
-        title:   "Payment Received",
+        type: "payment_success",
+        title: "Payment Received",
         message: `₹${Number(payment.amount).toLocaleString("en-IN")} received from ${application.candidateId.fullName} for application ${application.applicationId}`,
-        link:    `/admin/applications/${application._id}`,
+        link: `/admin/applications/${application._id}`,
         metadata: { transactionId, applicationId: application.applicationId },
       });
     } else if (!verified && cid) {
-      emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_FAILED, { transactionId, applicationId: application.applicationId });
+      emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_FAILED, {
+        transactionId,
+        applicationId: application.applicationId,
+      });
     }
   }
 
@@ -478,10 +609,15 @@ const verifyPayment = async ({ transactionId, gatewayOrderId, gatewayPaymentId, 
 
 const handleRazorpayWebhook = async (rawBody, signature) => {
   const config = await getRazorpayConfig().catch(() => null);
-  if (!config?.webhookSecret) return { processed: false, reason: "No webhook secret" };
+  if (!config?.webhookSecret)
+    return { processed: false, reason: "No webhook secret" };
 
-  const expected = crypto.createHmac("sha256", config.webhookSecret).update(rawBody).digest("hex");
-  if (expected !== signature) throw new ApiError(400, "Invalid Razorpay webhook signature");
+  const expected = crypto
+    .createHmac("sha256", config.webhookSecret)
+    .update(rawBody)
+    .digest("hex");
+  if (expected !== signature)
+    throw new ApiError(400, "Invalid Razorpay webhook signature");
 
   const event = JSON.parse(rawBody);
   const eventType = event.event;
@@ -491,7 +627,13 @@ const handleRazorpayWebhook = async (rawBody, signature) => {
     if (entity) {
       const pay = await Payment.findOne({ gatewayOrderId: entity.order_id });
       if (pay && pay.status !== "success") {
-        await verifyPayment({ transactionId: pay.transactionId, gatewayOrderId: entity.order_id, gatewayPaymentId: entity.id, gatewaySignature: entity.signature || "", status: "success" });
+        await verifyPayment({
+          transactionId: pay.transactionId,
+          gatewayOrderId: entity.order_id,
+          gatewayPaymentId: entity.id,
+          gatewaySignature: entity.signature || "",
+          status: "success",
+        });
       }
     }
   } else if (eventType === "payment.failed") {
@@ -510,9 +652,17 @@ const handleRazorpayWebhook = async (rawBody, signature) => {
 
 const handleCashfreeWebhook = async (rawBody, signature, timestamp) => {
   const config = await getActiveGatewayConfig("Cashfree").catch(() => null);
-  if (!config?.webhookSecret) return { processed: false, reason: "No webhook secret" };
+  if (!config?.webhookSecret)
+    return { processed: false, reason: "No webhook secret" };
 
-  if (!verifyCashfreeWebhookSignature(rawBody, timestamp, signature, config.webhookSecret))
+  if (
+    !verifyCashfreeWebhookSignature(
+      rawBody,
+      timestamp,
+      signature,
+      config.webhookSecret,
+    )
+  )
     throw new ApiError(400, "Invalid Cashfree webhook signature");
 
   const event = JSON.parse(rawBody);
@@ -522,7 +672,11 @@ const handleCashfreeWebhook = async (rawBody, signature, timestamp) => {
   if (orderId) {
     const pay = await Payment.findOne({ gatewayOrderId: orderId });
     if (pay && pay.status !== "success") {
-      await verifyPayment({ transactionId: pay.transactionId, gatewayOrderId: orderId, status: orderStatus === "PAID" ? "success" : "failed" });
+      await verifyPayment({
+        transactionId: pay.transactionId,
+        gatewayOrderId: orderId,
+        status: orderStatus === "PAID" ? "success" : "failed",
+      });
     }
   }
   return { processed: true };
@@ -534,9 +688,12 @@ const handlePhonePeWebhook = async (rawBody, xVerify) => {
 
   // Verify PhonePe webhook signature
   const [receivedHash] = (xVerify || "").split("###");
-  const expectedHash = crypto.createHash("sha256")
-    .update(`${rawBody}${config.secretKey}`).digest("hex");
-  if (receivedHash !== expectedHash) throw new ApiError(400, "Invalid PhonePe webhook signature");
+  const expectedHash = crypto
+    .createHash("sha256")
+    .update(`${rawBody}${config.secretKey}`)
+    .digest("hex");
+  if (receivedHash !== expectedHash)
+    throw new ApiError(400, "Invalid PhonePe webhook signature");
 
   const event = JSON.parse(rawBody);
   const txnId = event.data?.merchantTransactionId;
@@ -545,7 +702,10 @@ const handlePhonePeWebhook = async (rawBody, xVerify) => {
   if (txnId) {
     const pay = await Payment.findOne({ transactionId: txnId });
     if (pay && pay.status !== "success") {
-      await verifyPayment({ transactionId: txnId, status: state === "COMPLETED" ? "success" : "failed" });
+      await verifyPayment({
+        transactionId: txnId,
+        status: state === "COMPLETED" ? "success" : "failed",
+      });
     }
   }
   return { processed: true };
@@ -559,7 +719,11 @@ const handlePaytmWebhook = async (rawBody) => {
   delete body.CHECKSUMHASH;
 
   if (config?.secretKey && checksum) {
-    const isValid = verifyPaytmChecksum(JSON.stringify(body), checksum, config.secretKey);
+    const isValid = verifyPaytmChecksum(
+      JSON.stringify(body),
+      checksum,
+      config.secretKey,
+    );
     if (!isValid) throw new ApiError(400, "Invalid Paytm webhook signature");
   }
 
@@ -569,7 +733,11 @@ const handlePaytmWebhook = async (rawBody) => {
   if (orderId) {
     const pay = await Payment.findOne({ gatewayOrderId: orderId });
     if (pay && pay.status !== "success") {
-      await verifyPayment({ transactionId: pay.transactionId, gatewayOrderId: orderId, status: txnStatus === "TXN_SUCCESS" ? "success" : "failed" });
+      await verifyPayment({
+        transactionId: pay.transactionId,
+        gatewayOrderId: orderId,
+        status: txnStatus === "TXN_SUCCESS" ? "success" : "failed",
+      });
     }
   }
   return { processed: true };
@@ -582,7 +750,11 @@ const handlePaytmWebhook = async (rawBody) => {
 const getPaymentHistory = async (candidateId, query) => {
   const { page, limit, skip } = getPaginationParams(query);
   const [payments, total] = await Promise.all([
-    Payment.find({ candidateId }).populate("applicationId", "applicationId jobId").sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Payment.find({ candidateId })
+      .populate("applicationId", "applicationId jobId")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
     Payment.countDocuments({ candidateId }),
   ]);
   return { payments, meta: paginationMeta(total, page, limit) };
@@ -591,7 +763,10 @@ const getPaymentHistory = async (candidateId, query) => {
 const getPaymentByTransaction = async (transactionId, candidateId) => {
   const filter = { transactionId };
   if (candidateId) filter.candidateId = candidateId;
-  const payment = await Payment.findOne(filter).populate("applicationId", "applicationId");
+  const payment = await Payment.findOne(filter).populate(
+    "applicationId",
+    "applicationId",
+  );
   if (!payment) throw new ApiError(404, "Transaction not found");
   return payment;
 };
@@ -599,10 +774,15 @@ const getPaymentByTransaction = async (transactionId, candidateId) => {
 const getAdminPayments = async (query) => {
   const { page, limit, skip } = getPaginationParams(query);
   const filter = {};
-  if (query.status)  filter.status  = query.status;
+  if (query.status) filter.status = query.status;
   if (query.gateway) filter.gateway = query.gateway;
   const [payments, total] = await Promise.all([
-    Payment.find(filter).populate("candidateId", "fullName email").populate("applicationId", "applicationId").sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Payment.find(filter)
+      .populate("candidateId", "fullName email")
+      .populate("applicationId", "applicationId")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
     Payment.countDocuments(filter),
   ]);
   return { payments, meta: paginationMeta(total, page, limit) };
@@ -613,43 +793,66 @@ const getAdminPayments = async (query) => {
 // ─────────────────────────────────────────────────────────────
 
 const getGateways = async () =>
-  PaymentGateway.find().sort({ isDefault: -1, name: 1 }).select("-apiKey -secretKey -webhookSecret -merchantId");
+  PaymentGateway.find()
+    .sort({ isDefault: -1, name: 1 })
+    .select("-apiKey -secretKey -webhookSecret -merchantId");
 
 const getGatewayByName = async (name) =>
-  PaymentGateway.findOne({ name }).select("+apiKey +secretKey +webhookSecret +merchantId");
+  PaymentGateway.findOne({ name }).select(
+    "+apiKey +secretKey +webhookSecret +merchantId",
+  );
 
 const upsertGateway = async (name, data, updatedBy) => {
   const updateData = { ...data, updatedBy };
-  if (data.apiKey)        updateData.apiKey        = encrypt(data.apiKey);
-  if (data.secretKey)     updateData.secretKey     = encrypt(data.secretKey);
-  if (data.webhookSecret) updateData.webhookSecret = encrypt(data.webhookSecret);
-  if (data.merchantId)    updateData.merchantId    = encrypt(data.merchantId);
+  if (data.apiKey) updateData.apiKey = encrypt(data.apiKey);
+  if (data.secretKey) updateData.secretKey = encrypt(data.secretKey);
+  if (data.webhookSecret)
+    updateData.webhookSecret = encrypt(data.webhookSecret);
+  if (data.merchantId) updateData.merchantId = encrypt(data.merchantId);
   if (data.isDefault === true)
-    await PaymentGateway.updateMany({ name: { $ne: name } }, { isDefault: false });
-  return PaymentGateway.findOneAndUpdate({ name }, updateData, { new: true, upsert: true, runValidators: true })
-    .select("-apiKey -secretKey -webhookSecret -merchantId");
+    await PaymentGateway.updateMany(
+      { name: { $ne: name } },
+      { isDefault: false },
+    );
+  return PaymentGateway.findOneAndUpdate({ name }, updateData, {
+    new: true,
+    upsert: true,
+    runValidators: true,
+  }).select("-apiKey -secretKey -webhookSecret -merchantId");
 };
 
 const testGatewayConnection = async (name) => {
   try {
-    const config = name === "Razorpay"
-      ? await getRazorpayConfig()
-      : await getActiveGatewayConfig(name);
+    const config =
+      name === "Razorpay"
+        ? await getRazorpayConfig()
+        : await getActiveGatewayConfig(name);
     if (name === "Razorpay" && config.apiKey && config.secretKey) {
       validateRazorpayMode(config);
       const Razorpay = require("razorpay");
-      const instance = new Razorpay({ key_id: config.apiKey, key_secret: config.secretKey });
+      const instance = new Razorpay({
+        key_id: config.apiKey,
+        key_secret: config.secretKey,
+      });
       await instance.orders.all({ count: 1 });
       return { connected: true, message: "Razorpay connection successful" };
     }
     if (name === "Cashfree" && config.apiKey && config.secretKey) {
       const { Cashfree } = require("cashfree-pg");
-      Cashfree.XClientId     = config.apiKey;
+      Cashfree.XClientId = config.apiKey;
       Cashfree.XClientSecret = config.secretKey;
-      Cashfree.XEnvironment  = config.mode === "Live" ? Cashfree.Environment.PRODUCTION : Cashfree.Environment.SANDBOX;
+      Cashfree.XEnvironment =
+        config.mode === "Live"
+          ? Cashfree.Environment.PRODUCTION
+          : Cashfree.Environment.SANDBOX;
       // Lightweight test — fetch a non-existent order (will return 404 but confirms auth)
-      try { await Cashfree.PGFetchOrder("2023-08-01", "TEST_CONN"); } catch (e) {
-        if (e?.response?.status === 404 || e?.response?.data?.code === "ORDER_NOT_FOUND")
+      try {
+        await Cashfree.PGFetchOrder("2023-08-01", "TEST_CONN");
+      } catch (e) {
+        if (
+          e?.response?.status === 404 ||
+          e?.response?.data?.code === "ORDER_NOT_FOUND"
+        )
           return { connected: true, message: "Cashfree connection successful" };
         throw e;
       }

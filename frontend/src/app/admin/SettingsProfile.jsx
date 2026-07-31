@@ -9,6 +9,8 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { adminService } from '../../services/admin.service'
+import { authService } from '../../services/auth.service'
+import { useAuth } from '../../hooks/useAuth'
 
 const inp = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm transition-colors'
 const inpDisabled = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm cursor-not-allowed'
@@ -21,6 +23,7 @@ const TABS = [
 
 const SettingsProfile = () => {
   const queryClient = useQueryClient()
+  const { user: sessionUser } = useAuth()
   const [activeTab, setActiveTab] = useState('profile')
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -40,35 +43,47 @@ const SettingsProfile = () => {
     queryKey: ['admin-my-profile'],
     queryFn: adminService.getMyProfile,
   })
-  const profile = profileData?.employee || profileData || {}
+  const profile = profileData?.employee || profileData?.user || profileData || sessionUser || {}
+  const mustChangePassword = Boolean(profile?.mustChangePassword || sessionUser?.mustChangePassword)
 
   // Populate form when data loads
   useEffect(() => {
-    if (profile?.fullName) {
-      setProfileForm({
-        fullName:        profile.fullName || '',
-        contactNumber:   profile.contactNumber || '',
-        department:      profile.department || '',
-        roleDesignation: profile.roleDesignation || '',
-        dateOfJoining:   profile.dateOfJoining ? profile.dateOfJoining.split('T')[0] : '',
-      })
-    }
-  }, [profile?.fullName])
+    setProfileForm({
+      fullName:        profile.fullName || '',
+      contactNumber:   profile.contactNumber || '',
+      department:      profile.department || '',
+      roleDesignation: profile.roleDesignation || '',
+      dateOfJoining:   profile.dateOfJoining ? profile.dateOfJoining.split('T')[0] : '',
+    })
+  }, [profile?._id, profile?.fullName, profile?.contactNumber, profile?.department, profile?.roleDesignation, profile?.dateOfJoining])
+
+  useEffect(() => {
+    if (mustChangePassword) setActiveTab('security')
+  }, [mustChangePassword])
 
   const { mutate: updateProfile, isPending: saving } = useMutation({
     mutationFn: (data) => adminService.updateMyProfile(data),
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      const freshProfile = result?.user || result?.employee || result
       toast.success('Profile updated successfully')
+      if (freshProfile) {
+        queryClient.setQueryData(['admin-my-profile'], { user: freshProfile })
+      }
+      await authService.me()
       queryClient.invalidateQueries({ queryKey: ['admin-my-profile'] })
     },
     onError: (err) => toast.error(err.message || 'Failed to update profile'),
   })
 
   const { mutate: updatePassword, isPending: changingPwd } = useMutation({
-    mutationFn: (data) => adminService.updateMyProfile(data),
-    onSuccess: () => {
+    mutationFn: (data) => authService.changePassword(data),
+    onSuccess: async () => {
       toast.success('Password updated successfully')
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      const freshUser = await authService.me()
+      if (freshUser) queryClient.setQueryData(['admin-my-profile'], { user: freshUser })
+      queryClient.invalidateQueries({ queryKey: ['admin-my-profile'] })
+      setActiveTab('profile')
     },
     onError: (err) => toast.error(err.message || 'Failed to update password'),
   })
@@ -79,10 +94,13 @@ const SettingsProfile = () => {
   }
 
   const handlePasswordChange = () => {
-    if (!passwordForm.newPassword || !passwordForm.confirmPassword) { toast.error('Fill all password fields'); return }
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) { toast.error('Fill all password fields'); return }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast.error('Passwords do not match'); return }
     if (passwordForm.newPassword.length < 8) { toast.error('Minimum 8 characters'); return }
-    updatePassword({ password: passwordForm.newPassword })
+    updatePassword({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
+    })
   }
 
   const initials = (profile?.fullName || 'A').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -105,13 +123,25 @@ const SettingsProfile = () => {
           <p className="text-sm text-gray-500 mt-0.5">Manage your account settings and preferences</p>
         </div>
 
+        {mustChangePassword && (
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4 flex items-start gap-3 shadow-sm">
+            <Lock className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-orange-900">Reset your password first</h3>
+              <p className="text-sm text-orange-800 mt-1">
+                Your employee account is using a temporary password. Open the Security tab, set a new password, then your permitted admin modules will be available.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Profile hero */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex items-center gap-5">
           <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-md flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-900">{profile?.fullName || '—'}</h2>
+            <h2 className="text-lg font-bold text-gray-900">{profile?.fullName || '-'}</h2>
             <p className="text-sm text-gray-500">{profile?.roleDesignation || profile?.systemRole?.roleName || 'Administrator'}</p>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               {profile?.officialEmail && (
@@ -226,6 +256,17 @@ const SettingsProfile = () => {
                 <h3 className="font-semibold text-gray-900">Change Password</h3>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">Current Password</label>
+                <div className="relative">
+                  <input type={showCurrent ? 'text' : 'password'} placeholder="Enter current password" className={inp}
+                    value={passwordForm.currentPassword}
+                    onChange={e => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))} />
+                  <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1.5">New Password</label>
                 <div className="relative">

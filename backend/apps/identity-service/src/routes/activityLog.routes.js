@@ -2,14 +2,15 @@ const express = require("express");
 const router = express.Router();
 const activityLogController = require("../controllers/activityLog.controller");
 const authenticate = require("../shared/middlewares/authenticate");
-const { authorize } = require("../shared/middlewares/authorize");
+const { authorize, checkPermission } = require("../shared/middlewares/authorize");
 
 router.use(authenticate, authorize("admin", "employee"));
 
-router.get("/", activityLogController.getActivityLogs);
-router.get("/export", activityLogController.exportActivityLogs);
+router.get("/", checkPermission("employees", "view"), activityLogController.getActivityLogs);
+router.get("/export", checkPermission("employees", "download"), activityLogController.exportActivityLogs);
 router.get(
   "/employee/:employeeId",
+  checkPermission("employees", "view"),
   activityLogController.getEmployeeActivityLogs,
 );
 

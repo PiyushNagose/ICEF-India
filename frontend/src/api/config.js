@@ -30,7 +30,7 @@ export const REALTIME_ENABLED =
 const gatewaySocketBase =
   import.meta.env.VITE_GATEWAY_SOCKET_URL ||
   import.meta.env.VITE_GATEWAY_URL ||
-  "http://localhost:5000";
+  (import.meta.env.PROD ? window.location.origin : "http://localhost:5000");
 
 export const SERVICE_SOCKET_URLS = {
   identity:
@@ -48,6 +48,7 @@ export const STORAGE_KEYS = {
   accessToken: "rp_access_token",
   refreshToken: "rp_refresh_token",
   user: "rp_user",
+  internalLoginPath: "rp_internal_login_path",
 };
 
 export const AUTH_SESSION_EVENT = "rp:auth-session-changed";

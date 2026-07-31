@@ -21,8 +21,8 @@ const DevNavigation = () => {
     "Auth Pages": [
       { name: "Candidate Login", path: "/auth/candidate-login" },
       { name: "Admin Login", path: "/auth/admin-login" },
+      { name: "Employee Login", path: "/auth/employee-login" },
       { name: "Register", path: "/auth/register" },
-      { name: "Forgot Password", path: "/auth/forgot-password" },
     ],
     "Admin Pages": [
       { name: "Dashboard", path: "/admin/dashboard" },

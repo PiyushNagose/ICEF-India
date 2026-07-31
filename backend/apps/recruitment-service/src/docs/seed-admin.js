@@ -153,21 +153,29 @@ async function seed() {
     if (existingAdmin) {
       warn(`Super Admin already exists: ${adminEmail}`);
     } else {
-      await Employee.create({
-        fullName: "Super Admin",
-        contactNumber: "9999999999",
-        department: "Administration",
-        roleDesignation: "Super Administrator",
-        employeeId: "EMP-SUPER-001",
-        dateOfJoining: new Date(),
-        officialEmail: adminEmail,
-        password: adminPassword,
-        systemRole: superAdminRole._id,
-        status: "Active",
-        createdBy: null,
-      });
-      log(`Created Super Admin: ${adminEmail}`);
-      info(`Password: ${adminPassword}`);
+      // Check if email exists in User (Candidate) collection
+      const existingUser = await User.findOne({ email: adminEmail });
+      if (existingUser) {
+        err(
+          `Email ${adminEmail} already registered as candidate. Cannot create admin with this email.`,
+        );
+      } else {
+        await Employee.create({
+          fullName: "Super Admin",
+          contactNumber: "9999999999",
+          department: "Administration",
+          roleDesignation: "Super Administrator",
+          employeeId: "EMP-SUPER-001",
+          dateOfJoining: new Date(),
+          officialEmail: adminEmail,
+          password: adminPassword,
+          systemRole: superAdminRole._id,
+          status: "Active",
+          createdBy: null,
+        });
+        log(`Created Super Admin: ${adminEmail}`);
+        info(`Password: ${adminPassword}`);
+      }
     }
 
     console.log(`\n${C.bright}${C.green}╔══════════════════════════════════════════╗

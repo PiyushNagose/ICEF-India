@@ -24,10 +24,13 @@ export const clearStoredSession = () => {
   notifyAuthSessionChanged();
 };
 
-const saveSession = ({ user, accessToken, refreshToken }) => {
+const saveSession = ({ user, accessToken, refreshToken }, options = {}) => {
   if (accessToken) localStorage.setItem(STORAGE_KEYS.accessToken, accessToken);
   if (refreshToken)
     localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken);
+  if (options.internalLoginPath) {
+    localStorage.setItem(STORAGE_KEYS.internalLoginPath, options.internalLoginPath);
+  }
   const normalisedUser = normaliseUser(user);
   if (normalisedUser)
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(normalisedUser));
@@ -43,10 +46,22 @@ export const getStoredUser = () => {
   }
 };
 
+export const getLastInternalLoginPath = (fallback = "/auth/employee-login") =>
+  localStorage.getItem(STORAGE_KEYS.internalLoginPath) || fallback;
+
 export const authService = {
   async adminLogin(payload) {
     const response = await apiClient.post("/auth/admin/login", payload);
-    return saveSession(unwrapData(response));
+    return saveSession(unwrapData(response), {
+      internalLoginPath: "/auth/admin-login",
+    });
+  },
+
+  async employeeLogin(payload) {
+    const response = await apiClient.post("/auth/employee/login", payload);
+    return saveSession(unwrapData(response), {
+      internalLoginPath: "/auth/employee-login",
+    });
   },
 
   async candidateLogin(payload) {
@@ -116,8 +131,15 @@ export const authService = {
     }
   },
 
-  async forgotPassword(email) {
-    const response = await apiClient.post("/auth/forgot-password", { email });
+  async forgotPassword(payload) {
+    const body =
+      typeof payload === "string" ? { email: payload, accountType: "candidate" } : payload;
+    const response = await apiClient.post("/auth/forgot-password", body);
+    return unwrapData(response);
+  },
+
+  async resetPassword(payload) {
+    const response = await apiClient.post("/auth/reset-password", payload);
     return unwrapData(response);
   },
 

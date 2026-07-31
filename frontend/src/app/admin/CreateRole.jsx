@@ -164,7 +164,7 @@ const CreateRole = () => {
                 <h3 className="font-semibold">Role Summary</h3>
                 <div>
                   <p className="text-xs text-gray-400">ROLE NAME</p>
-                  <p className="font-medium text-white">{roleName || '—'}</p>
+                  <p className="font-medium text-white">{roleName || '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">ACTIVE PERMISSIONS</p>

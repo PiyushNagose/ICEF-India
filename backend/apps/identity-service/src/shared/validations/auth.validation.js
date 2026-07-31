@@ -25,10 +25,12 @@ const loginSchema = z.object({
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email"),
+  accountType: z.enum(["candidate", "admin", "employee"]).default("candidate"),
 });
 
 const resetPasswordSchema = z.object({
   email: z.string().email(),
+  accountType: z.enum(["candidate", "admin", "employee"]).default("candidate"),
   otp: z.string().length(6),
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });

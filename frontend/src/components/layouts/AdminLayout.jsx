@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import AdminSidebar from './AdminSidebar'
 import AdminHeader from './AdminHeader'
 import LogoutModal from '../ui/LogoutModal'
-import { authService } from '../../services/auth.service'
+import { authService, getLastInternalLoginPath } from '../../services/auth.service'
 
 const pageVariants = {
   initial:  { opacity: 0, y: 14 },
@@ -35,8 +35,9 @@ const AdminLayout = ({ children, title }) => {
 
   const handleLogout = async () => {
     setLoggingOut(true)
+    const loginPath = getLastInternalLoginPath()
     await authService.logout()
-    navigate('/auth/admin-login', { replace: true })
+    navigate(loginPath, { replace: true })
   }
 
   return (

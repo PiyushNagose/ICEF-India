@@ -10,7 +10,8 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
-import { API_BASE_URL } from '../../api/config'
+import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
+import { hasPermission, useAuth } from '../../hooks/useAuth'
 
 const ACTION_CFG = {
   CREATE:   { bg: 'bg-emerald-500', text: 'text-white' },
@@ -54,7 +55,7 @@ const Pagination = ({ page, totalPages, total, showing, onPage }) => {
         </button>
         {pages.map((p, i) =>
           p === '...'
-            ? <span key={`d${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">…</span>
+            ? <span key={`d${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">...</span>
             : <button key={p} onClick={() => onPage(p)}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${p === page ? 'bg-orange-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                 {p}
@@ -73,6 +74,7 @@ const EmployeeActivityDetails = () => {
   const { id: employeeId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
   const [page, setPage] = useState(1)
   const [moduleFilter, setModuleFilter] = useState('')
   const [actionFilter, setActionFilter] = useState('')
@@ -111,15 +113,16 @@ const EmployeeActivityDetails = () => {
         if (diff < 1440) return `${Math.floor(diff / 60)} hrs ago`
         return `${Math.floor(diff / 1440)} days ago`
       })()
-    : '—'
+    : '-'
 
   const empName  = empFromState?.fullName || 'Employee'
-  const empEmpId = empFromState?.employeeId || '—'
-  const empDept  = empFromState?.department || '—'
+  const empEmpId = empFromState?.employeeId || '-'
+  const empDept  = empFromState?.department || '-'
+  const canDownload = hasPermission(user, 'employees', 'download')
   const initials = empName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 
   const handleExport = () => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem(STORAGE_KEYS.accessToken)
     const url = `${API_BASE_URL}/admin/activity-logs/export?employeeId=${employeeId}`
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob()).then(blob => {
@@ -151,7 +154,7 @@ const EmployeeActivityDetails = () => {
                 <div className="flex items-center gap-2 mb-0.5">
                   <h2 className="text-lg font-bold text-gray-900">{empName}</h2>
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> ACTIVE NOW
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> ACTIVITY TRACKED
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 mb-2">{empDept}</p>
@@ -160,7 +163,7 @@ const EmployeeActivityDetails = () => {
                     <Hash className="w-3 h-3" /> {empEmpId}
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg">
-                    <MapPin className="w-3 h-3" /> HQ
+                    <MapPin className="w-3 h-3" /> Admin Portal
                   </span>
                 </div>
               </div>
@@ -169,12 +172,14 @@ const EmployeeActivityDetails = () => {
               <button className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
                 <Mail className="w-4 h-4" /> Contact
               </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" /> Export Activity Data
-              </button>
+              {canDownload && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Export Activity Data
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -182,7 +187,7 @@ const EmployeeActivityDetails = () => {
         {/* Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Changes Today', value: logs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length, sub: '+12%', subColor: 'text-emerald-600', icon: Activity, border: 'border-t-orange-400' },
+            { label: 'Changes Today', value: logs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length, sub: null, icon: Activity, border: 'border-t-orange-400' },
             { label: 'Total Changes', value: totalChanges, sub: null, icon: BarChart2, border: 'border-t-blue-400' },
             { label: 'Last Activity', value: lastActivity, sub: null, icon: Clock, border: 'border-t-amber-400' },
             { label: 'Projects Updated', value: stats.find(s => s._id === 'CREATE')?.count || 0, sub: null, icon: Briefcase, border: 'border-t-purple-400' },
@@ -252,27 +257,27 @@ const EmployeeActivityDetails = () => {
                             <ModuleIcon className="w-4 h-4 text-orange-600" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{log.module || '—'}</p>
+                            <p className="text-sm font-semibold text-gray-900">{log.module || '-'}</p>
                             {log.resourceId && <p className="text-xs text-gray-400">{log.resourceId}</p>}
                           </div>
                         </div>
                       </td>
                       <td className="py-4 px-5">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
-                          {actionKey || '—'}
+                          {actionKey || '-'}
                         </span>
                       </td>
                       <td className="py-4 px-5">
                         <p className={`text-sm max-w-xs truncate ${actionKey === 'DELETE' ? 'text-red-500 font-medium' : 'text-gray-600'}`} title={log.details}>
-                          {log.details || '—'}
+                          {log.details || '-'}
                         </p>
                       </td>
                       <td className="py-4 px-5">
-                        <span className="text-xs font-mono text-gray-500">{log.ipAddress || '—'}</span>
+                        <span className="text-xs font-mono text-gray-500">{log.ipAddress || '-'}</span>
                       </td>
                       <td className="py-4 px-5">
                         <p className="text-sm font-medium text-gray-900">
-                          {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {log.createdAt ? new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -324,7 +329,7 @@ const EmployeeActivityDetails = () => {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{i % 2 === 0 ? 'Desktop Device' : 'Mobile Device'}</p>
-                      <p className="text-xs text-gray-400">Network • {ip}</p>
+                      <p className="text-xs text-gray-400">Network - {ip}</p>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">SECURE</span>

@@ -27,6 +27,7 @@ const updateEmployeeSchema = z.object({
   dateOfJoining: z.string().optional(),
   systemRole: z.string().optional(),
   status: z.enum(["Active", "Inactive", "On Leave"]).optional(),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
 module.exports = { createEmployeeSchema, updateEmployeeSchema };

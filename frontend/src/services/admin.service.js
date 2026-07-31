@@ -411,17 +411,11 @@ export const adminService = {
 
   // ── Admin Profile (self) ──────────────────────────────────
   async getMyProfile() {
-    const user = JSON.parse(localStorage.getItem('rp_user') || '{}');
-    const id = user?.id || user?._id;
-    if (!id) throw new Error('Not logged in');
-    const response = await apiClient.get(`/admin/employees/${id}`);
+    const response = await apiClient.get("/auth/me");
     return unwrapData(response);
   },
   async updateMyProfile(data) {
-    const user = JSON.parse(localStorage.getItem('rp_user') || '{}');
-    const id = user?.id || user?._id;
-    if (!id) throw new Error('Not logged in');
-    const response = await apiClient.put(`/admin/employees/${id}`, data);
+    const response = await apiClient.put("/auth/profile", data);
     return unwrapData(response);
   },
 

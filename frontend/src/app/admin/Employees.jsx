@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Activity, ChevronLeft, ChevronRight, Filter, Users
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
+import { hasPermission, useAuth } from '../../hooks/useAuth'
 
 const STATUS_CFG = {
   Active:   { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -26,16 +27,18 @@ const Avatar = ({ name }) => {
 const Employees = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [page, setPage] = useState(1)
   const [deptFilter, setDeptFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin-employees', page, deptFilter, statusFilter],
+    queryKey: ['admin-employees', page, deptFilter, roleFilter, statusFilter],
     queryFn: () => adminService.getEmployees({
       limit: 10, page,
       ...(deptFilter   && { department: deptFilter }),
+      ...(roleFilter   && { systemRole: roleFilter }),
       ...(statusFilter && { status: statusFilter }),
     }),
   })
@@ -43,6 +46,11 @@ const Employees = () => {
   const { data: statsData } = useQuery({
     queryKey: ['admin-employee-stats'],
     queryFn: adminService.getEmployeeStats,
+  })
+
+  const { data: rolesData } = useQuery({
+    queryKey: ['admin-roles'],
+    queryFn: () => adminService.getRoles(),
   })
 
   const { mutate: deleteEmployee } = useMutation({
@@ -66,8 +74,9 @@ const Employees = () => {
 
   const totalEmp   = statsData?.totalEmployees || totalItems
   const activeEmp  = statsData?.statusStats?.find(s => s._id === 'Active')?.count || employees.filter(e => e.status === 'Active').length
+  const inactiveEmp = statsData?.statusStats?.find(s => s._id === 'Inactive')?.count || employees.filter(e => e.status === 'Inactive').length
   const deptCount  = statsData?.departmentStats?.length || new Set(employees.map(e => e.department).filter(Boolean)).size
-  const pending    = statsData?.pendingVerifications || 0
+  const roles = rolesData?.data?.roles || rolesData?.roles || []
 
   const pages = []
   if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i) }
@@ -81,6 +90,9 @@ const Employees = () => {
 
   const clearFilters = () => { setDeptFilter(''); setRoleFilter(''); setStatusFilter(''); setPage(1) }
   const hasFilters = deptFilter || roleFilter || statusFilter
+  const canCreate = hasPermission(user, 'employees', 'create')
+  const canEdit = hasPermission(user, 'employees', 'edit')
+  const canDelete = hasPermission(user, 'employees', 'delete')
 
   if (error) return (
     <AdminLayout title="Employees">
@@ -98,12 +110,14 @@ const Employees = () => {
             <h1 className="text-2xl font-bold text-gray-900">Staff Directory</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage and monitor institutional workforce across departments.</p>
           </div>
-          <button
-            onClick={() => navigate('/admin/employees/add')}
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" /> Add New Employee
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => navigate('/admin/employees/add')}
+              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Add New Employee
+            </button>
+          )}
         </div>
 
         {/* Stat Cards */}
@@ -113,7 +127,7 @@ const Employees = () => {
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Total Employees</p>
                 <p className="text-3xl font-bold text-gray-900">{Number(totalEmp).toLocaleString('en-IN')}</p>
-                <p className="text-xs text-emerald-600 font-medium mt-1">+12% ↗</p>
+                <p className="text-xs text-gray-400 mt-1">Registered staff</p>
               </div>
               <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
                 <Users className="w-5 h-5 text-orange-500" />
@@ -124,9 +138,9 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Active Now</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Active Accounts</p>
                 <p className="text-3xl font-bold text-gray-900">{Number(activeEmp).toLocaleString('en-IN')}</p>
-                <p className="text-xs text-gray-400 mt-1">Currently session active</p>
+                <p className="text-xs text-gray-400 mt-1">Allowed to sign in</p>
               </div>
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                 <UserCheck className="w-5 h-5 text-emerald-500" />
@@ -149,10 +163,10 @@ const Employees = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-red-400 p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Pending Verifications</p>
-                <p className="text-3xl font-bold text-gray-900">{pending}</p>
-                {pending > 0 && (
-                  <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full mt-1 inline-block">URGENT</span>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Inactive Accounts</p>
+                <p className="text-3xl font-bold text-gray-900">{inactiveEmp}</p>
+                {inactiveEmp > 0 && (
+                  <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full mt-1 inline-block">REVIEW</span>
                 )}
               </div>
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
@@ -178,6 +192,9 @@ const Employees = () => {
             <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
               <option value="">All Roles</option>
+              {roles.map(role => (
+                <option key={role._id} value={role._id}>{role.roleName}</option>
+              ))}
             </select>
             <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
@@ -231,10 +248,10 @@ const Employees = () => {
                         <span className="text-sm font-mono text-gray-700">{emp.employeeId}</span>
                       </td>
                       <td className="py-4 px-5">
-                        <span className="text-sm text-gray-700">{emp.department || '—'}</span>
+                        <span className="text-sm text-gray-700">{emp.department || '-'}</span>
                       </td>
                       <td className="py-4 px-5">
-                        <span className="text-sm text-gray-700">{emp.systemRole?.roleName || emp.roleDesignation || '—'}</span>
+                        <span className="text-sm text-gray-700">{emp.systemRole?.roleName || emp.roleDesignation || '-'}</span>
                       </td>
                       <td className="py-4 px-5">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${scfg.bg} ${scfg.text}`}>
@@ -244,23 +261,27 @@ const Employees = () => {
                       </td>
                       <td className="py-4 px-5">
                         <span className="text-sm text-gray-700">
-                          {emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          {emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </span>
                       </td>
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => navigate(`/admin/employees/${emp._id}/edit`)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                          {canEdit && (
+                            <button onClick={() => navigate(`/admin/employees/${emp._id}/edit`)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button onClick={() => navigate(`/admin/employees/${emp._id}/activity`)}
                             className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Activity">
                             <Activity className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleDelete(emp)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canDelete && (
+                            <button onClick={() => handleDelete(emp)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -283,7 +304,7 @@ const Employees = () => {
               </button>
               {pages.map((p, i) =>
                 p === '...'
-                  ? <span key={`d${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">…</span>
+                  ? <span key={`d${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">...</span>
                   : <button key={p} onClick={() => setPage(p)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${p === page ? 'bg-orange-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                       {p}

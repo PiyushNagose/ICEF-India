@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Loader2, Eye, EyeOff, User, Briefcase, Lock, Shield, CheckCircle, X } from 'lucide-react'
+import { Loader2, Eye, EyeOff, User, Briefcase, Lock, Shield, X } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
 import CustomSelect from '../../components/ui/CustomSelect'
@@ -32,12 +32,6 @@ const Section = ({ icon: Icon, title, color, children }) => (
   </div>
 )
 
-const SYSTEM_ROLES_STATIC = [
-  { id: 'admin',    label: 'Admin',    icon: Shield,       desc: 'Full system access, user management, and audit logs.' },
-  { id: 'reviewer', label: 'Reviewer', icon: CheckCircle,  desc: 'Verify applications, grade assessments, and interview portal.' },
-  { id: 'support',  label: 'Support',  icon: User,         desc: 'Helpdesk access, query resolution, and applicant assistance.' },
-]
-
 const AddEmployee = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -54,7 +48,9 @@ const AddEmployee = () => {
     queryKey: ['admin-roles'],
     queryFn: () => adminService.getRoles(),
   })
-  const roles = rolesData?.data?.roles || rolesData?.roles || []
+  const roles = (rolesData?.data?.roles || rolesData?.roles || []).filter(
+    (role) => role.roleName?.trim().toLowerCase() !== 'super admin'
+  )
 
   const { mutate: createEmployee, isPending } = useMutation({
     mutationFn: adminService.createEmployee,
@@ -192,9 +188,8 @@ const AddEmployee = () => {
             <div>
               <Label>Employee ID</Label>
               <div className="relative">
-                <input type="text" placeholder="BR-2024-8842" className={inp(errors.employeeId)}
+                <input type="text" placeholder="EMP-2026-0001" className={inp(errors.employeeId)}
                   value={formData.employeeId} onChange={e => set('employeeId', e.target.value)} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">AUTO-GENERATED</span>
               </div>
               <Err msg={errors.employeeId} />
             </div>
@@ -231,6 +226,7 @@ const AddEmployee = () => {
                 </button>
               </div>
               <Err msg={errors.password} />
+              <p className="mt-1.5 text-xs text-gray-400">A welcome email will be sent, and the employee must change this after first login.</p>
             </div>
           </div>
 
@@ -239,22 +235,8 @@ const AddEmployee = () => {
             <Label>System Role</Label>
             <Err msg={errors.systemRole} />
             {rolesLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {SYSTEM_ROLES_STATIC.map(r => {
-                  const Icon = r.icon
-                  const isSelected = formData.systemRole === r.id
-                  return (
-                    <label key={r.id} className={`relative flex flex-col gap-2 p-4 border-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                      <input type="radio" name="systemRole" value={r.id} checked={isSelected}
-                        onChange={e => set('systemRole', e.target.value)} className="absolute top-3 right-3 accent-orange-600" />
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                        <Icon className={`w-5 h-5 ${isSelected ? 'text-orange-600' : 'text-gray-500'}`} />
-                      </div>
-                      <p className="font-semibold text-gray-900 text-sm">{r.label}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{r.desc}</p>
-                    </label>
-                  )
-                })}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                Loading roles...
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -268,24 +250,14 @@ const AddEmployee = () => {
                         <Shield className={`w-5 h-5 ${isSelected ? 'text-orange-600' : 'text-gray-500'}`} />
                       </div>
                       <p className="font-semibold text-gray-900 text-sm">{role.roleName}</p>
-                      <p className="text-xs text-gray-500">{role.description || 'System role'}</p>
+                      <p className="text-xs text-gray-500">{role.roleDescription || role.description || 'System role'}</p>
                     </label>
                   )
-                }) : SYSTEM_ROLES_STATIC.map(r => {
-                  const Icon = r.icon
-                  const isSelected = formData.systemRole === r.id
-                  return (
-                    <label key={r.id} className={`relative flex flex-col gap-2 p-4 border-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                      <input type="radio" name="systemRole" value={r.id} checked={isSelected}
-                        onChange={e => set('systemRole', e.target.value)} className="absolute top-3 right-3 accent-orange-600" />
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                        <Icon className={`w-5 h-5 ${isSelected ? 'text-orange-600' : 'text-gray-500'}`} />
-                      </div>
-                      <p className="font-semibold text-gray-900 text-sm">{r.label}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{r.desc}</p>
-                    </label>
-                  )
-                })}
+                }) : (
+                  <div className="md:col-span-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-800">
+                    No roles found. Create a role before adding employees.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -298,14 +270,7 @@ const AddEmployee = () => {
             <X className="w-4 h-4" /> Cancel
           </button>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => { if (validate()) { createEmployee({ fullName: formData.fullName.trim(), contactNumber: formData.contactNumber, department: formData.department, roleDesignation: formData.roleDesignation.trim(), employeeId: formData.employeeId.trim(), dateOfJoining: formData.dateOfJoining, officialEmail: formData.officialEmail.toLowerCase().trim(), password: formData.password, systemRole: formData.systemRole, ...(formData.dateOfBirth && { dateOfBirth: formData.dateOfBirth }), ...(formData.gender && { gender: formData.gender }) }); setFormData({ fullName:'',dateOfBirth:'',gender:'',contactNumber:'',department:'',roleDesignation:'',employeeId:'',dateOfJoining:'',officialEmail:'',password:'',systemRole:'' }) } }}
-              disabled={isPending}
-              className="text-sm font-medium text-gray-700 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Save &amp; Add Another
-            </button>
-            <button onClick={handleSubmit} disabled={isPending}
+            <button onClick={handleSubmit} disabled={isPending || rolesLoading || roles.length === 0}
               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors disabled:opacity-60 shadow-sm">
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
               {isPending ? 'Creating...' : 'Create Employee'}

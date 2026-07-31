@@ -6,10 +6,16 @@ const { paginationMeta } = require("../utils/ApiResponse");
 const { sendWelcomeEmail } = require("./email.service");
 
 const createEmployee = async (data) => {
-  const existing = await Employee.findOne({
+  // Check if email exists in Employee collection
+  const existingEmployee = await Employee.findOne({
     officialEmail: data.officialEmail,
   });
-  if (existing) throw new ApiError(409, "Email already registered");
+  if (existingEmployee) throw new ApiError(409, "Email already registered");
+
+  // Check if email exists in User (Candidate) collection
+  const User = require("../models/User");
+  const existingUser = await User.findOne({ email: data.officialEmail });
+  if (existingUser) throw new ApiError(409, "Email already registered");
 
   if (data.roleId) {
     const role = await Role.findById(data.roleId);

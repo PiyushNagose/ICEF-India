@@ -73,7 +73,10 @@ const EditRole = () => {
     onError: (err) => toast.error(err.message || 'Failed to update role'),
   })
 
+  const isSystemRole = roleData?.role?.isSystemRole
+
   const togglePermission = (moduleId, action) => {
+    if (isSystemRole) return
     setPermissions(prev => ({
       ...prev,
       [moduleId]: { ...prev[moduleId], [action]: !prev[moduleId][action] },
@@ -81,6 +84,7 @@ const EditRole = () => {
   }
 
   const toggleAll = (moduleId) => {
+    if (isSystemRole) return
     const allOn = ACTIONS.every(a => permissions[moduleId][a])
     setPermissions(prev => ({
       ...prev,
@@ -91,6 +95,10 @@ const EditRole = () => {
   const totalActive = Object.values(permissions).flatMap(Object.values).filter(Boolean).length
 
   const handleSubmit = () => {
+    if (isSystemRole) {
+      toast.error('System roles are locked and cannot be modified')
+      return
+    }
     const e = {}
     if (!roleName.trim()) e.roleName = 'Role name is required'
     if (roleName.trim().length < 2) e.roleName = 'At least 2 characters'
@@ -109,8 +117,6 @@ const EditRole = () => {
     )
   }
 
-  const isSystemRole = roleData?.role?.isSystemRole
-
   return (
     <AdminLayout title="Edit Role">
       <div className="min-h-full p-6 space-y-6">
@@ -119,9 +125,9 @@ const EditRole = () => {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Role</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isSystemRole ? 'View Role' : 'Edit Role'}</h1>
             <p className="text-gray-600 text-sm">
-              {isSystemRole ? 'System role — name is locked, permissions can be adjusted.' : 'Update role name and permissions.'}
+              {isSystemRole ? 'System role is locked for production safety and can only be audited.' : 'Update role name and permissions.'}
             </p>
           </div>
         </div>
@@ -153,7 +159,10 @@ const EditRole = () => {
                   <textarea
                     rows="3"
                     placeholder="Describe the responsibilities of this role..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    disabled={isSystemRole}
+                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      isSystemRole ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                     value={roleDescription}
                     onChange={(e) => setRoleDescription(e.target.value)}
                   />
@@ -194,14 +203,20 @@ const EditRole = () => {
                                 type="checkbox"
                                 checked={permissions[mod.id]?.[action] || false}
                                 onChange={() => togglePermission(mod.id, action)}
-                                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                                disabled={isSystemRole}
+                                className={`w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 ${
+                                  isSystemRole ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                                }`}
                               />
                             </td>
                           ))}
                           <td className="py-3 px-3 text-center">
                             <button
                               onClick={() => toggleAll(mod.id)}
-                              className="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                              disabled={isSystemRole}
+                              className={`text-xs font-medium ${
+                                isSystemRole ? 'text-gray-300 cursor-not-allowed' : 'text-orange-600 hover:text-orange-800'
+                              }`}
                             >
                               {ACTIONS.every(a => permissions[mod.id]?.[a]) ? 'None' : 'All'}
                             </button>
@@ -222,7 +237,7 @@ const EditRole = () => {
                 <h3 className="font-semibold">Role Summary</h3>
                 <div>
                   <p className="text-xs text-gray-400">ROLE NAME</p>
-                  <p className="font-medium text-white">{roleName || '—'}</p>
+                  <p className="font-medium text-white">{roleName || '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">ACTIVE PERMISSIONS</p>
@@ -239,15 +254,17 @@ const EditRole = () => {
             </Card>
 
             <div className="space-y-3">
-              <Button
-                onClick={handleSubmit}
-                disabled={isPending}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
-              </Button>
+              {!isSystemRole && (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isPending}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
+                </Button>
+              )}
               <Button variant="outline" onClick={() => navigate('/admin/roles')} className="w-full">
-                Cancel
+                {isSystemRole ? 'Back to Roles' : 'Cancel'}
               </Button>
             </div>
           </div>

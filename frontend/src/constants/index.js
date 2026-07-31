@@ -14,8 +14,11 @@ export const ROUTES = {
   // Auth Routes
   CANDIDATE_LOGIN: "/auth/candidate-login",
   ADMIN_LOGIN: "/auth/admin-login",
+  EMPLOYEE_LOGIN: "/auth/employee-login",
   REGISTER: "/auth/register",
-  FORGOT_PASSWORD: "/auth/forgot-password",
+  FORGOT_PASSWORD: "/auth/forgot-password", // Candidate forgot password
+  ADMIN_FORGOT_PASSWORD: "/auth/admin/forgot-password", // Super Admin forgot password
+  EMPLOYEE_FORGOT_PASSWORD: "/auth/employee/forgot-password", // Employee forgot password
   RESET_PASSWORD: "/auth/reset-password",
   VERIFY_OTP: "/auth/verify-otp",
 
