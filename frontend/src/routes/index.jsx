@@ -313,6 +313,14 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/admin/projects/:id/edit"
+          element={
+            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
+              <CreateProject />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/projects/:id"
           element={
             <ProtectedRoute role="admin" permission={["projects", "view"]}>

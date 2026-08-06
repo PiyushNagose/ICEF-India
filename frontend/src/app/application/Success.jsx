@@ -254,69 +254,64 @@ const Success = () => {
             </section>
 
             <Card className="no-print mb-6 shadow-sm">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <h2 className="text-xl font-semibold text-gray-800">
                   Application Details
                 </h2>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <Detail label="Application ID">
-                      <span className="font-mono text-lg font-semibold text-orange-600">
-                        {applicationId}
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <DetailBox label="Application ID">
+                    <span className="font-mono text-lg font-semibold text-orange-600">
+                      {applicationId}
+                    </span>
+                  </DetailBox>
+                  {transactionId !== "-" && (
+                    <DetailBox label="Transaction ID">
+                      <span className="break-all font-mono text-base text-gray-800">
+                        {transactionId}
                       </span>
-                    </Detail>
-                    {transactionId !== "-" && (
-                      <Detail label="Transaction ID">
-                        <span className="font-mono text-lg text-gray-800">
-                          {transactionId}
+                    </DetailBox>
+                  )}
+                  {Number(totalAmount) > 0 && (
+                    <DetailBox label="Amount Paid">
+                      <span className="text-lg font-semibold text-gray-800">
+                        INR {Number(totalAmount).toLocaleString("en-IN")}
+                      </span>
+                    </DetailBox>
+                  )}
+                  <DetailBox label="Submitted On">
+                    <span className="text-base text-gray-800">
+                      {formattedDate}
+                    </span>
+                  </DetailBox>
+                  <DetailBox label="Payment Status">
+                    <span className="flex items-center gap-2 font-medium text-green-600">
+                      <CheckCircle className="h-5 w-5" />
+                      Payment Successful
+                    </span>
+                  </DetailBox>
+                  <DetailBox label="Application Status">
+                    <span className="inline-flex w-fit items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+                      Submitted
+                    </span>
+                  </DetailBox>
+                  {app?.jobId?.title && (
+                    <DetailBox label="Job Applied For" className="md:col-span-2 xl:col-span-3">
+                      <span className="block text-base font-medium text-gray-800">
+                        {app.jobId.title}
+                      </span>
+                      {app.jobId.department && (
+                        <span className="text-sm text-gray-500">
+                          {app.jobId.department}
                         </span>
-                      </Detail>
-                    )}
-                    <Detail label="Payment Status">
-                      <span className="flex items-center gap-2 font-medium text-green-600">
-                        <CheckCircle className="h-5 w-5" />
-                        Payment Successful
-                      </span>
-                    </Detail>
-                    <Detail label="Application Status">
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-                        Submitted
-                      </span>
-                    </Detail>
-                  </div>
-
-                  <div className="space-y-4">
-                    {Number(totalAmount) > 0 && (
-                      <Detail label="Amount Paid">
-                        <span className="text-lg font-semibold text-gray-800">
-                          INR {Number(totalAmount).toLocaleString("en-IN")}
-                        </span>
-                      </Detail>
-                    )}
-                    <Detail label="Submitted On">
-                      <span className="text-lg text-gray-800">
-                        {formattedDate}
-                      </span>
-                    </Detail>
-                    {app?.jobId?.title && (
-                      <Detail label="Job Applied For">
-                        <span className="block text-base font-medium text-gray-800">
-                          {app.jobId.title}
-                        </span>
-                        {app.jobId.department && (
-                          <span className="text-sm text-gray-500">
-                            {app.jobId.department}
-                          </span>
-                        )}
-                      </Detail>
-                    )}
-                  </div>
+                      )}
+                    </DetailBox>
+                  )}
                 </div>
 
                 {selectedPosts.length > 0 && (
-                  <div className="border-t border-gray-200 pt-6">
+                  <div className="border-t border-gray-200 pt-5">
                     <p className="mb-2 block text-sm font-medium text-gray-600">
                       Applied Posts
                     </p>
@@ -506,6 +501,13 @@ const Detail = ({ label, children }) => (
   <div>
     <p className="text-sm font-medium text-gray-600">{label}</p>
     <div className="mt-1">{children}</div>
+  </div>
+);
+
+const DetailBox = ({ label, children, className = "" }) => (
+  <div className={`rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 ${className}`}>
+    <p className="text-sm font-medium text-gray-600">{label}</p>
+    <div className="mt-2 min-h-[28px]">{children}</div>
   </div>
 );
 

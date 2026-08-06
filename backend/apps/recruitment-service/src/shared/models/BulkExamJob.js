@@ -44,7 +44,7 @@ const bulkExamJobSchema = new mongoose.Schema(
       size: { type: Number, default: 0 },
       summary: { type: mongoose.Schema.Types.Mixed, default: {} },
     },
-    errors: [
+    errorLog: [
       {
         message: String,
         stack: String,

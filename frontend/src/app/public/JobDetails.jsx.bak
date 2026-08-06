@@ -32,7 +32,7 @@ import {
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
 
-// ── Helpers ───────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const daysLeft = (deadline) => {
   if (!deadline) return null;
@@ -48,7 +48,7 @@ const formatDate = (d) =>
       })
     : "Not announced";
 
-// ── Sub-components ────────────────────────────────────────────
+// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Info = ({ icon: Icon, label, value }) => (
   <div className="bg-[#faf7f4] border border-[#ede3dc] rounded-lg px-5 py-4">
@@ -77,7 +77,7 @@ const Section = ({ title, children }) => (
   </motion.div>
 );
 
-// ── Apply Sidebar ─────────────────────────────────────────────
+// â”€â”€ Apply Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ApplySidebar = ({
   job,
@@ -131,7 +131,7 @@ const ApplySidebar = ({
             <>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm font-semibold text-orange-800 mb-1">
-                  Draft — Not Submitted
+                  Draft â€” Not Submitted
                 </p>
                 <p className="text-xs text-orange-700">
                   Step {existingApp.currentStep || 1}/9 completed
@@ -177,7 +177,7 @@ const ApplySidebar = ({
             onClick={() => navigate("/candidate/applications")}
             className="w-full text-center text-xs text-gray-500 hover:text-orange-600 transition-colors"
           >
-            Go to My Applications →
+            Go to My Applications â†’
           </button>
         </div>
       </div>
@@ -310,7 +310,7 @@ const ApplySidebar = ({
   );
 };
 
-// ── Main Component ────────────────────────────────────────────
+// â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const JobDetails = () => {
   const { id } = useParams();
@@ -353,7 +353,7 @@ const JobDetails = () => {
     },
     onError: (err) => {
       if (err.status === 409) {
-        // Already applied — refresh applications list and show correct state
+        // Already applied â€” refresh applications list and show correct state
         toast("You have already applied for this job", { icon: "â„¹ï¸" });
         navigate("/candidate/applications");
       } else {
@@ -418,7 +418,7 @@ const JobDetails = () => {
           {/* Job content */}
           {job && !isLoading && (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
-              {/* Left — Main content */}
+              {/* Left â€” Main content */}
               <div className="space-y-5 min-w-0">
                 {/* Hero card */}
                 <motion.div
@@ -525,8 +525,8 @@ const JobDetails = () => {
                           Salary:
                         </span>
                         <span>
-                          ₹{job.salaryRange?.min?.toLocaleString("en-IN")} —
-                          ₹
+                          â‚¹{job.salaryRange?.min?.toLocaleString("en-IN")} â€“
+                          â‚¹
                           {job.salaryRange?.max?.toLocaleString("en-IN")} per
                           month
                         </span>
@@ -550,7 +550,7 @@ const JobDetails = () => {
                           Age Limit:
                         </span>
                         <span>
-                          {job.ageLimit.min}—{job.ageLimit.max} years
+                          {job.ageLimit.min}â€“{job.ageLimit.max} years
                         </span>
                       </div>
                     )}
@@ -669,7 +669,7 @@ const JobDetails = () => {
                 )}
               </div>
 
-              {/* Right — Sidebar */}
+              {/* Right â€” Sidebar */}
               <aside className="space-y-5 xl:sticky xl:top-24">
                 <ApplySidebar
                   job={job}

@@ -30,8 +30,8 @@ const FeeInput = ({
       {hint && <span className="ml-1 text-xs text-gray-400">({hint})</span>}
     </label>
     <div className="relative">
-      <span className={`${prefix ? "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" : "hidden"}`}>
-        Rs.
+      <span className={`${prefix ? "absolute left-3 top-1/2 -translate-y-1/2 w-8 text-gray-400 text-sm pointer-events-none" : "hidden"}`}>
+        {prefix}
       </span>
       {suffix && (
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
@@ -44,7 +44,7 @@ const FeeInput = ({
         step={suffix === "%" ? "0.01" : "1"}
         value={value}
         onChange={(e) => onChange(field, e.target.value)}
-        className={`w-full ${prefix ? "pl-7" : "pl-4"} ${suffix ? "pr-9" : "pr-4"} py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm`}
+        className={`w-full ${prefix ? "pl-12" : "pl-4"} ${suffix ? "pr-9" : "pr-4"} py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm`}
         placeholder="0"
       />
     </div>

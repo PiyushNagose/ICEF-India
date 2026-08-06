@@ -28,6 +28,71 @@ import {
   GripVertical
 } from 'lucide-react'
 
+const BUILT_IN_SECTIONS = [
+  {
+    id: 'system-personal',
+    system: true,
+    title: 'Personal Details',
+    required: true,
+    fields: [
+      { id: 'system-personal-name', label: 'Full Name', type: 'text', required: true },
+      { id: 'system-personal-father', label: "Father's Name", type: 'text', required: true },
+      { id: 'system-personal-dob', label: 'Date of Birth', type: 'date', required: true },
+      { id: 'system-personal-gender', label: 'Gender', type: 'radio', required: true, options: ['Male', 'Female', 'Other'] },
+      { id: 'system-personal-category', label: 'Category', type: 'select', required: true, options: ['General', 'OBC', 'SC', 'ST', 'EWS'] },
+      { id: 'system-personal-mobile', label: 'Registered Mobile', type: 'tel', required: true },
+      { id: 'system-personal-email', label: 'Email', type: 'email', required: true },
+    ],
+  },
+  {
+    id: 'system-education',
+    system: true,
+    title: 'Educational Info',
+    required: true,
+    fields: [
+      { id: 'system-education-level', label: 'Qualification Level', type: 'text', required: true },
+      { id: 'system-education-board', label: 'Board / University', type: 'text', required: true },
+      { id: 'system-education-year', label: 'Passing Year', type: 'number', required: true },
+      { id: 'system-education-result', label: 'Result / Percentage', type: 'text', required: true },
+    ],
+  },
+  {
+    id: 'system-additional',
+    system: true,
+    title: 'Additional Information',
+    required: false,
+    fields: [
+      { id: 'system-additional-religion', label: 'Religion', type: 'text', required: false },
+      { id: 'system-additional-marital', label: 'Marital Status', type: 'select', required: false, options: ['Single', 'Married'] },
+      { id: 'system-additional-mark', label: 'Identification Mark', type: 'textarea', required: false },
+      { id: 'system-additional-domicile', label: 'Domicile Details', type: 'text', required: false },
+    ],
+  },
+  {
+    id: 'system-address',
+    system: true,
+    title: 'Address Details',
+    required: true,
+    fields: [
+      { id: 'system-address-permanent', label: 'Permanent Address', type: 'textarea', required: true },
+      { id: 'system-address-correspondence', label: 'Correspondence Address', type: 'textarea', required: true },
+      { id: 'system-address-state', label: 'State', type: 'select', required: true },
+      { id: 'system-address-district', label: 'District', type: 'text', required: true },
+      { id: 'system-address-pincode', label: 'Pincode', type: 'number', required: true },
+    ],
+  },
+]
+
+const makeCustomSection = (section, sectionIndex) => ({
+  id: section.id || `custom-${sectionIndex + 1}`,
+  title: section.title,
+  required: section.required,
+  fields: (section.fields || []).map((field, fieldIndex) => ({
+    id: field.id || Date.now() + sectionIndex * 100 + fieldIndex,
+    ...field,
+  })),
+})
+
 const JobFormBuilder = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -43,28 +108,28 @@ const JobFormBuilder = () => {
 
   const [formSections, setFormSections] = useState(() => {
     const saved = savedDraft
+    const systemSections = BUILT_IN_SECTIONS.map(section => ({
+      ...section,
+      fields: section.fields.map(field => ({ ...field })),
+    }))
     if (saved.formSections?.length) {
-      return saved.formSections.map((section, sectionIndex) => ({
-        id: sectionIndex + 1,
-        title: section.title,
-        required: section.required,
-        fields: (section.fields || []).map((field, fieldIndex) => ({
-          id: Date.now() + sectionIndex * 100 + fieldIndex,
-          ...field,
-        })),
-      }))
+      return [
+        ...systemSections,
+        ...saved.formSections.map(makeCustomSection),
+      ]
     }
     return [
-    {
-      id: 1,
-      title: 'General Info',
-      required: false,
-      fields: []
-    }
+      ...systemSections,
+      {
+        id: 'custom-1',
+        title: 'General Info',
+        required: false,
+        fields: []
+      }
     ]
   })
 
-  const [selectedSection, setSelectedSection] = useState(1)
+  const [selectedSection, setSelectedSection] = useState('custom-1')
   const [showFieldModal, setShowFieldModal] = useState(false)
   const [showSectionSettings, setShowSectionSettings] = useState(true)
   const [editingField, setEditingField] = useState(null)
@@ -93,7 +158,7 @@ const JobFormBuilder = () => {
   const addSection = () => {
     const newSection = {
       id: Date.now(),
-      title: 'New Section',
+      title: 'Custom Section',
       required: false,
       fields: []
     }
@@ -105,17 +170,19 @@ const JobFormBuilder = () => {
   const updateSection = (sectionId, updates) => {
     setFormSections(sections => 
       sections.map(section => 
-        section.id === sectionId ? { ...section, ...updates } : section
+        section.id === sectionId && !section.system ? { ...section, ...updates } : section
       )
     )
   }
 
   const deleteSection = (sectionId) => {
-    if (formSections.length > 1) {
+    const customSections = formSections.filter(section => !section.system)
+    const target = formSections.find(section => section.id === sectionId)
+    if (!target?.system && customSections.length > 1) {
       const remainingSections = formSections.filter(section => section.id !== sectionId)
       setFormSections(remainingSections)
       if (selectedSection === sectionId) {
-        setSelectedSection(remainingSections[0]?.id)
+        setSelectedSection(remainingSections.find(section => !section.system)?.id || remainingSections[0]?.id)
       }
     }
   }
@@ -185,6 +252,10 @@ const JobFormBuilder = () => {
   }
 
   const addField = (fieldDraft = cleanField()) => {
+    if (currentSection?.system) {
+      toast.error('Built-in sections are already handled in the candidate application.')
+      return
+    }
     const field = {
       id: Date.now(),
       ...fieldDraft,
@@ -205,7 +276,7 @@ const JobFormBuilder = () => {
   const updateField = (fieldId, updates) => {
     setFormSections(sections =>
       sections.map(section =>
-        section.id === selectedSection
+        section.id === selectedSection && !section.system
           ? {
               ...section,
               fields: section.fields.map(field =>
@@ -220,7 +291,7 @@ const JobFormBuilder = () => {
   const deleteField = (fieldId) => {
     setFormSections(sections =>
       sections.map(section =>
-        section.id === selectedSection
+        section.id === selectedSection && !section.system
           ? {
               ...section,
               fields: section.fields.filter(field => field.id !== fieldId)
@@ -260,7 +331,8 @@ const JobFormBuilder = () => {
 
   const handleNext = () => {
     const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
-    const invalidSection = formSections.find(section => !section.title?.trim())
+    const customSections = formSections.filter(section => !section.system)
+    const invalidSection = customSections.find(section => !section.title?.trim())
     if (invalidSection) {
       toast.error('Every form section needs a title')
       setSelectedSection(invalidSection.id)
@@ -286,18 +358,18 @@ const JobFormBuilder = () => {
       'review',
       'post selection',
     ])
-    const duplicateFixedSection = formSections.find(section =>
+    const duplicateFixedSection = customSections.find(section =>
       reservedTitles.has(section.title.trim().toLowerCase().replace(/\s+/g, ' '))
     )
     if (duplicateFixedSection) {
-      toast.error('Use a custom section name. Personal, address, documents, payment, and review are already built-in steps.')
+      toast.error('This is already available as a built-in section. Add only job-specific custom sections here.')
       setSelectedSection(duplicateFixedSection.id)
       setShowSectionSettings(true)
       return
     }
     sessionStorage.setItem('job_draft', JSON.stringify({
       ...existing,
-      formSections: formSections.filter(section => section.fields.length > 0).map(section => ({
+      formSections: customSections.filter(section => section.fields.length > 0).map(section => ({
         title: section.title.trim(),
         required: section.required,
         fields: section.fields.map(({ id: _id, ...field }) => field),
@@ -357,11 +429,19 @@ const JobFormBuilder = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm">{section.title}</div>
-                          <div className="text-xs text-gray-500">{section.fields.length} fields</div>
+                          <div className="text-xs text-gray-500">
+                            {section.fields.length} fields
+                            {section.system ? ' - built-in' : ''}
+                          </div>
                         </div>
-                        {section.required && (
-                          <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {section.system && (
+                            <Badge className="bg-blue-100 text-blue-700 text-xs">System</Badge>
+                          )}
+                          {section.required && (
+                            <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -377,17 +457,23 @@ const JobFormBuilder = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900">{currentSection?.title}</h3>
-                    <p className="text-sm text-gray-600">Configure form fields for this section</p>
+                    <p className="text-sm text-gray-600">
+                      {currentSection?.system
+                        ? 'Built-in candidate step already available in the application flow'
+                        : 'Configure form fields for this section'}
+                    </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      onClick={openAddFieldModal}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Field
-                    </Button>
+                    {!currentSection?.system && (
+                      <Button
+                        onClick={openAddFieldModal}
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Field
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -404,13 +490,15 @@ const JobFormBuilder = () => {
                   <div className="text-center py-8">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No fields added yet</p>
-                    <Button
-                      onClick={openAddFieldModal}
-                      variant="outline"
-                      className="mt-4"
-                    >
-                      Add First Field
-                    </Button>
+                    {!currentSection?.system && (
+                      <Button
+                        onClick={openAddFieldModal}
+                        variant="outline"
+                        className="mt-4"
+                      >
+                        Add First Field
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -427,23 +515,25 @@ const JobFormBuilder = () => {
                               <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
                             )}
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditFieldModal(field)}
-                              title="Edit field"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              onClick={() => deleteField(field.id)}
-                              variant="ghost" 
-                              size="sm"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          {!currentSection.system && (
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditFieldModal(field)}
+                                title="Edit field"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                onClick={() => deleteField(field.id)}
+                                variant="ghost" 
+                                size="sm"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         
                         {/* Field Preview */}
@@ -523,8 +613,16 @@ const JobFormBuilder = () => {
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between">
-                      <span>Total Sections:</span>
-                      <span className="font-medium">{formSections.length}</span>
+                      <span>Built-in Sections:</span>
+                      <span className="font-medium">
+                        {formSections.filter(section => section.system).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Custom Sections:</span>
+                      <span className="font-medium">
+                        {formSections.filter(section => !section.system).length}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total Fields:</span>
@@ -544,6 +642,12 @@ const JobFormBuilder = () => {
                   <h3 className="font-semibold text-gray-900">Section Settings</h3>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {currentSection.system ? (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+                      This is a built-in application step. Its base fields are already shown to candidates in the fixed application flow. Add a custom section when you need job-specific extra questions.
+                    </div>
+                  ) : (
+                    <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Section Title
@@ -567,7 +671,7 @@ const JobFormBuilder = () => {
                       Required Section
                     </label>
                   </div>
-                  {formSections.length > 1 && (
+                  {formSections.filter(section => !section.system).length > 1 && (
                     <Button
                       onClick={() => deleteSection(selectedSection)}
                       variant="outline"
@@ -575,6 +679,8 @@ const JobFormBuilder = () => {
                     >
                       Delete Section
                     </Button>
+                  )}
+                    </>
                   )}
                 </CardContent>
               </Card>

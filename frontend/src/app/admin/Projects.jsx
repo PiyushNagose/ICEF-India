@@ -326,7 +326,7 @@ const Projects = () => {
                         <button
                           onClick={() =>
                             navigate(
-                              `/admin/projects/${project._id}`
+                              `/admin/projects/${project._id}/edit`
                             )
                           }
                           className="

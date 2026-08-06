@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 
 import {
@@ -54,22 +54,69 @@ const STATES = [
   'West Bengal',
 ]
 
+const PROJECT_STATUSES = [
+  'Upcoming',
+  'Active',
+  'Completed',
+  'Cancelled',
+]
+
+const toDateInput = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const CreateProject = () => {
+  const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isEditMode = Boolean(id)
 
   const [formData, setFormData] = useState({
     name: '',
     state: 'Bihar',
     department: '',
     description: '',
+    status: 'Upcoming',
     startDate: '',
     endDate: '',
   })
 
   const [errors, setErrors] = useState({})
 
-  const { mutate: createProject, isPending } =
+  const { data: projectData, isLoading: isProjectLoading } = useQuery({
+    queryKey: ['admin-project', id],
+    queryFn: () => adminService.getProject(id),
+    enabled: isEditMode,
+  })
+
+  const project = projectData?.project || projectData
+
+  useEffect(() => {
+    if (!project) return
+
+    setFormData({
+      name: project.name || '',
+      state: project.state || 'Bihar',
+      department: project.department || '',
+      description: project.description || '',
+      status: project.status || 'Upcoming',
+      startDate: toDateInput(project.startDate),
+      endDate: toDateInput(project.endDate || project.closureDate),
+    })
+  }, [project])
+
+  const { mutate: createProject, isPending: isCreating } =
     useMutation({
       mutationFn: adminService.createProject,
 
@@ -86,6 +133,35 @@ const CreateProject = () => {
       onError: (err) => {
         toast.error(
           err.message || 'Failed to create project'
+        )
+      },
+    })
+
+  const { mutate: updateProject, isPending: isUpdating } =
+    useMutation({
+      mutationFn: (payload) => adminService.updateProject(id, payload),
+
+      onSuccess: () => {
+        toast.success('Project updated successfully')
+
+        queryClient.invalidateQueries({
+          queryKey: ['admin-projects'],
+        })
+
+        queryClient.invalidateQueries({
+          queryKey: ['admin-project-stats'],
+        })
+
+        queryClient.invalidateQueries({
+          queryKey: ['admin-project', id],
+        })
+
+        navigate('/admin/projects')
+      },
+
+      onError: (err) => {
+        toast.error(
+          err.message || 'Failed to update project'
         )
       },
     })
@@ -133,31 +209,55 @@ const CreateProject = () => {
   const handleSubmit = () => {
     if (!validate()) return
 
-    createProject({
+    const payload = {
       ...formData,
-    })
+    }
+
+    if (!isEditMode) {
+      delete payload.status
+      createProject(payload)
+      return
+    }
+
+    updateProject(payload)
   }
 
+  const isPending = isCreating || isUpdating
+
   return (
-    <AdminLayout title="Create Project">
+    <AdminLayout title={isEditMode ? 'Edit Project' : 'Create Project'}>
       <div className="min-h-full bg-[#f7f4ee] p-5">
 
         {/* HEADER */}
         <div className="mb-6">
 
           <p className="text-xs font-bold tracking-normal text-orange-500 mb-2">
-            PROJECT CREATION
+            {isEditMode ? 'PROJECT EDIT' : 'PROJECT CREATION'}
           </p>
 
           <h1 className="text-2xl font-bold text-gray-900">
-            Create Project
+            {isEditMode ? 'Edit Project' : 'Create Project'}
           </h1>
 
           <p className="text-sm text-gray-500 mt-1">
-            Set up a new recruitment drive
-            or administrative project.
+            {isEditMode
+              ? 'Update recruitment cycle details, timeline, and current status.'
+              : 'Set up a new recruitment drive or administrative project.'}
           </p>
         </div>
+
+        {isEditMode && isProjectLoading ? (
+          <div className="
+            min-h-[420px]
+            flex items-center justify-center
+            rounded-[24px]
+            bg-white
+            border border-gray-200
+            shadow-sm
+          ">
+            <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
+          </div>
+        ) : (
 
         <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-5">
 
@@ -278,6 +378,21 @@ const CreateProject = () => {
 
                 </div>
 
+                {isEditMode && (
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-2">
+                      Status
+                    </label>
+
+                    <CustomSelect
+                      value={formData.status}
+                      onChange={(val) => handleChange('status', val)}
+                      options={PROJECT_STATUSES}
+                      placeholder="Select Status"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-semibold text-gray-700 block mb-2">
                     Description
@@ -337,12 +452,12 @@ const CreateProject = () => {
                 {isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
+                    {isEditMode ? 'Saving...' : 'Creating...'}
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4 mr-2" />
-                    Create Project
+                    {isEditMode ? 'Save Changes' : 'Create Project'}
                   </>
                 )}
               </Button>
@@ -441,6 +556,7 @@ const CreateProject = () => {
 
           </div>
         </div>
+        )}
       </div>
     </AdminLayout>
   )

@@ -55,7 +55,6 @@ const statsBannerSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-statsBannerSchema.index({ state: 1 });
 statsBannerSchema.index({ status: 1 });
 
 module.exports = mongoose.model("StateBanner", statsBannerSchema);

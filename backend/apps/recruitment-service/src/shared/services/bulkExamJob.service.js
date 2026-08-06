@@ -80,7 +80,7 @@ const completeJob = async (job, summary = {}) => {
 const failJob = async (job, error) => {
   job.status = "failed";
   job.failedAt = new Date();
-  job.errors.push({
+  job.errorLog.push({
     message: error.message,
     stack: error.stack,
   });
@@ -204,7 +204,7 @@ const processAttendanceZipJob = async (job) => {
       });
     } catch (error) {
       job.progress.failed += 1;
-      job.errors.push({ message: `${center.centerCode}: ${error.message}` });
+      job.errorLog.push({ message: `${center.centerCode}: ${error.message}` });
     }
     markProgress(job, { processed: job.progress.processed + 1, message: `Rendered ${job.progress.processed + 1}/${centers.length}` });
     if (job.progress.processed % 25 === 0) await job.save();

@@ -91,16 +91,25 @@ const JobCard = ({
     daysLeft(job.applicationDeadline) < 0;
   const isApplying = applyingId === job._id;
   const fee = job.applicationFee?.general || job.applicationFee?.amount || 0;
-  const isApplied   = !!existingApp;
-  const isDraft     = existingApp?.status === "draft";
+  const isApplied = !!existingApp;
+  const isDraft = existingApp?.status === "draft";
 
   const handleAction = () => {
-    if (!existingApp) { onApply(job._id); return; }
+    if (!existingApp) {
+      onApply(job._id);
+      return;
+    }
     persistApplicationDraft({ applicationId: existingApp._id, jobId: job._id });
     if (isDraft) {
-      navigate(getRouteForApplicationStep({ ...existingApp, jobId: job }, existingApp.currentStep || 1), {
-        state: { applicationId: existingApp._id, jobId: job._id },
-      });
+      navigate(
+        getRouteForApplicationStep(
+          { ...existingApp, jobId: job },
+          existingApp.currentStep || 1,
+        ),
+        {
+          state: { applicationId: existingApp._id, jobId: job._id },
+        },
+      );
     } else {
       navigate(`/candidate/applications/${existingApp._id}`);
     }
@@ -118,9 +127,15 @@ const JobCard = ({
           }`}
         >
           {isDraft ? (
-            <><PlayCircle className="w-4 h-4" />Resume</>
+            <>
+              <PlayCircle className="w-4 h-4" />
+              Resume
+            </>
           ) : (
-            <><CheckCircle className="w-4 h-4" />Applied</>
+            <>
+              <CheckCircle className="w-4 h-4" />
+              Applied
+            </>
           )}
         </button>
       );
@@ -147,8 +162,15 @@ const JobCard = ({
         }`}
       >
         {isApplying ? (
-          <><Loader2 className="w-4 h-4 animate-spin" />Starting...</>
-        ) : isClosed ? "Closed" : "Apply Now"}
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Starting...
+          </>
+        ) : isClosed ? (
+          "Closed"
+        ) : (
+          "Apply Now"
+        )}
       </button>
     );
   };
@@ -156,7 +178,9 @@ const JobCard = ({
   return (
     <div
       className={`h-full bg-white border-2 rounded-xl overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md flex flex-col ${
-        isApplied ? "border-green-400" : "border-[#e0d7cd] hover:border-orange-300"
+        isApplied
+          ? "border-green-400"
+          : "border-[#e0d7cd] hover:border-orange-300"
       }`}
     >
       <div className="p-5 flex h-full flex-col">
@@ -174,9 +198,13 @@ const JobCard = ({
           <div className="flex items-center gap-1.5 shrink-0">
             <DaysChip deadline={job.applicationDeadline} />
             {isApplied && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                isDraft ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
-              }`}>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                  isDraft
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
                 <CheckCircle className="w-3 h-3" />
                 {isDraft ? "Draft" : "Applied"}
               </span>
@@ -192,9 +220,9 @@ const JobCard = ({
             <span>{job.totalPosts || 0} vacancies</span>
             {fee > 0 && (
               <>
-                <span className="text-gray-300 mx-1">Â·</span>
+                <span className="text-gray-300 mx-1">·</span>
                 <IndianRupee className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                <span>â‚¹{fee.toLocaleString("en-IN")} fee</span>
+                <span>₹{fee.toLocaleString("en-IN")} fee</span>
               </>
             )}
             {fee === 0 && (
@@ -211,7 +239,9 @@ const JobCard = ({
           {(job.workLocation || job.projectId?.state) && (
             <div className="flex items-center gap-2 text-sm text-[#4b4744]">
               <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-              <span className="truncate">{job.workLocation || job.projectId?.state}</span>
+              <span className="truncate">
+                {job.workLocation || job.projectId?.state}
+              </span>
             </div>
           )}
         </div>
@@ -471,7 +501,7 @@ const Jobs = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-[#e0d7cd] rounded-lg p-8 sm:p-10 text-center shadow-sm"
+              className="bg-white border border-[#e0d7cd] rounded-lg p-8 sm:p-10 text-center shadow-sm"
             >
               <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-semibold">No jobs found</p>
@@ -499,7 +529,11 @@ const Jobs = () => {
                   key={job._id}
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: "easeOut", delay: index * 0.06 }}
+                  transition={{
+                    duration: 0.4,
+                    ease: "easeOut",
+                    delay: index * 0.06,
+                  }}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
                   className="h-full"
                 >
@@ -571,5 +605,3 @@ const Jobs = () => {
 };
 
 export default Jobs;
-
-

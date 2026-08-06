@@ -273,6 +273,9 @@ const ProjectDetails = () => {
               </Button>
 
               <Button
+                onClick={() =>
+                  navigate(`/admin/projects/${id}/edit`)
+                }
                 className="
                   bg-orange-600
                   hover:bg-orange-700

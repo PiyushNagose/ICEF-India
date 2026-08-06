@@ -24,11 +24,33 @@ import { getStoredUser } from "../../services/auth.service";
 
 // -- Indian states list --------------------------------------------------------
 const INDIAN_STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
-  "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim",
-  "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
   "West Bengal",
 ];
 
@@ -72,8 +94,16 @@ const deadlineBadge = (daysLeft) => {
   if (daysLeft <= 0)
     return { bg: "bg-red-100", text: "text-red-600", label: "Closed" };
   if (daysLeft <= 7)
-    return { bg: "bg-amber-100", text: "text-amber-700", label: `${daysLeft}d left` };
-  return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${daysLeft}d left` };
+    return {
+      bg: "bg-amber-100",
+      text: "text-amber-700",
+      label: `${daysLeft}d left`,
+    };
+  return {
+    bg: "bg-emerald-100",
+    text: "text-emerald-700",
+    label: `${daysLeft}d left`,
+  };
 };
 
 // -- Main component ------------------------------------------------------------
@@ -191,7 +221,6 @@ const EligibleJobs = () => {
   return (
     <PublicLayout>
       <div className="min-h-[calc(100vh-122px)] bg-[#f3efe8]">
-
         {/* -- Page Header ---------------------------------------------------- */}
         <div className="bg-[#1f1d1b] text-white py-8 lg:py-10">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -218,7 +247,6 @@ const EligibleJobs = () => {
         </div>
 
         <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-
           {/* -- Filter Panel ----------------------------------------------- */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -230,7 +258,9 @@ const EligibleJobs = () => {
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebe2d8]">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-bold text-[#1f1d1b]">Filters</span>
+                <span className="text-sm font-bold text-[#1f1d1b]">
+                  Filters
+                </span>
                 {hasActiveFilters && (
                   <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                     Active
@@ -265,19 +295,23 @@ const EligibleJobs = () => {
             {/* Filter grid */}
             <div className={`p-5 ${!showFilters ? "hidden md:block" : ""}`}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-
                 {/* Search */}
                 <div className="xl:col-span-2">
                   <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
                     Search
                   </label>
                   <div className="relative">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Search
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
                     <input
                       type="text"
                       placeholder="Job title, post code..."
                       value={filters.search}
-                      onChange={(e) => handleFilterChange("search", e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("search", e.target.value)
+                      }
                       className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-white"
                     />
                   </div>
@@ -337,7 +371,6 @@ const EligibleJobs = () => {
                     placeholder="All States"
                   />
                 </div>
-
               </div>
 
               {/* Second row — Department */}
@@ -361,7 +394,9 @@ const EligibleJobs = () => {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader size={40} className="text-orange-500 animate-spin mb-4" />
-              <p className="text-[#6d6761] text-sm font-medium">Loading eligible jobs...</p>
+              <p className="text-[#6d6761] text-sm font-medium">
+                Loading eligible jobs...
+              </p>
             </div>
           )}
 
@@ -372,11 +407,17 @@ const EligibleJobs = () => {
               animate={{ opacity: 1, y: 0 }}
               className="bg-red-50 border border-red-200 rounded-[12px] p-6 flex items-start gap-4"
             >
-              <AlertCircle size={22} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle
+                size={22}
+                className="text-red-600 flex-shrink-0 mt-0.5"
+              />
               <div>
-                <h3 className="font-bold text-red-900 mb-1">Error Loading Jobs</h3>
+                <h3 className="font-bold text-red-900 mb-1">
+                  Error Loading Jobs
+                </h3>
                 <p className="text-red-700 text-sm">
-                  {error.message || "Failed to load eligible jobs. Please try again."}
+                  {error.message ||
+                    "Failed to load eligible jobs. Please try again."}
                 </p>
               </div>
             </motion.div>
@@ -390,9 +431,12 @@ const EligibleJobs = () => {
               className="bg-white rounded-[12px] border border-[#e0d7cd] p-8 sm:p-10 text-center"
             >
               <AlertCircle size={44} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-xl font-black text-[#1f1d1b] mb-2">No Jobs Found</h3>
+              <h3 className="text-xl font-black text-[#1f1d1b] mb-2">
+                No Jobs Found
+              </h3>
               <p className="text-[#6d6761] text-sm mb-6 max-w-sm mx-auto">
-                We couldn't find any jobs matching your criteria. Try adjusting your filters or check back later.
+                We couldn't find any jobs matching your criteria. Try adjusting
+                your filters or check back later.
               </p>
               <button
                 onClick={handleResetFilters}
@@ -426,11 +470,15 @@ const EligibleJobs = () => {
                           <h3 className="text-[15px] font-black leading-tight line-clamp-2">
                             {job.title}
                           </h3>
-                          <span className={`flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}>
+                          <span
+                            className={`flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}
+                          >
                             {badge.label}
                           </span>
                         </div>
-                        <p className="text-[11px] text-white/60 font-medium">{job.postCode}</p>
+                        <p className="text-[11px] text-white/60 font-medium">
+                          {job.postCode}
+                        </p>
                       </div>
 
                       {/* Card body */}
@@ -447,47 +495,78 @@ const EligibleJobs = () => {
 
                         {/* Location */}
                         <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <MapPin size={13} className="text-orange-500 flex-shrink-0" />
-                          <span className="text-xs truncate">{job.workLocation || "Not specified"}</span>
+                          <MapPin
+                            size={13}
+                            className="text-orange-500 flex-shrink-0"
+                          />
+                          <span className="text-xs truncate">
+                            {job.workLocation || "Not specified"}
+                          </span>
                         </div>
 
                         {/* Vacancies */}
                         <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <Users size={13} className="text-orange-500 flex-shrink-0" />
+                          <Users
+                            size={13}
+                            className="text-orange-500 flex-shrink-0"
+                          />
                           <span className="text-xs">
-                            <strong className="text-[#1f1d1b]">{job.totalPosts}</strong> Vacancies
+                            <strong className="text-[#1f1d1b]">
+                              {job.totalPosts}
+                            </strong>{" "}
+                            Vacancies
                           </span>
                         </div>
 
                         {/* Salary */}
                         {job.salaryRange?.min && job.salaryRange?.max && (
                           <div className="flex items-center gap-1.5 text-[#6d6761]">
-                            <IndianRupee size={13} className="text-orange-500 flex-shrink-0" />
+                            <IndianRupee
+                              size={13}
+                              className="text-orange-500 flex-shrink-0"
+                            />
                             <span className="text-xs">
-                              ?{job.salaryRange.min.toLocaleString("en-IN")} –{" "}
-                              ?{job.salaryRange.max.toLocaleString("en-IN")}
+                              ₹{job.salaryRange.min.toLocaleString("en-IN")} – ₹
+                              {job.salaryRange.max.toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
 
                         {/* Fee */}
                         <div className="flex items-center gap-1.5">
-                          <IndianRupee size={13} className="text-orange-500 flex-shrink-0" />
+                          <IndianRupee
+                            size={13}
+                            className="text-orange-500 flex-shrink-0"
+                          />
                           <span className="text-xs">
                             Fee:{" "}
-                            <strong className={job.applicableFee === 0 ? "text-emerald-600" : "text-[#1f1d1b]"}>
-                              {job.applicableFee === 0 ? "Free" : `?${job.applicableFee}`}
+                            <strong
+                              className={
+                                job.applicableFee === 0
+                                  ? "text-emerald-600"
+                                  : "text-[#1f1d1b]"
+                              }
+                            >
+                              {job.applicableFee === 0
+                                ? "Free"
+                                : `₹${job.applicableFee}`}
                             </strong>
                           </span>
                         </div>
 
                         {/* Deadline */}
                         <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <Calendar size={13} className="text-orange-500 flex-shrink-0" />
+                          <Calendar
+                            size={13}
+                            className="text-orange-500 flex-shrink-0"
+                          />
                           <span className="text-xs">
                             {job.daysLeft !== null && job.daysLeft > 0 ? (
                               <>
-                                <strong className="text-[#1f1d1b]">{job.daysLeft}</strong> days left
+                                <strong className="text-[#1f1d1b]">
+                                  {job.daysLeft}
+                                </strong>{" "}
+                                days left
                               </>
                             ) : (
                               "Deadline passed"
@@ -533,19 +612,21 @@ const EligibleJobs = () => {
                     Previous
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-9 h-9 rounded-[6px] text-sm font-bold transition-colors ${
-                        page === currentPage
-                          ? "bg-[#e46a1d] text-white"
-                          : "border border-[#e0d7cd] text-[#1f1d1b] hover:bg-[#f6f1ea]"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`w-9 h-9 rounded-[6px] text-sm font-bold transition-colors ${
+                          page === currentPage
+                            ? "bg-[#e46a1d] text-white"
+                            : "border border-[#e0d7cd] text-[#1f1d1b] hover:bg-[#f6f1ea]"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
@@ -565,5 +646,3 @@ const EligibleJobs = () => {
 };
 
 export default EligibleJobs;
-
-
