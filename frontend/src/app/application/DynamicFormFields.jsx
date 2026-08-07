@@ -18,7 +18,7 @@ import {
   INDIA_STATES,
 } from "../../constants/indiaLocations";
 
-const fieldKey = (field) => String(field._id || field.id);
+export const fieldKey = (field) => String(field._id || field.id);
 
 const isStateField = (field) =>
   /(^|\s)(state|state\/ut)(\s|$)/i.test(field.label || "");
@@ -43,7 +43,7 @@ const getSelectedStateForField = (section, field, formData) => {
   return previousStateField ? formData[fieldKey(previousStateField)] : "";
 };
 
-const validateValue = (field, value) => {
+export const validateValue = (field, value) => {
   const label = field.label || "This field";
   if (field.required) {
     if (field.type === "file") return "";
@@ -305,7 +305,7 @@ const DynamicFormFields = () => {
   );
 };
 
-const renderField = (section, field, formData, errors, onChange) => {
+export const renderField = (section, field, formData, errors, onChange) => {
   const key = fieldKey(field);
   const value = formData[key] ?? (field.type === "checkbox" ? false : "");
   const error = errors[key];

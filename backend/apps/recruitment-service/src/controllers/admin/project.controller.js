@@ -8,6 +8,18 @@ const asyncHandler = require("../../shared/utils/asyncHandler");
 const { emitToAdmins, SOCKET_EVENTS } = require("../../shared/socket/index");
 const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
+const {
+  assertProjectTimeline,
+  getProjectLifecycleStatus,
+} = require("../../shared/utils/timeline");
+
+const withProjectLifecycleStatus = (project) => {
+  const plain = typeof project.toObject === "function" ? project.toObject() : project;
+  return {
+    ...plain,
+    status: getProjectLifecycleStatus(plain),
+  };
+};
 
 /**
  * @desc    Get all projects with stats
@@ -27,7 +39,7 @@ const getProjects = asyncHandler(async (req, res) => {
 
   // Build filter
   const filter = {};
-  if (status) filter.status = status;
+  if (status === "Cancelled") filter.status = status;
   if (department) filter.department = new RegExp(department, "i");
   if (search) {
     filter.$or = [
@@ -61,20 +73,25 @@ const getProjects = asyncHandler(async (req, res) => {
       });
 
       return {
-        ...project.toObject(),
+        ...withProjectLifecycleStatus(project),
         totalJobs: jobs,
         totalApplicants: applications,
       };
     }),
   );
 
+  const filteredProjectsWithStats =
+    status && status !== "Cancelled"
+      ? projectsWithStats.filter((project) => project.status === status)
+      : projectsWithStats;
+
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Projects fetched successfully", {
-      projects: projectsWithStats,
+      projects: filteredProjectsWithStats,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
-        totalItems: total,
+        totalItems: status && status !== "Cancelled" ? filteredProjectsWithStats.length : total,
         itemsPerPage: parseInt(limit),
       },
     }),
@@ -126,7 +143,7 @@ const getProject = asyncHandler(async (req, res) => {
   ]);
 
   const projectStats = {
-    ...project.toObject(),
+    ...withProjectLifecycleStatus(project),
     jobs,
     totalJobs: jobs.length,
     totalApplicants: totalApplications,
@@ -150,6 +167,7 @@ const getProject = asyncHandler(async (req, res) => {
  */
 const createProject = asyncHandler(async (req, res) => {
   const { name, description, department, state, startDate, endDate } = req.body;
+  assertProjectTimeline({ startDate, endDate });
 
   const project = await Project.create({
     name,
@@ -193,6 +211,11 @@ const updateProject = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
+
+  assertProjectTimeline({
+    startDate: startDate !== undefined ? startDate : project.startDate,
+    endDate: endDate !== undefined ? endDate : project.endDate,
+  });
 
   // Update fields
   if (name !== undefined) project.name = name;
@@ -265,15 +288,21 @@ const deleteProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const getProjectStats = asyncHandler(async (req, res) => {
-  const stats = await Project.aggregate([
-    {
-      $group: {
-        _id: "$status",
-        count: { $sum: 1 },
-        totalRevenue: { $sum: "$totalRevenue" },
-      },
-    },
-  ]);
+  const allProjects = await Project.find({}).select(
+    "status startDate endDate closureDate totalRevenue",
+  );
+  const statsMap = allProjects.reduce((acc, project) => {
+    const lifecycleStatus = getProjectLifecycleStatus(project);
+    acc[lifecycleStatus] = acc[lifecycleStatus] || {
+      _id: lifecycleStatus,
+      count: 0,
+      totalRevenue: 0,
+    };
+    acc[lifecycleStatus].count += 1;
+    acc[lifecycleStatus].totalRevenue += Number(project.totalRevenue || 0);
+    return acc;
+  }, {});
+  const stats = Object.values(statsMap);
 
   const departmentStats = await Project.aggregate([
     {

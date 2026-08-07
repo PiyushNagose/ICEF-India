@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 import {
   Search,
@@ -12,6 +12,11 @@ import {
   ChevronDown,
   MapPin,
   Megaphone,
+  Briefcase,
+  Calendar,
+  FileText,
+  BadgeCheck,
+  ClipboardList,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -21,9 +26,9 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import heroBg from "../../assets/herobg.jpg";
 import { jobService } from "../../services/job.service";
 import { getStoredUser } from "../../services/auth.service";
-import { getDashboardPath, isAdminUser, isCandidateUser } from "../../hooks/useAuth";
+import { getDashboardPath } from "../../hooks/useAuth";
 import CustomSelect from "../../components/ui/CustomSelect";
-import ShareJobButton from "../../components/ui/ShareJobButton";
+import { publicService } from "../../services/public.service";
 
 // Reusable fade-up variant for scroll sections
 const fadeUp = {
@@ -35,6 +40,36 @@ const fadeUp = {
   }),
 };
 
+const STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Tamil Nadu",
+  "Telangana",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+];
+
+const toSlug = (value = "") =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
 const Home = () => {
   const navigate = useNavigate();
 
@@ -45,7 +80,7 @@ const Home = () => {
   });
 
   const [openFaq, setOpenFaq] = useState(null);
-  const [tickerIdx, setTickerIdx] = useState(0);
+  const [selectedState, setSelectedState] = useState("");
 
   // â”€â”€ Detect logged-in candidate's state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const storedUser = getStoredUser();
@@ -67,20 +102,6 @@ const Home = () => {
       return;
     }
     navigate("/eligible-jobs", { state: eligibilityForm });
-  };
-
-  // Apply Now â€” redirect to login if not logged in as candidate
-  const handleApplyNow = (jobId) => {
-    const user = getStoredUser();
-    if (isCandidateUser(user)) {
-      navigate(`/candidate/jobs/${jobId}`);
-    } else if (isAdminUser(user)) {
-      navigate("/admin/dashboard");
-    } else {
-      navigate("/auth/candidate-login", {
-        state: { jobId, redirectTo: `/candidate/jobs/${jobId}` },
-      });
-    }
   };
 
   const handleNewUser = () => {
@@ -105,17 +126,23 @@ const Home = () => {
     navigate("/help-center");
   };
 
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ["public-featured-jobs"],
+  const { data: projectsData, isLoading: projectsLoading } = useQuery({
+    queryKey: ["public-home-projects", selectedState],
     queryFn: () =>
-      jobService.getPublicJobs({
-        limit: 2,
-        sortBy: "publishedAt",
-        sortOrder: "desc",
+      publicService.getActiveProjects({
+        limit: 6,
+        state: selectedState || undefined,
       }),
+    staleTime: 2 * 60 * 1000,
   });
 
-  const featuredJobs = jobsData?.jobs || [];
+  const activeProjects = projectsData?.projects || [];
+  const latestUpdates = [
+    "Admit Card for Assistant Manager Exam 2026 now available",
+    "Junior Engineer application extended till 30th October",
+    "Check project pages for official state-wise recruitment notices",
+    "Candidates can track application status from the public portal",
+  ];
 
   const formatDate = (date) =>
     date
@@ -129,19 +156,39 @@ const Home = () => {
   return (
     <PublicLayout>
       <div className="min-h-[calc(100vh-122px)] bg-[#f3efe8]">
+        <style>{`
+          @keyframes portalTicker {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+          }
+
+          .portal-ticker-track {
+            animation: portalTicker 28s linear infinite;
+          }
+
+          .portal-ticker-track:hover {
+            animation-play-state: paused;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .portal-ticker-track {
+              animation: none;
+            }
+          }
+        `}</style>
         {/* HERO */}
 
         <section
-          className="relative bg-cover bg-center overflow-hidden min-h-[560px] lg:min-h-[calc(100vh-110px)]"
+          className="relative overflow-hidden bg-cover bg-center min-h-[560px] lg:min-h-[620px]"
           style={{
             backgroundImage: `url(${
               stateBanner?.bannerImage ? stateBanner.bannerImage : heroBg
             })`,
           }}
         >
-          {/* OVERLAY â€” lighter when CMS image is set so it shows clearly */}
-          <div className={`absolute inset-0 ${stateBanner?.bannerImage ? 'bg-black/35' : 'bg-black/55'}`} />
-          <div className={`absolute inset-0 bg-gradient-to-r ${stateBanner?.bannerImage ? 'from-black/50 via-black/20 to-transparent' : 'from-black/70 via-black/40 to-black/20'}`} />
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/78 via-black/44 to-black/22" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.2)_48%,rgba(0,0,0,0.62)_100%)]" />
 
           {/* â”€â”€ CMS State personalisation (tag + ticker) â”€â”€ */}
           {stateBanner && (
@@ -162,37 +209,20 @@ const Home = () => {
                         {stateBanner.state}
                       </span>
                     </div>
-                    <div className="flex-1 overflow-hidden">
-                      <AnimatePresence mode="wait">
-                        <motion.p
-                          key={tickerIdx}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          transition={{ duration: 0.3 }}
-                          onAnimationComplete={() => {
-                            setTimeout(() => {
-                              setTickerIdx((i) => (i + 1) % announcements.length);
-                            }, 3500);
-                          }}
-                          className="text-white/90 text-xs truncate"
-                        >
-                          {announcements[tickerIdx % announcements.length]?.text}
-                        </motion.p>
-                      </AnimatePresence>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {announcements.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setTickerIdx(i)}
-                          className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                            i === tickerIdx % announcements.length
-                              ? 'bg-orange-400'
-                              : 'bg-white/30'
-                          }`}
-                        />
-                      ))}
+                    <div className="relative min-w-0 flex-1 overflow-hidden">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-black/70 to-transparent" />
+                      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-black/70 to-transparent" />
+                      <div className="portal-ticker-track flex w-max items-center gap-10 whitespace-nowrap text-xs font-semibold text-white/90">
+                        {[...announcements, ...announcements].map((item, index) => (
+                          <span
+                            key={`${item.text || item.title || "announcement"}-${index}`}
+                            className="inline-flex items-center gap-2"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+                            {item.text || item.title}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -200,16 +230,26 @@ const Home = () => {
             </>
           )}
 
-          <div className="relative max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-8 lg:gap-10 items-center lg:min-h-[calc(100vh-220px)]">
+          <div className="relative mx-auto flex min-h-[560px] max-w-[1380px] items-center px-4 py-12 sm:px-6 lg:min-h-[620px] lg:px-8 lg:py-0">
+            <div className="grid w-full grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_410px] xl:grid-cols-[minmax(0,1fr)_440px]">
               {/* LEFT */}
 
-              <div className="max-w-[760px] flex flex-col gap-8 lg:gap-[3.25rem] xl:gap-14 lg:self-center">
+              <div className="max-w-[820px]">
+                <motion.div
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
+                  className="mb-6 inline-flex items-center gap-2 rounded-full bg-orange-500/95 px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.28)]"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Official Government Employment Gateway
+                </motion.div>
+
                 <motion.h1
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, ease: "easeOut" }}
-                  className="text-[28px] sm:text-[42px] lg:text-[44px] xl:text-[48px] leading-[1.02] tracking-[-1.5px] font-black text-white"
+                  className="text-[30px] sm:text-[42px] lg:text-[48px] leading-[1.04] tracking-normal font-black text-white"
                 >
                   {stateBanner?.heroTitle
                     ? stateBanner.heroTitle
@@ -221,7 +261,7 @@ const Home = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-                  className="text-[13px] sm:text-[15px] leading-6 text-white/80 max-w-[560px]"
+                  className="mt-5 max-w-[560px] text-[13px] sm:text-[15px] leading-6 text-white/80"
                 >
                   {stateBanner?.heroSubtitle ||
                     "Transparent, accessible, and reliable government job opportunities for every qualified citizen. Find your role today."}
@@ -231,10 +271,10 @@ const Home = () => {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
-                  className="inline-flex items-center gap-2 text-orange-300 text-[12px] font-bold"
+                  className="mt-7 inline-flex items-center gap-2 text-orange-300 text-[12px] font-bold"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  Official Government Employment Gateway
+                  Verified recruitment notices and secure candidate access
                 </motion.div>
               </div>
 
@@ -244,12 +284,18 @@ const Home = () => {
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
-                className="h-fit lg:self-center bg-[#f8f5f0] rounded-[6px] border border-[#d8d0c6] shadow-[0_25px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                className="h-fit overflow-hidden rounded-[8px] border border-white/15 bg-[#f8f5f0] shadow-[0_28px_60px_rgba(0,0,0,0.42)] lg:self-center"
               >
-                <div className="px-6 pt-6">
-                  <h3 className="text-[20px] tracking-[-0.5px] font-black text-[#1f1d1b]">
+                <div className="border-b border-[#e3d9ce] px-6 py-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
+                    Start Here
+                  </p>
+                  <h3 className="mt-1.5 text-[22px] tracking-normal font-black text-[#1f1d1b]">
                     Smart Eligibility Filter
                   </h3>
+                  <p className="mt-1.5 text-[13px] leading-5 text-[#6d6761]">
+                    Match your profile with active public recruitment projects.
+                  </p>
                 </div>
 
                 <div className="p-6 space-y-4">
@@ -299,7 +345,7 @@ const Home = () => {
                           })
                         }
                         placeholder="e.g. 25"
-                        className="w-full h-[48px] rounded-[4px] border border-[#d7cfc6] bg-white px-4 text-[13px] text-[#272421] outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full h-[50px] rounded-[4px] border border-[#d7cfc6] bg-white px-4 text-[14px] text-[#272421] outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
 
@@ -333,7 +379,7 @@ const Home = () => {
 
                   <button
                     onClick={handleEligibilityCheck}
-                    className="w-full h-[52px] bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] text-[12px] uppercase tracking-[0.12em] font-black transition-all flex items-center justify-center gap-2"
+                    className="w-full h-[52px] bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] text-[12px] uppercase tracking-[0.12em] font-black transition-all flex items-center justify-center gap-2 shadow-[0_18px_35px_rgba(228,106,29,0.24)]"
                   >
                     <Search className="w-4 h-4" />
                     Check Eligible Jobs
@@ -348,19 +394,25 @@ const Home = () => {
 
         <div className="bg-[#111111] border-y border-[#2a2a2a]">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3 py-2.5 text-white text-[11px] uppercase tracking-[0.08em]">
-              <span className="bg-[#e46a1d] px-3 py-1 rounded text-white font-black w-fit">
+            <div className="flex items-center gap-4 py-3 text-white text-[11px] uppercase tracking-[0.08em]">
+              <span className="shrink-0 rounded-[4px] bg-[#e46a1d] px-4 py-2 text-white font-black">
                 Latest Updates
               </span>
 
-              <div className="flex flex-wrap items-center gap-6 text-white/80">
-                <span>
-                  Admit Card for Assistant Manager Exam 2026 now available
-                </span>
-
-                <span>
-                  Junior Engineer application extended till 30th October
-                </span>
+              <div className="relative min-w-0 flex-1 overflow-hidden">
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#111111] to-transparent" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#111111] to-transparent" />
+                <div className="portal-ticker-track flex w-max items-center gap-10 whitespace-nowrap text-white/85">
+                  {[...latestUpdates, ...latestUpdates].map((update, index) => (
+                    <span
+                      key={`${update}-${index}`}
+                      className="inline-flex items-center gap-3 font-bold"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+                      {update}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -432,153 +484,168 @@ const Home = () => {
           </div>
         </section>
 
-        {/* FEATURED JOBS */}
+        {/* STATE DISCOVERY */}
 
-        <section className="pb-12">
+        <section id="state-recruitments" className="pb-12">
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
-            {/* HEADER */}
-
             <motion.div
               variants={fadeUp}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, amount: 0.2 }}
-              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6"
+              className="grid grid-cols-1 gap-5 lg:grid-cols-[420px_minmax(0,1fr)]"
             >
-              <div>
-                <h2 className="text-[28px] font-black tracking-[-1px] text-[#1f1d1b]">
-                  Featured Opportunities
-                </h2>
-
-                <p className="mt-2 text-[#6d6761] text-[14px]">
-                  Handpicked active recruitment notices
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
+                  State Recruitment Hub
                 </p>
+                <h2 className="mt-3 text-[26px] font-black tracking-[-0.8px] text-[#1f1d1b]">
+                  Choose your state to view official projects.
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-[#6d6761]">
+                  State pages show CMS-managed banners, notices, active projects,
+                  and direct application links for candidates.
+                </p>
+
+                <div className="mt-6 space-y-3">
+                  <CustomSelect
+                    value={selectedState}
+                    onChange={(val) => setSelectedState(val)}
+                    options={[
+                      { value: "", label: "All States" },
+                      ...STATES.map((state) => ({ value: state, label: state })),
+                    ]}
+                    placeholder="Select state"
+                    className="rounded-[4px]"
+                  />
+                  <button
+                    onClick={() =>
+                      selectedState
+                        ? navigate(`/state/${toSlug(selectedState)}`)
+                        : navigate("/eligible-jobs")
+                    }
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-[4px] bg-[#e46a1d] text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-[#cb5d16]"
+                  >
+                    {selectedState ? "Open State Page" : "Browse All Jobs"}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-3">
+                  {[
+                    {
+                      icon: ClipboardList,
+                      label: "Application Status",
+                      desc: "Track submitted forms",
+                      to: "/check-status",
+                    },
+                    {
+                      icon: BadgeCheck,
+                      label: "Admit Card",
+                      desc: "Download after release",
+                      to: "/admit-cards",
+                    },
+                    {
+                      icon: FileText,
+                      label: "Results",
+                      desc: "View published results",
+                      to: "/results",
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => navigate(item.to)}
+                      className="flex items-center gap-3 rounded-[6px] border border-[#eadfd4] bg-[#fffdfb] p-3 text-left transition-all hover:border-orange-300 hover:bg-[#fff7ef]"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[4px] bg-orange-50 text-orange-600">
+                        <item.icon className="h-5 w-5" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-black text-[#1f1d1b]">
+                          {item.label}
+                        </span>
+                        <span className="block text-xs text-[#6d6761]">
+                          {item.desc}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <button
-                onClick={() => navigate("/jobs")}
-                className="hidden sm:flex items-center gap-2 text-[#e46a1d] text-[12px] uppercase tracking-[0.12em] font-black hover:gap-3 transition-all"
-              >
-                View All Openings
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </motion.div>
-
-            {/* CARDS */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-              {jobsLoading && (
-                <div className="col-span-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 text-[#6d6761]">
-                  Loading active opportunities...
-                </div>
-              )}
-
-              {!jobsLoading && featuredJobs.length === 0 && (
-                <div className="col-span-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 text-[#6d6761]">
-                  No active job opportunities are published right now.
-                </div>
-              )}
-
-              {featuredJobs.map((job, index) => (
-                <motion.div
-                  key={job._id}
-                  custom={index}
-                  variants={fadeUp}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.15 }}
-                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
-                  className="h-full bg-white rounded-[8px] border border-[#e0d7cd] p-6 flex flex-col"
-                >
-                  {/* TOP */}
-
-                  <div className="flex items-center justify-between mb-5">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.12em] font-black ${
-                        (job.daysLeft || 0) > 7
-                          ? "bg-[#e8fff0] text-[#13984b]"
-                          : "bg-[#fff4df] text-[#c28500]"
-                      }`}
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6">
+                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-[24px] font-black tracking-[-0.8px] text-[#1f1d1b]">
+                      Active Recruitment Projects
+                    </h2>
+                    <p className="mt-1 text-sm text-[#6d6761]">
+                      {selectedState
+                        ? `Showing active projects for ${selectedState}`
+                        : "Showing latest active projects across states"}
+                    </p>
+                  </div>
+                  {selectedState && (
+                    <button
+                      onClick={() => navigate(`/state/${toSlug(selectedState)}`)}
+                      className="text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] hover:text-[#bf5514]"
                     >
-                      {(job.daysLeft || 0) > 7 ? "ACTIVE" : "CLOSING SOON"}
-                    </span>
+                      View State Page
+                    </button>
+                  )}
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#857d77]">
-                        Ref. No: {job.postCode || "N/A"}
+                {projectsLoading && (
+                  <div className="rounded-[6px] bg-[#faf7f2] p-5 text-sm text-[#6d6761]">
+                    Loading projects...
+                  </div>
+                )}
+
+                {!projectsLoading && activeProjects.length === 0 && (
+                  <div className="rounded-[6px] bg-[#faf7f2] p-5 text-sm text-[#6d6761]">
+                    No active recruitment projects are published right now.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {activeProjects.map((project) => (
+                    <button
+                      key={project._id}
+                      onClick={() => navigate(`/apply/${project.publicSlug}`)}
+                      className="group rounded-[6px] border border-[#eadfd4] bg-[#fffdfb] p-4 text-left transition-all hover:border-orange-300 hover:bg-[#fff7ef]"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-orange-50 text-orange-600">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-2 text-base font-black leading-tight text-[#1f1d1b]">
+                            {project.name}
+                          </h3>
+                          <p className="mt-1 text-xs text-[#6d6761]">
+                            {project.state} · {project.department}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                        <span className="flex items-center gap-1.5 text-[#6d6761]">
+                          <Briefcase className="h-3.5 w-3.5 text-orange-600" />
+                          {project.totalJobs || 0} jobs
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[#6d6761]">
+                          <Calendar className="h-3.5 w-3.5 text-orange-600" />
+                          {formatDate(project.endDate)}
+                        </span>
+                      </div>
+                      <span className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] group-hover:gap-3">
+                        Open Project
+                        <ArrowRight className="h-4 w-4" />
                       </span>
-                      <ShareJobButton job={job} />
-                    </div>
-                  </div>
-
-                  {/* TITLE */}
-
-                  <h3 className="text-[22px] tracking-[-0.5px] font-black text-[#1f1d1b]">
-                    {job.title}
-                  </h3>
-
-                  <p className="mt-2 text-[#6d6761] text-[14px]">
-                    {job.department}
-                  </p>
-
-                  {/* STATS */}
-
-                  <div className="grid grid-cols-3 gap-4 mt-6">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-[#8a8179] font-black">
-                        Vacancies
-                      </div>
-
-                      <div className="mt-2 text-[#1f1d1b] font-black text-[14px]">
-                        {job.totalPosts || 0}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-[#8a8179] font-black">
-                        Fee
-                      </div>
-
-                      <div className="mt-2 text-[#1f1d1b] font-black text-[14px]">
-                        {(
-                          job.applicationFee?.general ||
-                          job.applicationFee?.amount ||
-                          0
-                        ).toLocaleString("en-IN")}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-[#8a8179] font-black">
-                        Last Date
-                      </div>
-
-                      <div className="mt-2 text-[#d85f14] font-black text-[14px]">
-                        {formatDate(job.applicationDeadline)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* BUTTONS */}
-
-                  <div className="flex gap-4 mt-auto pt-7">
-                    <button
-                      onClick={() => navigate(`/jobs/${job._id}`)}
-                      className="flex-1 h-[46px] border border-[#e0d7cd] hover:bg-[#f6f1ea] text-[#1f1d1b] rounded-[4px] uppercase tracking-[0.12em] text-[11px] font-black transition-all"
-                    >
-                      View Details
                     </button>
-
-                    <button
-                      onClick={() => handleApplyNow(job._id)}
-                      className="flex-1 h-[46px] bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] uppercase tracking-[0.12em] text-[11px] font-black transition-all"
-                    >
-                      Apply Now
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
           </div>
         </section>
 
@@ -646,7 +713,7 @@ const Home = () => {
               {[
                 {
                   q: "How do I verify my eligibility for multiple posts?",
-                  a: "Use the Smart Eligibility Filter on this page to enter your qualification, age, and category. The system will show all matching job openings you are eligible to apply for.",
+                  a: "Use the Smart Eligibility Filter to enter your qualification, age, and category, or open your state recruitment page to review active projects and their published jobs.",
                 },
                 {
                   q: "Can I edit my application after submission?",

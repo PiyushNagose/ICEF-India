@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -7,6 +7,7 @@ import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
+import JobConfiguredSection from "./JobConfiguredSection";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -40,6 +41,7 @@ const Education = () => {
 
   const applicationId = getAppId();
   const [dataLoaded, setDataLoaded] = useState(false);
+  const configuredFieldsRef = useRef(null);
 
   const [formData, setFormData] = useState({
     tenth: { board: "", school: "", rollNumber: "", year: "", percentage: "" },
@@ -124,7 +126,9 @@ const Education = () => {
     onError: (err) => toast.error(err.message || "Failed to save"),
   });
 
-  const handleNext = () => {
+  const app = appData?.application || appData;
+
+  const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found");
       navigate("/jobs");
@@ -162,6 +166,8 @@ const Education = () => {
       };
     }
     payload.hasPostGraduation = formData.hasPostGraduation;
+    const extraSaved = await configuredFieldsRef.current?.validateAndSave?.();
+    if (extraSaved === false) return;
     saveStep(payload);
   };
 
@@ -471,6 +477,13 @@ const Education = () => {
             </div>
           </CardContent>
         </Card>
+
+        <JobConfiguredSection
+          ref={configuredFieldsRef}
+          app={app}
+          applicationId={applicationId}
+          systemSource="education"
+        />
 
         <div className="flex justify-between">
           <Button

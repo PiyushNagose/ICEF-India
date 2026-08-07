@@ -3,7 +3,7 @@
 // ============================
 
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Bell, Phone, Mail, MapPin } from "lucide-react";
+import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getDashboardPath, useAuth } from "../../hooks/useAuth";
 import logo from "../../assets/logo.png";
@@ -92,37 +92,6 @@ const PublicLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-[#f3efe8] overflow-x-hidden flex flex-col">
-      {/* TOP HEADER */}
-
-      <div className="bg-[#1d1d1d] text-white border-b border-white/10">
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-[38px] flex items-center justify-between text-[11px]">
-            {/* LEFT */}
-
-            <div className="hidden md:flex items-center gap-6 text-white/75">
-              <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5" />
-
-                <span>1800-123-4567</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5" />
-
-                <span>support@recruitment.gov.in</span>
-              </div>
-            </div>
-
-            {/* RIGHT */}
-
-            <div className="flex items-center gap-2 text-orange-300 font-semibold">
-              <Bell className="w-3.5 h-3.5" />
-              Latest Notifications Available
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* MAIN HEADER */}
 
       <header className="sticky top-0 z-50 bg-[#f6f1ea]/95 backdrop-blur-md border-b border-[#ddd4ca]">

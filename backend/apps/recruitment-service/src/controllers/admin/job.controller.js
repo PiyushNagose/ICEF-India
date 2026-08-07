@@ -15,7 +15,10 @@ const {
 } = require("../../shared/socket/index");
 const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
-const { assertJobTimeline } = require("../../shared/utils/timeline");
+const {
+  assertJobTimeline,
+  getProjectLifecycleStatus,
+} = require("../../shared/utils/timeline");
 
 const normalizePosts = (posts = []) =>
   posts
@@ -28,6 +31,45 @@ const normalizePosts = (posts = []) =>
 
 const getPostVacancyTotal = (posts = []) =>
   posts.reduce((sum, post) => sum + (Number(post.vacancies) || 0), 0);
+
+const getPublishValidationErrors = (job) => {
+  const errors = [];
+  if (!job.projectId) errors.push("Project is required");
+  if (!job.title) errors.push("Advertisement / exam title is required");
+  if (!job.postCode) errors.push("Advertisement / exam code is required");
+  if (!job.department) errors.push("Department is required");
+
+  const posts = Array.isArray(job.posts) ? job.posts : [];
+  if (!posts.length) {
+    errors.push("At least one post/designation is required");
+  } else {
+    posts.forEach((post, index) => {
+      const label = `Post ${index + 1}`;
+      if (!post.title) errors.push(`${label}: title is required`);
+      if (!post.designation) errors.push(`${label}: designation is required`);
+      if (!Number(post.vacancies) || Number(post.vacancies) < 1) {
+        errors.push(`${label}: vacancies must be at least 1`);
+      }
+    });
+  }
+
+  if (!job.applicationStartDate) errors.push("Application start date is required");
+  if (!job.applicationDeadline) errors.push("Application deadline is required");
+
+  return errors;
+};
+
+const withComputedProjectStatus = (jobLike) => {
+  const job = typeof jobLike.toObject === "function" ? jobLike.toObject() : jobLike;
+  if (!job.projectId) return job;
+  return {
+    ...job,
+    projectId: {
+      ...job.projectId,
+      status: getProjectLifecycleStatus(job.projectId),
+    },
+  };
+};
 
 /**
  * @swagger
@@ -100,7 +142,7 @@ const getJobs = asyncHandler(async (req, res) => {
   // Execute query with pagination
   const skip = (page - 1) * limit;
   const jobs = await Job.find(filter)
-    .populate("projectId", "name department state")
+    .populate("projectId", "name department state status startDate endDate closureDate")
     .populate("createdBy", "fullName employeeId")
     .sort(sort)
     .skip(skip)
@@ -120,7 +162,7 @@ const getJobs = asyncHandler(async (req, res) => {
       });
 
       return {
-        ...job.toObject(),
+        ...withComputedProjectStatus(job),
         totalApplicants: applicationCount,
         paidApplicants: paidCount,
       };
@@ -161,7 +203,7 @@ const getJobs = asyncHandler(async (req, res) => {
  */
 const getJob = asyncHandler(async (req, res) => {
   const job = await Job.findById(req.params.id)
-    .populate("projectId", "name department state status")
+    .populate("projectId", "name department state status startDate endDate closureDate")
     .populate("createdBy", "fullName employeeId department");
 
   if (!job) {
@@ -191,7 +233,7 @@ const getJob = asyncHandler(async (req, res) => {
   ]);
 
   const jobWithStats = {
-    ...job.toObject(),
+    ...withComputedProjectStatus(job),
     applicationStats,
     paymentStats,
   };
@@ -239,7 +281,8 @@ const createJob = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
-  if (["Completed", "Cancelled"].includes(project.status)) {
+  const projectStatus = getProjectLifecycleStatus(project);
+  if (["Completed", "Cancelled"].includes(projectStatus)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Cannot create jobs under a completed or cancelled project",
@@ -262,7 +305,7 @@ const createJob = asyncHandler(async (req, res) => {
   });
 
   await job.populate([
-    { path: "projectId", select: "name department state" },
+    { path: "projectId", select: "name department state status startDate endDate closureDate" },
     { path: "createdBy", select: "fullName employeeId" },
   ]);
 
@@ -329,7 +372,7 @@ const updateJob = asyncHandler(async (req, res) => {
     }
   }
 
-  if (Array.isArray(req.body.posts)) {
+  if (Array.isArray(req.body.posts) && req.body.posts.length > 0) {
     const posts = normalizePosts(req.body.posts);
     if (posts.length === 0) {
       throw new ApiError(
@@ -348,6 +391,9 @@ const updateJob = asyncHandler(async (req, res) => {
 
     req.body.posts = posts;
     req.body.totalPosts = totalPostVacancies;
+  } else if (Array.isArray(req.body.posts)) {
+    req.body.posts = [];
+    req.body.totalPosts = 0;
   }
 
   // Update job with provided fields — deep merge nested objects
@@ -371,7 +417,9 @@ const updateJob = asyncHandler(async (req, res) => {
       nextJob[key] = req.body[key];
     }
   });
-  assertJobTimeline(nextJob, project);
+  if (job.status !== "draft") {
+    assertJobTimeline(nextJob, project);
+  }
 
   Object.keys(req.body).forEach((key) => {
     if (req.body[key] !== undefined) {
@@ -434,34 +482,20 @@ const publishJob = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validate required fields for publishing
-  const requiredFields = ["title", "postCode", "department"];
-  const missingFields = requiredFields.filter((field) => !job[field]);
-  if (missingFields.length > 0) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      `Missing required fields: ${missingFields.join(", ")}`,
-    );
-  }
-
   // Auto-compute totalPosts from posts array if available
   if (job.posts?.length) {
     const computed = getPostVacancyTotal(job.posts);
     if (computed > 0) job.totalPosts = computed;
   }
 
-  if (!job.posts?.length && !job.totalPosts) {
+  const publishErrors = getPublishValidationErrors(job);
+  if (publishErrors.length) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "At least one post/designation must be added before publishing",
+      `Cannot publish job. Please fix: ${publishErrors.join("; ")}`,
     );
   }
-  if (!job.applicationDeadline) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Application deadline is required before publishing",
-    );
-  }
+
   assertJobTimeline(job.toObject(), job.projectId);
 
   job.status = "active";

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { getProjectLifecycleStatus } = require("../utils/timeline");
 
 const projectSchema = new mongoose.Schema(
   {
@@ -26,6 +27,16 @@ const projectSchema = new mongoose.Schema(
     totalApplicants: { type: Number, default: 0 },
     totalRevenue: { type: Number, default: 0 },
 
+    // Public landing page slug (NEW)
+    publicSlug: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -39,9 +50,21 @@ projectSchema.index({ status: 1 });
 projectSchema.index({ department: 1 });
 projectSchema.index({ state: 1 });
 
+// Auto-generate slug from name if not provided
 projectSchema.pre("validate", function syncProjectClosure(next) {
   if (this.closureDate && !this.endDate) this.endDate = this.closureDate;
   if (this.endDate && !this.closureDate) this.closureDate = this.endDate;
+  this.status = getProjectLifecycleStatus(this);
+
+  // Auto-generate publicSlug from name if not set
+  if (this.name && !this.publicSlug) {
+    this.publicSlug = this.name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces to hyphens
+      .replace(/-+/g, "-") // collapse multiple hyphens
+      .replace(/^-|-$/g, ""); // trim leading/trailing hyphens
+  }
   next();
 });
 

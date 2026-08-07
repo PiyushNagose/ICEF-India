@@ -83,10 +83,13 @@ const BUILT_IN_SECTIONS = [
   },
 ]
 
+const CONFIGURABLE_SYSTEM_SECTIONS = new Set(['personal', 'education', 'additional', 'address'])
+
 const makeCustomSection = (section, sectionIndex) => ({
   id: section.id || `custom-${sectionIndex + 1}`,
   title: section.title,
   required: section.required,
+  systemSource: section.systemSource,
   fields: (section.fields || []).map((field, fieldIndex) => ({
     id: field.id || Date.now() + sectionIndex * 100 + fieldIndex,
     ...field,
@@ -110,12 +113,31 @@ const JobFormBuilder = () => {
     const saved = savedDraft
     const systemSections = BUILT_IN_SECTIONS.map(section => ({
       ...section,
-      fields: section.fields.map(field => ({ ...field })),
+      fields: section.fields.map(field => ({ ...field, systemField: true })),
     }))
     if (saved.formSections?.length) {
+      const savedSections = saved.formSections.map(makeCustomSection)
+      const mergedSystemSections = systemSections.map(systemSection => {
+        const configured = savedSections.find(
+          section => section.systemSource === systemSection.id || section.title === systemSection.title
+        )
+        return configured
+          ? {
+              ...systemSection,
+              required: configured.required ?? systemSection.required,
+              fields: [
+                ...systemSection.fields,
+                ...configured.fields.map(field => ({ ...field, systemField: false })),
+              ],
+            }
+          : systemSection
+      })
+      const customSections = savedSections.filter(
+        section => !BUILT_IN_SECTIONS.some(system => system.id === section.systemSource || system.title === section.title)
+      )
       return [
-        ...systemSections,
-        ...saved.formSections.map(makeCustomSection),
+        ...mergedSystemSections,
+        ...customSections,
       ]
     }
     return [
@@ -129,7 +151,9 @@ const JobFormBuilder = () => {
     ]
   })
 
-  const [selectedSection, setSelectedSection] = useState('custom-1')
+  const [selectedSection, setSelectedSection] = useState(() =>
+    formSections.find(section => !section.system)?.id || formSections[0]?.id
+  )
   const [showFieldModal, setShowFieldModal] = useState(false)
   const [showSectionSettings, setShowSectionSettings] = useState(true)
   const [editingField, setEditingField] = useState(null)
@@ -170,7 +194,13 @@ const JobFormBuilder = () => {
   const updateSection = (sectionId, updates) => {
     setFormSections(sections => 
       sections.map(section => 
-        section.id === sectionId && !section.system ? { ...section, ...updates } : section
+        section.id === sectionId
+          ? {
+              ...section,
+              ...updates,
+              ...(section.system && updates.title !== undefined ? { title: section.title } : {}),
+            }
+          : section
       )
     )
   }
@@ -216,6 +246,7 @@ const JobFormBuilder = () => {
     return {
       type,
       label: newField.label.trim(),
+      required: Boolean(newField.required),
       placeholder: newField.placeholder?.trim() || '',
       options,
       validation,
@@ -252,12 +283,9 @@ const JobFormBuilder = () => {
   }
 
   const addField = (fieldDraft = cleanField()) => {
-    if (currentSection?.system) {
-      toast.error('Built-in sections are already handled in the candidate application.')
-      return
-    }
     const field = {
       id: Date.now(),
+      systemField: false,
       ...fieldDraft,
     }
     
@@ -276,11 +304,11 @@ const JobFormBuilder = () => {
   const updateField = (fieldId, updates) => {
     setFormSections(sections =>
       sections.map(section =>
-        section.id === selectedSection && !section.system
+        section.id === selectedSection
           ? {
               ...section,
               fields: section.fields.map(field =>
-                field.id === fieldId ? { ...field, ...updates } : field
+                field.id === fieldId && !field.systemField ? { ...field, ...updates } : field
               )
             }
           : section
@@ -291,10 +319,10 @@ const JobFormBuilder = () => {
   const deleteField = (fieldId) => {
     setFormSections(sections =>
       sections.map(section =>
-        section.id === selectedSection && !section.system
+        section.id === selectedSection
           ? {
               ...section,
-              fields: section.fields.filter(field => field.id !== fieldId)
+              fields: section.fields.filter(field => field.systemField || field.id !== fieldId)
             }
           : section
       )
@@ -302,6 +330,10 @@ const JobFormBuilder = () => {
   }
 
   const openAddFieldModal = () => {
+    if (currentSection?.system && !CONFIGURABLE_SYSTEM_SECTIONS.has(currentSection.id)) {
+      toast.error('Configure this step in its dedicated job setup page.')
+      return
+    }
     setEditingField(null)
     setNewField({
       type: 'text',
@@ -332,6 +364,12 @@ const JobFormBuilder = () => {
   const handleNext = () => {
     const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
     const customSections = formSections.filter(section => !section.system)
+    const configurableSections = formSections
+      .map(section => ({
+        ...section,
+        fields: section.fields.filter(field => !field.systemField),
+      }))
+      .filter(section => section.fields.length > 0)
     const invalidSection = customSections.find(section => !section.title?.trim())
     if (invalidSection) {
       toast.error('Every form section needs a title')
@@ -369,10 +407,11 @@ const JobFormBuilder = () => {
     }
     sessionStorage.setItem('job_draft', JSON.stringify({
       ...existing,
-      formSections: customSections.filter(section => section.fields.length > 0).map(section => ({
+      formSections: configurableSections.map(section => ({
         title: section.title.trim(),
         required: section.required,
-        fields: section.fields.map(({ id: _id, ...field }) => field),
+        ...(section.system ? { systemSource: section.id } : {}),
+        fields: section.fields.map(({ id: _id, systemField: _systemField, ...field }) => field),
       })),
     }))
     navigate(returnToReview
@@ -386,6 +425,8 @@ const JobFormBuilder = () => {
 
 
   const currentSection = formSections.find(section => section.id === selectedSection)
+  const canConfigureCurrentSection =
+    !currentSection?.system || CONFIGURABLE_SYSTEM_SECTIONS.has(currentSection.id)
 
   return (
     <AdminLayout title="Create Job - Form Builder">
@@ -459,12 +500,14 @@ const JobFormBuilder = () => {
                     <h3 className="font-semibold text-gray-900">{currentSection?.title}</h3>
                     <p className="text-sm text-gray-600">
                       {currentSection?.system
-                        ? 'Built-in candidate step already available in the application flow'
+                        ? canConfigureCurrentSection
+                          ? 'Base fields are fixed. Add job-specific extra fields for candidates here.'
+                          : 'This step is configured in its dedicated setup page.'
                         : 'Configure form fields for this section'}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {!currentSection?.system && (
+                    {canConfigureCurrentSection && (
                       <Button
                         onClick={openAddFieldModal}
                         className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -515,7 +558,7 @@ const JobFormBuilder = () => {
                               <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
                             )}
                           </div>
-                          {!currentSection.system && (
+                          {!field.systemField && (
                             <div className="flex items-center space-x-2">
                               <Button
                                 variant="ghost"
@@ -533,6 +576,9 @@ const JobFormBuilder = () => {
                                 <X className="w-4 h-4" />
                               </Button>
                             </div>
+                          )}
+                          {field.systemField && (
+                            <Badge className="bg-blue-100 text-blue-700 text-xs">Base</Badge>
                           )}
                         </div>
                         
@@ -644,7 +690,9 @@ const JobFormBuilder = () => {
                 <CardContent className="space-y-4">
                   {currentSection.system ? (
                     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                      This is a built-in application step. Its base fields are already shown to candidates in the fixed application flow. Add a custom section when you need job-specific extra questions.
+                      {canConfigureCurrentSection
+                        ? 'Base fields in this step are fixed and cannot be deleted. Any extra fields you add here will be saved with this job and shown to candidates during application fill-up.'
+                        : 'This step is configured from its dedicated setup page, so extra fields are not added here.'}
                     </div>
                   ) : (
                     <>

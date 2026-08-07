@@ -12,7 +12,7 @@ import {
   FileText,
   Calendar,
   Users,
-  DollarSign,
+  IndianRupee,
   Plus,
   X,
 } from "lucide-react";
@@ -50,9 +50,7 @@ const JobBasicInfo = () => {
           ews: "",
           pwd: "",
         },
-        salaryRange: saved.salaryRange || { min: "", max: "" },
         jobType: saved.jobType || "Permanent",
-        workLocation: saved.workLocation || "",
         applicationFee: saved.applicationFee || {
           general: "",
           obc: "",
@@ -89,9 +87,10 @@ const JobBasicInfo = () => {
                 category: saved.category || "General",
                 vacancies: saved.totalPosts || "",
                 payLevel: "",
-                location: saved.workLocation || "",
+                location: "",
               },
             ],
+        postSelectionMode: saved.postSelectionMode || "single",
       };
     } catch {
       return {
@@ -101,9 +100,7 @@ const JobBasicInfo = () => {
         category: "General",
         totalPosts: "",
         reservedPosts: { sc: "", st: "", obc: "", ews: "", pwd: "" },
-        salaryRange: { min: "", max: "" },
         jobType: "Permanent",
-        workLocation: "",
         applicationFee: { general: "", obc: "", scSt: "", ews: "", pwd: "" },
         applicationDeadline: "",
         applicationStartDate: "",
@@ -125,6 +122,7 @@ const JobBasicInfo = () => {
             location: "",
           },
         ],
+        postSelectionMode: "single",
       };
     }
   });
@@ -229,7 +227,7 @@ const JobBasicInfo = () => {
           category: prev.category,
           vacancies: "",
           payLevel: "",
-          location: prev.workLocation,
+          location: "",
         },
       ],
     }));
@@ -252,7 +250,7 @@ const JobBasicInfo = () => {
       category: post.category || formData.category,
       vacancies: Number(post.vacancies) || 0,
       payLevel: post.payLevel?.trim() || "",
-      location: post.location?.trim() || formData.workLocation,
+      location: post.location?.trim() || "",
       status: "active",
     }));
     const totalPosts = posts.reduce((sum, post) => sum + post.vacancies, 0);
@@ -269,6 +267,7 @@ const JobBasicInfo = () => {
         category: formData.category,
         totalPosts,
         posts,
+        postSelectionMode: formData.postSelectionMode || "single",
         reservedPosts: {
           sc: Number(formData.reservedPosts.sc) || 0,
           st: Number(formData.reservedPosts.st) || 0,
@@ -276,12 +275,7 @@ const JobBasicInfo = () => {
           ews: Number(formData.reservedPosts.ews) || 0,
           pwd: Number(formData.reservedPosts.pwd) || 0,
         },
-        salaryRange: {
-          min: Number(formData.salaryRange.min) || 0,
-          max: Number(formData.salaryRange.max) || 0,
-        },
         jobType: formData.jobType,
-        workLocation: formData.workLocation,
         applicationFee: {
           general: Number(formData.applicationFee.general) || 0,
           obc:
@@ -325,10 +319,10 @@ const JobBasicInfo = () => {
         <div className="space-y-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-              Create Job Posting
+              Create Advertisement / Exam
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Step 1 of 6: Basic Information
+              Step 1 of 6: Advertisement, exam, and post details
             </p>
           </div>
 
@@ -343,7 +337,7 @@ const JobBasicInfo = () => {
               <div>
                 <p className="text-sm font-semibold">No project selected</p>
                 <p className="text-sm mt-1">
-                  You must select a project before creating a job. Go to{" "}
+                  You must select a project before creating an advertisement. Go to{" "}
                   <button
                     onClick={() => navigate("/admin/jobs")}
                     className="underline font-medium"
@@ -372,23 +366,25 @@ const JobBasicInfo = () => {
           )}
 
           <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
+              <Card className="order-1 lg:col-span-2 h-full">
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <FileText className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-900">Job Details</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      Advertisement / Exam Details
+                    </h3>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Job Title <span className="text-red-500">*</span>
+                        Advertisement / Exam Title{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Assistant Professor - Physics"
+                        placeholder="e.g. Assistant Professor Recruitment 2026"
                         className={inputClass("jobTitle")}
                         value={formData.jobTitle}
                         onChange={(e) => set("jobTitle", e.target.value)}
@@ -401,11 +397,12 @@ const JobBasicInfo = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Post Code <span className="text-red-500">*</span>
+                        Advertisement / Exam Code{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. AP-PHY-001"
+                        placeholder="e.g. ADV-PHY-2026"
                         className={inputClass("postCode")}
                         value={formData.postCode}
                         onChange={(e) => set("postCode", e.target.value)}
@@ -454,11 +451,11 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Job Description
+                        Advertisement Description
                     </label>
                     <textarea
                       rows="4"
-                      placeholder="Describe the role, responsibilities, and requirements..."
+                      placeholder="Describe the advertisement, exam, posts, responsibilities, and requirements..."
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       value={formData.description}
                       onChange={(e) => set("description", e.target.value)}
@@ -467,12 +464,12 @@ const JobBasicInfo = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="order-3 lg:col-span-2 h-full">
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <Users className="w-5 h-5 text-orange-600" />
                     <h3 className="font-semibold text-gray-900">
-                      Post Details
+                      Posts / Vacancies
                     </h3>
                   </div>
                 </CardHeader>
@@ -507,6 +504,58 @@ const JobBasicInfo = () => {
                       />
                     </div>
                   </div>
+                  <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Candidate Post Selection
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        {
+                          value: "single",
+                          title: "Single post only",
+                          desc: "Candidate can apply for one post in this advertisement.",
+                        },
+                        {
+                          value: "preference",
+                          title: "Multiple posts with preference",
+                          desc: "Candidate can select eligible posts and rank preference order.",
+                        },
+                      ].map((option) => (
+                        <button
+                          type="button"
+                          key={option.value}
+                          onClick={() =>
+                            set("postSelectionMode", option.value)
+                          }
+                          className={`text-left rounded-lg border p-3 transition-colors ${
+                            formData.postSelectionMode === option.value
+                              ? "border-orange-500 bg-white shadow-sm"
+                              : "border-orange-100 bg-white/70 hover:border-orange-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-4 w-4 rounded-full border ${
+                                formData.postSelectionMode === option.value
+                                  ? "border-orange-600 bg-orange-600"
+                                  : "border-gray-300"
+                              }`}
+                            />
+                            <span className="text-sm font-semibold text-gray-900">
+                              {option.title}
+                            </span>
+                          </div>
+                          <p className="mt-1 pl-6 text-xs text-gray-600">
+                            {option.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      If posts have different forms, eligibility, fee, exam, or
+                      result process, create separate advertisements instead.
+                    </p>
+                  </div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -515,8 +564,7 @@ const JobBasicInfo = () => {
                           <span className="text-red-500">*</span>
                         </label>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          Add each designation candidates can choose and rank by
-                          preference.
+                          Add each post included under this advertisement/exam.
                         </p>
                       </div>
                       <Button
@@ -658,7 +706,7 @@ const JobBasicInfo = () => {
                                 updatePost(index, "location", e.target.value)
                               }
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              placeholder={formData.workLocation || "Zone/City"}
+                              placeholder="Zone/City"
                             />
                           </div>
                         </div>
@@ -692,65 +740,10 @@ const JobBasicInfo = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="order-2 h-full">
                 <CardHeader>
                   <div className="flex items-center space-x-2">
-                    <DollarSign className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-900">
-                      Salary & Location
-                    </h3>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Min Salary (₹)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 56100"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        value={formData.salaryRange.min}
-                        onChange={(e) => set("salaryRange.min", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Max Salary (₹)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 177500"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        value={formData.salaryRange.max}
-                        onChange={(e) => set("salaryRange.max", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Work Location
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Patna, Bihar"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        value={formData.workLocation}
-                        onChange={(e) => set("workLocation", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-5 h-5 text-orange-600" />
+                    <IndianRupee className="w-5 h-5 text-orange-600" />
                     <h3 className="font-semibold text-gray-900">
                       Application Fees
                     </h3>
@@ -789,7 +782,7 @@ const JobBasicInfo = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="order-4 h-full">
                 <CardHeader>
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-orange-600" />
@@ -896,7 +889,6 @@ const JobBasicInfo = () => {
                   </div>
                 </CardContent>
               </Card>
-            </div>
           </div>
 
           <div className="flex justify-between items-center pt-6 border-t border-gray-200">

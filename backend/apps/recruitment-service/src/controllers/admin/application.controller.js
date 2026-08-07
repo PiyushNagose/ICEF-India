@@ -18,6 +18,91 @@ const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const { notify } = require("../../shared/utils/notify");
 const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
 
+const getApplicationCandidateName = (application) =>
+  application?.personalDetails?.fullName ||
+  application?.candidateId?.fullName ||
+  application?.candidate?.fullName ||
+  "Candidate";
+
+const REVIEW_STATUSES = new Set([
+  "submitted",
+  "under_review",
+  "verified",
+  "approved",
+  "clarification_required",
+  "rejected",
+]);
+
+const getRequiredDocumentIssues = (application) => {
+  const requiredDocuments = Array.isArray(application.jobId?.documentRequirements)
+    ? application.jobId.documentRequirements.filter((doc) => doc.required !== false)
+    : [];
+  const uploadedDocuments = Array.isArray(application.documents)
+    ? application.documents
+    : [];
+
+  if (requiredDocuments.length === 0) {
+    const uploadedRequired = uploadedDocuments.filter((doc) => doc.required !== false);
+    return uploadedRequired
+      .filter((doc) => doc.status !== "verified")
+      .map((doc) => `${doc.name || doc.type || "Document"} is ${doc.status || "pending"}`);
+  }
+
+  return requiredDocuments.flatMap((requirement) => {
+    const requiredType = requirement.type || requirement.id || requirement.name;
+    const uploaded = uploadedDocuments.find(
+      (doc) =>
+        doc.type === requiredType ||
+        doc.name === requirement.name ||
+        doc.name === requiredType,
+    );
+
+    if (!uploaded) {
+      return [`${requirement.name || requiredType || "Required document"} is missing`];
+    }
+
+    if (uploaded.status !== "verified") {
+      return [
+        `${uploaded.name || requirement.name || uploaded.type || "Required document"} is ${uploaded.status || "pending"}`,
+      ];
+    }
+
+    return [];
+  });
+};
+
+const assertReviewTransitionAllowed = (application, status, reason) => {
+  if (!REVIEW_STATUSES.has(status)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid application status");
+  }
+
+  if (["verified", "approved"].includes(status)) {
+    if (application.paymentStatus !== "paid") {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Only paid applications can be verified",
+      );
+    }
+
+    const documentIssues = getRequiredDocumentIssues(application);
+    if (documentIssues.length > 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Verify all required documents first: ${documentIssues.slice(0, 3).join(", ")}`,
+      );
+    }
+  }
+
+  if (["rejected", "clarification_required"].includes(status) && !reason?.trim()) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      status === "rejected"
+        ? "Rejection reason is required"
+        : "Clarification note is required",
+    );
+  }
+};
+
 /**
  * @desc    Get all applications with filters
  * @route   GET /api/admin/applications
@@ -68,7 +153,7 @@ const getApplications = asyncHandler(async (req, res) => {
         as: "candidate",
       },
     },
-    { $unwind: "$candidate" },
+    { $unwind: { path: "$candidate", preserveNullAndEmptyArrays: true } },
   ];
 
   // Add department filter if specified
@@ -84,6 +169,9 @@ const getApplications = asyncHandler(async (req, res) => {
       $match: {
         $or: [
           { applicationId: new RegExp(search, "i") },
+          { registrationNumber: new RegExp(search, "i") },
+          { contactEmail: new RegExp(search, "i") },
+          { contactMobile: new RegExp(search, "i") },
           { "personalDetails.fullName": new RegExp(search, "i") },
           { "personalDetails.registeredMobile": new RegExp(search, "i") },
           { "candidate.fullName": new RegExp(search, "i") },
@@ -110,8 +198,13 @@ const getApplications = asyncHandler(async (req, res) => {
   pipeline.push({
     $project: {
       applicationId: 1,
+      registrationNumber: 1,
+      isPublicApplication: 1,
+      contactEmail: 1,
+      contactMobile: 1,
       status: 1,
       paymentStatus: 1,
+      transactionId: 1,
       documentStatus: 1,
       totalFee: 1,
       personalDetails: 1,
@@ -170,27 +263,45 @@ const getApplication = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const updateApplicationStatus = asyncHandler(async (req, res) => {
-  const { status, rejectionReason } = req.body;
+  const { status, rejectionReason, notes } = req.body;
+  const reviewReason = rejectionReason || notes || "";
   const applicationId = req.params.id;
 
   const application = await Application.findById(applicationId)
     .populate("candidateId", "fullName email")
-    .populate("jobId", "title");
+    .populate("jobId", "title documentRequirements");
 
   if (!application) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
   }
+
+  assertReviewTransitionAllowed(application, status, reviewReason);
 
   const oldStatus = application.status;
   application.status = status;
   application.reviewedBy = req.user.id;
   application.reviewedAt = new Date();
 
-  if (status === "rejected" && rejectionReason) {
-    application.rejectionReason = rejectionReason;
+  if (status === "rejected") {
+    application.rejectionReason = reviewReason;
+  } else if (status !== "rejected") {
+    application.rejectionReason = undefined;
+  }
+
+  if (status === "clarification_required") {
+    application.correction.status = "requested";
+    application.correction.requestedBy = req.user.id;
+    application.correction.requestedAt = new Date();
+    application.correction.note = reviewReason;
+  }
+
+  if (["verified", "approved"].includes(status)) {
+    application.correction.status = "none";
+    application.correction.note = undefined;
   }
 
   await application.save();
+  const candidateName = getApplicationCandidateName(application);
 
   // Persist notification in DB + real-time push
   const notifType =
@@ -198,18 +309,24 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
       ? "application_approved"
       : status === "rejected"
         ? "application_rejected"
+        : status === "clarification_required"
+          ? "application_correction"
         : "general";
 
   const notifTitle =
     status === "verified" || status === "approved"
-      ? "Application Approved"
+      ? "Application Verified"
       : status === "rejected"
         ? "Application Rejected"
+        : status === "clarification_required"
+          ? "Clarification Required"
         : "Application Status Updated";
 
   const notifMessage =
-    status === "rejected" && rejectionReason
-      ? `Your application ${application.applicationId} was rejected. Reason: ${rejectionReason}`
+    status === "rejected" && reviewReason
+      ? `Your application ${application.applicationId} was rejected. Reason: ${reviewReason}`
+      : status === "clarification_required"
+        ? `Clarification is required for application ${application.applicationId}. ${reviewReason}`
       : `Your application ${application.applicationId} for ${application.jobId?.title || "the job"} has been ${status}.`;
 
   await notify({
@@ -225,7 +342,7 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
   notifyAdmins({
     type: "application_submitted",
     title: `Application ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-    message: `${application.candidateId.fullName}'s application ${application.applicationId} for "${application.jobId?.title}" has been ${status}.`,
+    message: `${candidateName}'s application ${application.applicationId} for "${application.jobId?.title}" has been ${status}.`,
     link: `/admin/applications/${application._id}`,
     metadata: { applicationId: application.applicationId, status },
   });
@@ -237,7 +354,7 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     application: {
       _id: application._id,
       applicationId: application.applicationId,
-      candidateName: application.candidateId.fullName,
+      candidateName,
       jobTitle: application.jobId.title,
       oldStatus,
       newStatus: status,
@@ -256,7 +373,7 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
         _id: application._id,
         applicationId: application.applicationId,
         status,
-        rejectionReason,
+        rejectionReason: reviewReason,
       },
       timestamp: new Date(),
     },
@@ -271,6 +388,8 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
         status: application.status,
         reviewedBy: application.reviewedBy,
         reviewedAt: application.reviewedAt,
+        rejectionReason: application.rejectionReason,
+        correction: application.correction,
       },
     }),
   );
@@ -282,7 +401,8 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const bulkUpdateApplications = asyncHandler(async (req, res) => {
-  const { applicationIds, action, status, rejectionReason } = req.body;
+  const { applicationIds, action, status, rejectionReason, notes } = req.body;
+  const reviewReason = rejectionReason || notes || "";
 
   if (
     !applicationIds ||
@@ -296,22 +416,49 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
     _id: { $in: applicationIds },
   })
     .populate("candidateId", "fullName email")
-    .populate("jobId", "title");
+    .populate("jobId", "title documentRequirements");
 
   if (applications.length === 0) {
     throw new ApiError(StatusCodes.NOT_FOUND, "No applications found");
   }
 
+  if (action !== "update_status") {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid bulk action");
+  }
+
+  applications.forEach((application) => {
+    assertReviewTransitionAllowed(application, status, reviewReason);
+  });
+
   const updateData = {
-    reviewedBy: req.user.id,
-    reviewedAt: new Date(),
+    $set: {
+      status,
+      reviewedBy: req.user.id,
+      reviewedAt: new Date(),
+    },
   };
 
-  if (action === "update_status") {
-    updateData.status = status;
-    if (status === "rejected" && rejectionReason) {
-      updateData.rejectionReason = rejectionReason;
-    }
+  if (status === "rejected") {
+    updateData.$set.rejectionReason = reviewReason;
+  } else {
+    updateData.$unset = { rejectionReason: "" };
+  }
+
+  if (status === "clarification_required") {
+    updateData.$set.correction = {
+      status: "requested",
+      requestedBy: req.user.id,
+      requestedAt: new Date(),
+      note: reviewReason,
+    };
+  }
+
+  if (["verified", "approved"].includes(status)) {
+    updateData.$set["correction.status"] = "none";
+    updateData.$unset = {
+      ...(updateData.$unset || {}),
+      "correction.note": "",
+    };
   }
 
   // Update all applications
@@ -319,6 +466,7 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
 
   // Send real-time notifications
   applications.forEach((application) => {
+    const candidateName = getApplicationCandidateName(application);
     // Notify admins
     emitToAdmins(SOCKET_EVENTS.APPLICATION_STATUS_CHANGED, {
       type: "bulk_application_update",
@@ -326,7 +474,7 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
       application: {
         _id: application._id,
         applicationId: application.applicationId,
-        candidateName: application.candidateId.fullName,
+        candidateName,
         jobTitle: application.jobId.title,
         newStatus: status,
       },
@@ -390,6 +538,7 @@ const verifyDocument = asyncHandler(async (req, res) => {
   document.verifiedAt = new Date();
 
   await application.save();
+  const candidateName = getApplicationCandidateName(application);
 
   // Check if all required documents are verified
   const requiredDocs = application.documents.filter(
@@ -409,7 +558,7 @@ const verifyDocument = asyncHandler(async (req, res) => {
     application: {
       _id: application._id,
       applicationId: application.applicationId,
-      candidateName: application.candidateId.fullName,
+      candidateName,
       documentType: document.type,
     },
     timestamp: new Date(),
@@ -486,6 +635,7 @@ const rejectDocument = asyncHandler(async (req, res) => {
   // Update application document status
   application.documentStatus = "incomplete";
   await application.save();
+  const candidateName = getApplicationCandidateName(application);
 
   // Real-time notifications
   emitToAdmins(SOCKET_EVENTS.DOCUMENT_REJECTED, {
@@ -494,7 +644,7 @@ const rejectDocument = asyncHandler(async (req, res) => {
     application: {
       _id: application._id,
       applicationId: application.applicationId,
-      candidateName: application.candidateId.fullName,
+      candidateName,
       documentType: document.type,
       rejectionReason,
     },

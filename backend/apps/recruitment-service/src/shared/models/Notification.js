@@ -18,6 +18,7 @@ const notificationSchema = new mongoose.Schema(
         "application_submitted",
         "application_approved",
         "application_rejected",
+        "application_correction",
         "document_verified",
         "document_rejected",
         "payment_success",

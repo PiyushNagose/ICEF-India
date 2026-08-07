@@ -29,7 +29,10 @@ const saveSession = ({ user, accessToken, refreshToken }, options = {}) => {
   if (refreshToken)
     localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken);
   if (options.internalLoginPath) {
-    localStorage.setItem(STORAGE_KEYS.internalLoginPath, options.internalLoginPath);
+    localStorage.setItem(
+      STORAGE_KEYS.internalLoginPath,
+      options.internalLoginPath,
+    );
   }
   const normalisedUser = normaliseUser(user);
   if (normalisedUser)
@@ -66,6 +69,15 @@ export const authService = {
 
   async candidateLogin(payload) {
     const response = await apiClient.post("/auth/login", payload);
+    return saveSession(unwrapData(response));
+  },
+
+  // Public apply — OTP already verified, just creates ghost user + issues token
+  async publicApplyLogin(email, mobile) {
+    const response = await apiClient.post("/auth/public-apply-login", {
+      email,
+      mobile,
+    });
     return saveSession(unwrapData(response));
   },
 
@@ -133,7 +145,9 @@ export const authService = {
 
   async forgotPassword(payload) {
     const body =
-      typeof payload === "string" ? { email: payload, accountType: "candidate" } : payload;
+      typeof payload === "string"
+        ? { email: payload, accountType: "candidate" }
+        : payload;
     const response = await apiClient.post("/auth/forgot-password", body);
     return unwrapData(response);
   },

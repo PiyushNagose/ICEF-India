@@ -85,6 +85,7 @@ const PostSelection = () => {
 
   // Candidate's category from Step 1 personal details
   const candidateCategory = app?.personalDetails?.category || "";
+  const allowsPreference = job?.postSelectionMode === "preference";
 
   // Fee calculated based on candidate's actual category
   const applicationFee = calculateFee(job?.applicationFee, candidateCategory);
@@ -146,8 +147,7 @@ const PostSelection = () => {
   // Pre-fill saved selections
   useEffect(() => {
     if (app?.appliedPosts?.length > 0 && selectedPosts.length === 0) {
-      setSelectedPosts(
-        [...app.appliedPosts]
+      const savedPosts = [...app.appliedPosts]
           .sort((a, b) => (a.preference || 0) - (b.preference || 0))
           .map((post, index) => ({
             postId: post.postId || post.jobId,
@@ -158,10 +158,10 @@ const PostSelection = () => {
             department: post.department || "",
             vacancies: post.vacancies || 0,
             preference: post.preference || index + 1,
-          })),
-      );
+          }));
+      setSelectedPosts(allowsPreference ? savedPosts : savedPosts.slice(0, 1));
     }
-  }, [app, job, selectedPosts.length]);
+  }, [allowsPreference, app, job, selectedPosts.length]);
 
   const isSelected = (postId) => selectedPosts.some((p) => p.postId === postId);
 
@@ -175,7 +175,11 @@ const PostSelection = () => {
       );
     } else {
       setSelectedPosts((cur) =>
-        normalizePreferences([...cur, { ...post, preference: cur.length + 1 }]),
+        normalizePreferences(
+          allowsPreference
+            ? [...cur, { ...post, preference: cur.length + 1 }]
+            : [{ ...post, preference: 1 }],
+        ),
       );
     }
   };
@@ -195,7 +199,9 @@ const PostSelection = () => {
     mutationFn: (data) =>
       candidateService.savePostSelection(applicationId, data),
     onSuccess: (result) => {
-      toast.success("Post preferences saved");
+      toast.success(
+        allowsPreference ? "Post preferences saved" : "Post selection saved",
+      );
       const destination = correctionMode
         ? reviewStep?.path || "/application/review"
         : nextStep?.path || "/application/payment";
@@ -243,7 +249,10 @@ const PostSelection = () => {
   };
 
   return (
-    <ApplicationLayout currentStep={postStep} title="Post Preference Selection">
+    <ApplicationLayout
+      currentStep={postStep}
+      title={allowsPreference ? "Post Preference Selection" : "Post Selection"}
+    >
       <div className="space-y-6">
         {/* Fee info banner — shows candidate's applicable fee */}
         {candidateCategory && job?.applicationFee && (
@@ -294,12 +303,12 @@ const PostSelection = () => {
         <Card className="shadow-sm">
           <CardHeader>
             <h2 className="text-xl font-semibold text-gray-800">
-              Select Post Preferences
+              {allowsPreference ? "Select Post Preferences" : "Select Post"}
             </h2>
             <p className="text-gray-600 text-sm">
-              Select the posts you want to apply for and arrange them in
-              preference order. Preference 1 is considered first during
-              selection.
+              {allowsPreference
+                ? "Select the posts you want to apply for and arrange them in preference order. Preference 1 is considered first during selection."
+                : "Select one post to apply for under this advertisement."}
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -328,7 +337,7 @@ const PostSelection = () => {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <input
-                      type="checkbox"
+                      type={allowsPreference ? "checkbox" : "radio"}
                       readOnly
                       checked={isSelected(post.postId)}
                       className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
@@ -373,7 +382,7 @@ const PostSelection = () => {
                       </div>
                     </div>
                   </div>
-                  {isSelected(post.postId) && (
+                  {allowsPreference && isSelected(post.postId) && (
                     <div className="rounded-full bg-orange-600 text-white text-xs font-bold px-3 py-1 flex-shrink-0">
                       Pref{" "}
                       {
@@ -389,7 +398,7 @@ const PostSelection = () => {
         </Card>
 
         {/* Preference order + fee summary */}
-        {selectedPosts.length > 0 && (
+        {allowsPreference && selectedPosts.length > 0 && (
           <Card className="shadow-sm bg-orange-50 border-orange-200">
             <CardHeader>
               <h3 className="text-lg font-semibold text-gray-800">
@@ -489,8 +498,9 @@ const PostSelection = () => {
               {correctionMode ? (
                 <>
                   <li>
-                    • Update your post preferences if needed, then click "Save &
-                    Continue to Review"
+                    {allowsPreference
+                      ? 'Update your post preferences if needed, then click "Save & Continue to Review"'
+                      : 'Update your selected post if needed, then click "Save & Continue to Review"'}
                   </li>
                   <li>• No additional payment is required for corrections</li>
                   <li>
@@ -500,10 +510,14 @@ const PostSelection = () => {
               ) : (
                 <>
                   <li>
-                    • Preference order cannot be changed after final payment
+                    {allowsPreference
+                      ? "Preference order cannot be changed after final payment"
+                      : "Selected post cannot be changed after final payment"}
                   </li>
                   <li>
-                    • You must meet eligibility criteria for every selected post
+                    {allowsPreference
+                      ? "You must meet eligibility criteria for every selected post"
+                      : "You must meet eligibility criteria for the selected post"}
                   </li>
                   <li>
                     • Application fee is charged once for this recruitment

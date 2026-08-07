@@ -88,7 +88,9 @@ const normalizeDateOnly = (value) => {
 };
 
 const timeToMinutes = (value) => {
-  const text = String(value || "").trim().toUpperCase();
+  const text = String(value || "")
+    .trim()
+    .toUpperCase();
   const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
   if (!match) return null;
   let hours = Number(match[1]);
@@ -114,19 +116,30 @@ const hasOverlap = (a, b) => a && b && a.start < b.end && b.start < a.end;
 const sameExamDate = (a, b) => normalizeDateOnly(a) === normalizeDateOnly(b);
 
 const getSelectedCenterIds = (schedule, options = {}) => {
-  const raw = options.centerIds?.length ? options.centerIds : schedule.selectedCenterIds || [];
+  const raw = options.centerIds?.length
+    ? options.centerIds
+    : schedule.selectedCenterIds || [];
   return raw.map((id) => id.toString());
 };
 
-const assertScheduleCenterConflicts = async (scheduleLike, excludeId = null) => {
+const assertScheduleCenterConflicts = async (
+  scheduleLike,
+  excludeId = null,
+) => {
   const selectedCenterIds = getSelectedCenterIds(scheduleLike);
   if (selectedCenterIds.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Select at least one center for this exam schedule");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Select at least one center for this exam schedule",
+    );
   }
 
   const window = getScheduleWindow(scheduleLike);
   if (!window) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Enter a valid exam start/end time");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Enter a valid exam start/end time",
+    );
   }
 
   const filter = {
@@ -143,9 +156,10 @@ const assertScheduleCenterConflicts = async (scheduleLike, excludeId = null) => 
     "examName examCode examDate examStartTime examEndTime selectedCenterIds",
   );
 
-  const conflict = conflicts.find((item) =>
-    sameExamDate(item.examDate, scheduleLike.examDate) &&
-    hasOverlap(window, getScheduleWindow(item)),
+  const conflict = conflicts.find(
+    (item) =>
+      sameExamDate(item.examDate, scheduleLike.examDate) &&
+      hasOverlap(window, getScheduleWindow(item)),
   );
 
   if (conflict) {
@@ -163,14 +177,20 @@ const assertCandidateAllocationConflicts = async (schedule, planned) => {
   const existing = await CandidateAllocation.find({
     candidateId: { $in: candidateIds },
     status: "allocated",
-  }).populate("examScheduleId", "examName examCode examDate examStartTime examEndTime status");
+  }).populate(
+    "examScheduleId",
+    "examName examCode examDate examStartTime examEndTime status",
+  );
 
   const conflict = existing.find((allocation) => {
     const other = allocation.examScheduleId;
-    if (!other || other._id.toString() === schedule._id.toString()) return false;
+    if (!other || other._id.toString() === schedule._id.toString())
+      return false;
     if (other.status === "cancelled") return false;
-    return sameExamDate(other.examDate, schedule.examDate) &&
-      hasOverlap(window, getScheduleWindow(other));
+    return (
+      sameExamDate(other.examDate, schedule.examDate) &&
+      hasOverlap(window, getScheduleWindow(other))
+    );
   });
 
   if (conflict) {
@@ -207,13 +227,26 @@ const getAllocationInputs = async (schedule, options = {}) => {
 
   const [applications, centers, rooms] = await Promise.all([
     Application.find(getEligibleApplicationFilter(schedule.jobId))
-      .select("applicationId candidateId jobId personalDetails address submittedAt createdAt")
+      .select(
+        "applicationId candidateId jobId personalDetails address submittedAt createdAt",
+      )
       .sort({ submittedAt: 1, createdAt: 1, applicationId: 1 }),
-    ExamCenter.find(centerFilter).sort({ state: 1, district: 1, centerCode: 1 }),
-    ExamRoom.find({ active: true }).sort({ centerId: 1, block: 1, floor: 1, roomCode: 1 }),
+    ExamCenter.find(centerFilter).sort({
+      state: 1,
+      district: 1,
+      centerCode: 1,
+    }),
+    ExamRoom.find({ active: true }).sort({
+      centerId: 1,
+      block: 1,
+      floor: 1,
+      roomCode: 1,
+    }),
   ]);
 
-  const allowedCenterIds = new Set(centers.map((center) => center._id.toString()));
+  const allowedCenterIds = new Set(
+    centers.map((center) => center._id.toString()),
+  );
   const roomsByCenter = rooms.reduce((map, room) => {
     const cid = room.centerId.toString();
     if (!allowedCenterIds.has(cid)) return map;
@@ -242,7 +275,10 @@ const getAllocationInputs = async (schedule, options = {}) => {
 };
 
 const buildAllocationPlan = async (schedule, options = {}) => {
-  const { applications, centers, slots } = await getAllocationInputs(schedule, options);
+  const { applications, centers, slots } = await getAllocationInputs(
+    schedule,
+    options,
+  );
   const planned = [];
   const unallocated = [];
 
@@ -311,7 +347,10 @@ const listCenters = async (query) => {
   }
 
   const [centers, total] = await Promise.all([
-    ExamCenter.find(filter).sort({ state: 1, district: 1, name: 1 }).skip(skip).limit(limit),
+    ExamCenter.find(filter)
+      .sort({ state: 1, district: 1, name: 1 })
+      .skip(skip)
+      .limit(limit),
     ExamCenter.countDocuments(filter),
   ]);
 
@@ -335,29 +374,44 @@ const updateCenter = async (id, data, userId) => {
     { ...data, updatedBy: userId },
     { new: true, runValidators: true },
   );
-  if (!center) throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
   return center;
 };
 
 const getCenter = async (id) => {
   const center = await ExamCenter.findById(id);
-  if (!center) throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
-  const rooms = await ExamRoom.find({ centerId: id }).sort({ block: 1, floor: 1, roomCode: 1 });
+  if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  const rooms = await ExamRoom.find({ centerId: id }).sort({
+    block: 1,
+    floor: 1,
+    roomCode: 1,
+  });
   return { center, rooms };
 };
 
 const listRooms = async (centerId) => {
   const center = await ExamCenter.findById(centerId);
-  if (!center) throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
-  const rooms = await ExamRoom.find({ centerId }).sort({ block: 1, floor: 1, roomCode: 1 });
+  if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  const rooms = await ExamRoom.find({ centerId }).sort({
+    block: 1,
+    floor: 1,
+    roomCode: 1,
+  });
   return { center, rooms };
 };
 
 const createRoom = async (centerId, data, userId) => {
   const center = await ExamCenter.findById(centerId);
-  if (!center) throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
   if (data.usableCapacity && data.usableCapacity > data.capacity) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Usable capacity cannot exceed room capacity");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Usable capacity cannot exceed room capacity",
+    );
   }
 
   const room = await ExamRoom.create({
@@ -374,8 +428,15 @@ const createRoom = async (centerId, data, userId) => {
 const updateRoom = async (roomId, data, userId) => {
   const room = await ExamRoom.findById(roomId);
   if (!room) throw new ApiError(StatusCodes.NOT_FOUND, "Exam room not found");
-  if (data.usableCapacity && data.capacity && data.usableCapacity > data.capacity) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Usable capacity cannot exceed room capacity");
+  if (
+    data.usableCapacity &&
+    data.capacity &&
+    data.usableCapacity > data.capacity
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Usable capacity cannot exceed room capacity",
+    );
   }
   if (data.roomCode) data.roomCode = normalizeCode(data.roomCode);
   Object.assign(room, data, { updatedBy: userId });
@@ -418,7 +479,8 @@ const createSchedule = async (data, userId) => {
   let project = null;
   if (data.projectId) {
     project = await Project.findById(data.projectId);
-    if (!project) throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+    if (!project)
+      throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   } else {
     project = await Project.findById(job.projectId);
   }
@@ -447,13 +509,15 @@ const getSchedule = async (id) => {
   const schedule = await ExamSchedule.findById(id)
     .populate("projectId", "name department state")
     .populate("jobId", "title postCode department status");
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   return schedule;
 };
 
 const updateSchedule = async (id, data, userId) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   assertEditableSchedule(schedule);
 
   let job = await Job.findById(data.jobId || schedule.jobId);
@@ -465,7 +529,8 @@ const updateSchedule = async (id, data, userId) => {
   let project = null;
   if (data.projectId) {
     project = await Project.findById(data.projectId);
-    if (!project) throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+    if (!project)
+      throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   } else {
     project = await Project.findById(schedule.projectId || job.projectId);
   }
@@ -500,7 +565,10 @@ const getScheduleStats = async (id) => {
       status: { $in: ["submitted", "under_review", "approved", "shortlisted"] },
       $or: [{ paymentStatus: "paid" }, { totalFee: 0 }],
     }),
-    CandidateAllocation.countDocuments({ examScheduleId: schedule._id, status: "allocated" }),
+    CandidateAllocation.countDocuments({
+      examScheduleId: schedule._id,
+      status: "allocated",
+    }),
     AdmitCard.aggregate([
       { $match: { examScheduleId: schedule._id } },
       { $group: { _id: "$status", count: { $sum: 1 } } },
@@ -510,7 +578,11 @@ const getScheduleStats = async (id) => {
         $match: {
           active: true,
           ...(selectedCenterIds.length && {
-            centerId: { $in: selectedCenterIds.map((centerId) => new mongoose.Types.ObjectId(centerId)) },
+            centerId: {
+              $in: selectedCenterIds.map(
+                (centerId) => new mongoose.Types.ObjectId(centerId),
+              ),
+            },
           }),
         },
       },
@@ -528,7 +600,10 @@ const getScheduleStats = async (id) => {
     stats: {
       eligibleCandidates,
       allocatedCandidates,
-      unallocatedCandidates: Math.max(eligibleCandidates - allocatedCandidates, 0),
+      unallocatedCandidates: Math.max(
+        eligibleCandidates - allocatedCandidates,
+        0,
+      ),
       totalCapacity,
       activeCenters: centerCount,
       admitCards,
@@ -538,7 +613,8 @@ const getScheduleStats = async (id) => {
 
 const previewAllocation = async (id, options = {}) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   assertAllocatableSchedule(schedule);
   const plan = await buildAllocationPlan(schedule, options);
   return {
@@ -551,13 +627,17 @@ const previewAllocation = async (id, options = {}) => {
 
 const allocateCandidates = async (id, options = {}, userId) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   assertAllocatableSchedule(schedule);
 
   const plan = await buildAllocationPlan(schedule, options);
   await assertCandidateAllocationConflicts(schedule, plan.planned);
   if (plan.summary.eligibleCandidates === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "No eligible candidates found for allocation");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "No eligible candidates found for allocation",
+    );
   }
   if (plan.unallocated.length > 0 && !options.allowPartial) {
     throw new ApiError(
@@ -576,7 +656,8 @@ const allocateCandidates = async (id, options = {}, userId) => {
   }));
 
   await CandidateAllocation.deleteMany({ examScheduleId: schedule._id });
-  if (docs.length) await CandidateAllocation.insertMany(docs, { ordered: true });
+  if (docs.length)
+    await CandidateAllocation.insertMany(docs, { ordered: true });
 
   schedule.status = "allocated";
   schedule.allocationSummary = {
@@ -596,9 +677,13 @@ const allocateCandidates = async (id, options = {}, userId) => {
 
 const lockAllocation = async (id, userId) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   if (schedule.status === "published") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Published schedules are already locked");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Published schedules are already locked",
+    );
   }
   if (schedule.status === "locked") return schedule;
 
@@ -607,14 +692,19 @@ const lockAllocation = async (id, userId) => {
     status: "allocated",
   });
   if (allocatedCandidates === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Run allocation before locking this schedule");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Run allocation before locking this schedule",
+    );
   }
 
   schedule.status = "locked";
   schedule.lockedAt = new Date();
   schedule.lockedBy = userId;
   schedule.allocationSummary = {
-    ...(schedule.allocationSummary?.toObject?.() || schedule.allocationSummary || {}),
+    ...(schedule.allocationSummary?.toObject?.() ||
+      schedule.allocationSummary ||
+      {}),
     allocatedCandidates,
   };
   await schedule.save();
@@ -646,33 +736,42 @@ const getAdmitCardPopulate = () => [
   {
     path: "examScheduleId",
     populate: [
-      { path: "jobId", select: "title postCode department admitCardReleaseDate" },
+      {
+        path: "jobId",
+        select: "title postCode department admitCardReleaseDate",
+      },
       { path: "projectId", select: "name department state" },
     ],
   },
   {
     path: "allocationId",
-    populate: [
-      { path: "centerId" },
-      { path: "roomId" },
-    ],
+    populate: [{ path: "centerId" }, { path: "roomId" }],
   },
   {
     path: "applicationId",
-    populate: { path: "candidateId", select: "fullName email registeredMobile" },
+    populate: {
+      path: "candidateId",
+      select: "fullName email registeredMobile",
+    },
   },
 ];
 
 const isAdmitCardReleased = (admitCard) => {
-  const releaseDate = parseDate(admitCard?.examScheduleId?.jobId?.admitCardReleaseDate);
+  const releaseDate = parseDate(
+    admitCard?.examScheduleId?.jobId?.admitCardReleaseDate,
+  );
   return !releaseDate || new Date() >= releaseDate;
 };
 
 const generateAdmitCards = async (id, userId) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   if (schedule.status !== "locked") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Lock allocation before generating admit cards");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Lock allocation before generating admit cards",
+    );
   }
 
   const allocations = await CandidateAllocation.find({
@@ -681,7 +780,10 @@ const generateAdmitCards = async (id, userId) => {
   }).sort({ rollNumber: 1 });
 
   if (allocations.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "No allocations found for admit card generation");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "No allocations found for admit card generation",
+    );
   }
 
   let created = 0;
@@ -689,7 +791,10 @@ const generateAdmitCards = async (id, userId) => {
   for (const allocation of allocations) {
     const admitCardNumber = `AC-${schedule.examCode}-${allocation.rollNumber}`;
     const barcodeValue = `${schedule.examCode}|${allocation.rollNumber}|${allocation.applicationId}`;
-    const checksum = crypto.createHash("sha256").update(barcodeValue).digest("hex");
+    const checksum = crypto
+      .createHash("sha256")
+      .update(barcodeValue)
+      .digest("hex");
     const existing = await AdmitCard.findOne({
       examScheduleId: schedule._id,
       applicationId: allocation.applicationId,
@@ -743,9 +848,13 @@ const generateAdmitCards = async (id, userId) => {
 
 const publishAdmitCards = async (id, userId) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   if (schedule.status !== "locked" && schedule.status !== "published") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Only locked schedules can publish admit cards");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Only locked schedules can publish admit cards",
+    );
   }
 
   const result = await AdmitCard.updateMany(
@@ -761,11 +870,19 @@ const publishAdmitCards = async (id, userId) => {
   return { schedule, publishedCount: result.modifiedCount || 0 };
 };
 
-const unpublishAdmitCards = async (id, userId, reason = "Unpublished by admin") => {
+const unpublishAdmitCards = async (
+  id,
+  userId,
+  reason = "Unpublished by admin",
+) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   if (schedule.status !== "published") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Only published schedules can be unpublished");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Only published schedules can be unpublished",
+    );
   }
 
   const result = await AdmitCard.updateMany(
@@ -789,7 +906,8 @@ const unpublishAdmitCards = async (id, userId, reason = "Unpublished by admin") 
 
 const regenerateAdmitCards = async (id, userId, options = {}) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   if (!["locked", "published"].includes(schedule.status)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -798,7 +916,11 @@ const regenerateAdmitCards = async (id, userId, options = {}) => {
   }
 
   if (schedule.status === "published") {
-    await unpublishAdmitCards(id, userId, options.reason || "Regenerated by admin");
+    await unpublishAdmitCards(
+      id,
+      userId,
+      options.reason || "Regenerated by admin",
+    );
   }
 
   return generateAdmitCards(id, userId);
@@ -827,7 +949,10 @@ const listAdmitCards = async (id, query) => {
       .populate("applicationId", "applicationId personalDetails")
       .populate({
         path: "allocationId",
-        populate: { path: "centerId", select: "centerCode name district state" },
+        populate: {
+          path: "centerId",
+          select: "centerCode name district state",
+        },
       })
       .sort({ rollNumber: 1 })
       .skip(skip)
@@ -838,14 +963,58 @@ const listAdmitCards = async (id, query) => {
   return { admitCards, meta: paginationMeta(total, page, limit) };
 };
 
-const lookupPublicAdmitCard = async ({ applicationId, dateOfBirth }) => {
-  const application = await Application.findOne({ applicationId: String(applicationId || "").trim() })
-    .select("applicationId personalDetails candidateId")
-    .populate("candidateId", "email registeredMobile");
-  if (!application) throw new ApiError(StatusCodes.NOT_FOUND, "No released admit card found");
+const lookupPublicAdmitCard = async ({
+  applicationId,
+  dateOfBirth,
+  registrationNumber,
+  mobile,
+}) => {
+  // Support both old lookup (applicationId + DOB) and new (registrationNumber + mobile)
+  let application;
 
-  if (normalizeDateOnly(application.personalDetails?.dateOfBirth) !== normalizeDateOnly(dateOfBirth)) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "No released admit card found");
+  if (registrationNumber) {
+    application = await Application.findOne({
+      registrationNumber: String(registrationNumber || "")
+        .trim()
+        .toUpperCase(),
+    })
+      .select("applicationId personalDetails candidateId contactMobile")
+      .populate("candidateId", "email registeredMobile");
+
+    if (!application)
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        "No admit card found for this registration number",
+      );
+
+    // Verify mobile matches
+    const storedMobile =
+      application.candidateId?.registeredMobile || application.contactMobile;
+    if (
+      mobile &&
+      storedMobile &&
+      storedMobile !== mobile &&
+      storedMobile !== `+91${mobile}`
+    ) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        "Mobile number does not match our records",
+      );
+    }
+  } else {
+    application = await Application.findOne({
+      applicationId: String(applicationId || "").trim(),
+    })
+      .select("applicationId personalDetails candidateId")
+      .populate("candidateId", "email registeredMobile");
+    if (!application)
+      throw new ApiError(StatusCodes.NOT_FOUND, "No released admit card found");
+    if (
+      normalizeDateOnly(application.personalDetails?.dateOfBirth) !==
+      normalizeDateOnly(dateOfBirth)
+    ) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "No released admit card found");
+    }
   }
 
   const admitCard = await AdmitCard.findOne({
@@ -855,7 +1024,8 @@ const lookupPublicAdmitCard = async ({ applicationId, dateOfBirth }) => {
     .populate(getAdmitCardPopulate())
     .sort({ publishedAt: -1, createdAt: -1 });
 
-  if (!admitCard) throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
+  if (!admitCard)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
   if (!isAdmitCardReleased(admitCard)) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
   }
@@ -879,7 +1049,11 @@ const lookupPublicAdmitCard = async ({ applicationId, dateOfBirth }) => {
 
 const verifyAdmitCard = async (token) => {
   const normalizedToken = decodeURIComponent(String(token || "")).trim();
-  if (!normalizedToken) throw new ApiError(StatusCodes.BAD_REQUEST, "Verification token is required");
+  if (!normalizedToken)
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Verification token is required",
+    );
 
   const admitCard = await AdmitCard.findOne({
     $or: [
@@ -890,10 +1064,16 @@ const verifyAdmitCard = async (token) => {
   }).populate(getAdmitCardPopulate());
 
   if (!admitCard || admitCard.status !== "published") {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card could not be verified");
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Admit card could not be verified",
+    );
   }
   if (!isAdmitCardReleased(admitCard)) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card could not be verified");
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Admit card could not be verified",
+    );
   }
 
   return {
@@ -926,8 +1106,11 @@ const getAdmitCardForHtml = async (id, options = {}) => {
     filter.status = "published";
   }
 
-  const admitCard = await AdmitCard.findOne(filter).populate(getAdmitCardPopulate());
-  if (!admitCard) throw new ApiError(StatusCodes.NOT_FOUND, "Admit card not found");
+  const admitCard = await AdmitCard.findOne(filter).populate(
+    getAdmitCardPopulate(),
+  );
+  if (!admitCard)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card not found");
   if (options.candidateId && !isAdmitCardReleased(admitCard)) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
   }
@@ -952,7 +1135,9 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const papers = schedule.papers?.length
     ? schedule.papers
     : [{ name: "Paper I", numberOfQuestions: 100 }];
-  const instructions = [...(schedule.instructions || [])].sort((a, b) => a.order - b.order);
+  const instructions = [...(schedule.instructions || [])].sort(
+    (a, b) => a.order - b.order,
+  );
   const verificationPath = `/admit-cards/verify/${encodeURIComponent(admitCard.barcodeValue)}`;
 
   const venue = [
@@ -963,7 +1148,9 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     center?.district,
     center?.state,
     center?.pincode ? `PIN: ${center.pincode}` : "",
-  ].filter(Boolean).join(", ");
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   const localCommission =
     schedule.commissionNameLocal &&
@@ -971,14 +1158,18 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       ? schedule.commissionNameLocal
       : "झारखंड कर्मचारी चयन आयोग";
 
-  const rows = papers.map((paper) => `
+  const rows = papers
+    .map(
+      (paper) => `
     <tr>
       <td>${escapeHtml(paper.name)}</td>
       <td>${escapeHtml(paper.numberOfQuestions)}</td>
       <td></td>
       <td></td>
     </tr>
-  `).join("");
+  `,
+    )
+    .join("");
 
   return `<!doctype html>
 <html>
@@ -1035,10 +1226,14 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   </style>
 </head>
 <body>
-  ${options.embed ? "" : `<div class="actions">
+  ${
+    options.embed
+      ? ""
+      : `<div class="actions">
     <button onclick="window.print()">Print</button>
     <button onclick="downloadPdf()">Download PDF</button>
-  </div>`}
+  </div>`
+  }
   <script>
     function downloadPdf() {
       window.location.href = window.location.pathname.replace(/\\/html$/, "/pdf") + window.location.search;
@@ -1121,7 +1316,8 @@ const chunk = (items, size) => {
 
 const renderAttendanceSheetHtml = async (id, options = {}) => {
   const schedule = await ExamSchedule.findById(id);
-  if (!schedule) throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
 
   const filter = { examScheduleId: schedule._id, status: "allocated" };
   if (options.centerId) filter.centerId = options.centerId;
@@ -1133,28 +1329,38 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
     .sort({ centerId: 1, rollNumber: 1 });
 
   if (allocations.length === 0) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "No allocations found for attendance sheet");
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "No allocations found for attendance sheet",
+    );
   }
 
-  const pages = chunk(allocations, 6).map((items) => {
-    const first = items[0];
-    const center = first.centerId;
-    const venueAddress = [
-      center?.name,
-      center?.addressLine1,
-      center?.city,
-      center?.district,
-      center?.state,
-      center?.pincode ? `PIN: ${center.pincode}` : "",
-    ].filter(Boolean).join(", ");
+  const pages = chunk(allocations, 6)
+    .map((items) => {
+      const first = items[0];
+      const center = first.centerId;
+      const venueAddress = [
+        center?.name,
+        center?.addressLine1,
+        center?.city,
+        center?.district,
+        center?.state,
+        center?.pincode ? `PIN: ${center.pincode}` : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
 
-    const rows = Array.from({ length: 6 }, (_, index) => {
-      const allocation = items[index];
-      const application = allocation?.applicationId;
-      const personal = application?.personalDetails || {};
-      const photoUrl = application ? getDocumentUrl(application, "passport_photo") : "";
-      const signatureUrl = application ? getDocumentUrl(application, "signature") : "";
-      return `
+      const rows = Array.from({ length: 6 }, (_, index) => {
+        const allocation = items[index];
+        const application = allocation?.applicationId;
+        const personal = application?.personalDetails || {};
+        const photoUrl = application
+          ? getDocumentUrl(application, "passport_photo")
+          : "";
+        const signatureUrl = application
+          ? getDocumentUrl(application, "signature")
+          : "";
+        return `
         <tr class="top-row">
           <td class="sl-label">Sl. No.</td>
           <td>Name: <strong>${escapeHtml(personal.fullName)}</strong></td>
@@ -1168,9 +1374,9 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
         <tr><td>Registration No.: <strong>${escapeHtml(application?.applicationId)}</strong></td><td class="mark">Absent <span></span></td></tr>
         <tr><td colspan="2">Signature of Candidate</td><td class="sign">${signatureUrl ? `<img src="${escapeHtml(signatureUrl)}" />` : ""}</td></tr>
       `;
-    }).join("");
+      }).join("");
 
-    return `
+      return `
       <section class="page">
         <div class="head">
           <div class="seal">JSSC</div>
@@ -1205,7 +1411,8 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
         </table>
       </section>
     `;
-  }).join("");
+    })
+    .join("");
 
   return `<!doctype html>
 <html>

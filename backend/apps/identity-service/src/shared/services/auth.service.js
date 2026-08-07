@@ -6,6 +6,7 @@ const { generateOTP } = require("../utils/helpers");
 const { publishToQueue, QUEUES } = require("../config/rabbitmq");
 const { getRedis } = require("../config/redis");
 const { sendOTPEmail, sendPasswordResetEmail } = require("./email.service");
+const otpService = require("./otp.service");
 const env = require("../config/env");
 
 // ── Token helpers ─────────────────────────────────────────────
@@ -362,6 +363,74 @@ const resetPassword = async ({
   return { message: "Password reset successful" };
 };
 
+// ── Public Apply Login (ghost user, OTP already verified via Redis) ──────────
+
+const normalizePublicMobile = (mobile) => {
+  const digits = String(mobile || "").replace(/\D/g, "");
+  return digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+};
+
+const publicApplyLogin = async ({ email, mobile }) => {
+  if (!email || !mobile)
+    throw new ApiError(400, "Email and mobile are required");
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const normalizedMobile = normalizePublicMobile(mobile);
+
+  const otpBypass = process.env.PUBLIC_OTP_DEV_BYPASS === "true";
+  const [emailVerified, mobileVerified] = await Promise.all([
+    otpBypass ? true : otpService.isVerified(normalizedEmail, "email"),
+    otpBypass ? true : otpService.isVerified(normalizedMobile, "mobile"),
+  ]);
+
+  if (!emailVerified || !mobileVerified) {
+    throw new ApiError(
+      401,
+      "Email and mobile OTP verification is required before starting an application",
+    );
+  }
+
+  // Find existing ghost user or create one
+  let user = await User.findOne({ email: normalizedEmail });
+
+  if (user) {
+    // Existing user — check it's not a real candidate with password
+    // Ghost users can be re-used; real candidates should use normal login
+    if (user.accountType && user.accountType !== "ghost") {
+      throw new ApiError(
+        409,
+        "An account already exists with this email. Please log in normally.",
+      );
+    }
+    // Update mobile if changed
+    if (user.registeredMobile !== normalizedMobile) {
+      user.registeredMobile = normalizedMobile;
+      await user.save({ validateBeforeSave: false });
+    }
+  } else {
+    // Create ghost user
+    user = await User.create({
+      email: normalizedEmail,
+      registeredMobile: normalizedMobile,
+      accountType: "ghost",
+      createdVia: "public_application",
+      role: "candidate", // keeps compatibility with existing ProtectedRoute checks
+      isEmailVerified: true,
+      isMobileVerified: true,
+      isActive: true,
+    });
+  }
+
+  // Issue JWT (same payload shape as normal candidate login)
+  const payload = { id: user._id, email: user.email, role: "candidate" };
+  const { accessToken, refreshToken } = generateTokenPair(payload);
+
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  return { accessToken, refreshToken, user: user.toSafeObject() };
+};
+
 const resendOTP = async (email) => {
   const user = await User.findOne({ email });
   if (!user) throw new ApiError(404, "User not found");
@@ -389,6 +458,7 @@ module.exports = {
   forgotPassword,
   resetPassword,
   resendOTP,
+  publicApplyLogin,
   generateTokenPair,
   setAuthCookies,
   clearAuthCookies,

@@ -67,4 +67,7 @@ router.get("/me", authenticate, authController.getMe);
 router.put("/profile", authenticate, authController.updateProfile);
 router.put("/change-password", authenticate, authController.changePassword);
 
+// ── Public Apply (no password, OTP only) ─────────────────────
+router.post("/public-apply-login", authController.publicApplyLogin);
+
 module.exports = router;

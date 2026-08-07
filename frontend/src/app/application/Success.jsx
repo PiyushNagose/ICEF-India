@@ -47,6 +47,8 @@ const Success = () => {
     draft.correctionMode === true ||
     location.state?.correctionMode === true;
   const applicationId = app?.applicationId || rawApplicationId || "-";
+  const registrationNumber =
+    app?.registrationNumber || location.state?.registrationNumber || "";
   const selectedPosts =
     app?.appliedPosts?.length > 0 ? app.appliedPosts : selectedPostsFromState;
   const submittedAt = app?.submittedAt || submittedAtFromState;
@@ -261,6 +263,13 @@ const Success = () => {
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {registrationNumber && (
+                    <DetailBox label="Registration Number">
+                      <span className="font-mono text-lg font-semibold text-orange-600">
+                        {registrationNumber}
+                      </span>
+                    </DetailBox>
+                  )}
                   <DetailBox label="Application ID">
                     <span className="font-mono text-lg font-semibold text-orange-600">
                       {applicationId}
@@ -408,9 +417,23 @@ const Success = () => {
                 </h3>
                 <ul className="list-disc space-y-2 pl-5 text-sm text-blue-700">
                   <li>
-                    Keep your Application ID{" "}
-                    <strong className="font-mono">{applicationId}</strong> safe
-                    for future reference.
+                    Keep your{" "}
+                    {registrationNumber ? (
+                      <>
+                        Registration Number{" "}
+                        <strong className="font-mono">
+                          {registrationNumber}
+                        </strong>{" "}
+                        and Application ID{" "}
+                        <strong className="font-mono">{applicationId}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Application ID{" "}
+                        <strong className="font-mono">{applicationId}</strong>
+                      </>
+                    )}{" "}
+                    safe for future reference.
                   </li>
                   <li>
                     Admit cards will be available 15 days before the examination

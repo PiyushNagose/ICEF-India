@@ -77,6 +77,14 @@ const STATUS = {
     title: "Application Approved ✓",
     desc: "Congratulations! Your application has been approved.",
   },
+  clarification_required: {
+    label: "Clarification Required",
+    color: "bg-orange-100 text-orange-700",
+    icon: AlertCircle,
+    banner: "bg-orange-50 border-orange-200",
+    title: "Clarification Required",
+    desc: "Admin has requested corrections or clarification for your application.",
+  },
   rejected: {
     label: "Rejected",
     color: "bg-red-100 text-red-700",
@@ -130,6 +138,7 @@ const Timeline = ({ app }) => {
       done: [
         "submitted",
         "under_review",
+        "clarification_required",
         "verified",
         "approved",
         "rejected",
@@ -138,9 +147,13 @@ const Timeline = ({ app }) => {
     {
       label: "Under Review",
       date: app.reviewedAt,
-      done: ["under_review", "verified", "approved", "rejected"].includes(
-        app.status,
-      ),
+      done: [
+        "under_review",
+        "clarification_required",
+        "verified",
+        "approved",
+        "rejected",
+      ].includes(app.status),
     },
     ...(showCorrectionStep
       ? [

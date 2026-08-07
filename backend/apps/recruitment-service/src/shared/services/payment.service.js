@@ -1,6 +1,8 @@
 const Payment = require("../models/Payment");
 const Application = require("../models/Application");
 const PaymentGateway = require("../models/PaymentGateway");
+const Project = require("../models/Project");
+const User = require("../models/User");
 const ApiError = require("../utils/ApiError");
 const { generateUUID, getPaginationParams } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
@@ -10,6 +12,10 @@ const {
   SOCKET_EVENTS,
 } = require("../socket/index");
 const { sendPaymentSuccessEmail } = require("./email.service");
+const {
+  generateRegistrationNumber,
+  buildProjectCode,
+} = require("./registrationNumber.service");
 
 const initiatePayment = async (
   applicationId,
@@ -82,11 +88,53 @@ const verifyPayment = async ({
     const candidateId = application.candidateId._id.toString();
 
     if (status === "success") {
+      // ── Generate registration number for public applications ──
+      if (application.isPublicApplication && !application.registrationNumber) {
+        try {
+          const job = await require("../models/Job")
+            .findById(application.jobId)
+            .select("projectId");
+          const project = job?.projectId
+            ? await Project.findById(job.projectId).select("name publicSlug")
+            : null;
+
+          const projectCode = project
+            ? buildProjectCode(project.name, new Date().getFullYear())
+            : "APP26";
+
+          const regNum = await generateRegistrationNumber(projectCode);
+          const numericPart = parseInt(regNum.slice(-6));
+          const batchNumber = `batch-${Math.ceil(numericPart / 10000)}`;
+
+          application.registrationNumber = regNum;
+          application.status = "submitted";
+          application.submittedAt = application.submittedAt || new Date();
+          application.fileStorage = {
+            ...(application.fileStorage || {}),
+            batchNumber,
+            basePath: `recruitment_portal/projects/${project?.publicSlug || "general"}/applicants/${batchNumber}/${regNum}`,
+          };
+
+          // Sync registration number to ghost user
+          await User.findByIdAndUpdate(application.candidateId._id, {
+            registrationNumber: regNum,
+          });
+        } catch (err) {
+          console.error(
+            "[RegNum] Failed to generate registration number:",
+            err.message,
+          );
+        }
+      }
+
+      await application.save();
+
       // Notify candidate in real-time
       emitToCandidate(candidateId, SOCKET_EVENTS.PAYMENT_SUCCESS, {
         transactionId,
         amount: payment.amount,
         applicationId: application.applicationId,
+        registrationNumber: application.registrationNumber || null,
       });
 
       // Notify admin dashboard

@@ -137,9 +137,12 @@ const loginCandidate = asyncHandler(async (req, res) => {
  *       401: { description: Invalid credentials }
  */
 const loginAdmin = asyncHandler(async (req, res) => {
-  const result = await authService.loginAdmin({ ...req.body, loginAs: "admin" }, {
-    ipAddress: req.ip || req.headers["x-forwarded-for"],
-  });
+  const result = await authService.loginAdmin(
+    { ...req.body, loginAs: "admin" },
+    {
+      ipAddress: req.ip || req.headers["x-forwarded-for"],
+    },
+  );
   authService.setAuthCookies(res, result.accessToken, result.refreshToken);
 
   res.status(StatusCodes.OK).json(
@@ -152,9 +155,12 @@ const loginAdmin = asyncHandler(async (req, res) => {
 });
 
 const loginEmployee = asyncHandler(async (req, res) => {
-  const result = await authService.loginAdmin({ ...req.body, loginAs: "employee" }, {
-    ipAddress: req.ip || req.headers["x-forwarded-for"],
-  });
+  const result = await authService.loginAdmin(
+    { ...req.body, loginAs: "employee" },
+    {
+      ipAddress: req.ip || req.headers["x-forwarded-for"],
+    },
+  );
   authService.setAuthCookies(res, result.accessToken, result.refreshToken);
 
   res.status(StatusCodes.OK).json(
@@ -457,6 +463,19 @@ const resendOTP = asyncHandler(async (req, res) => {
     .json(new ApiResponse(StatusCodes.OK, result.message));
 });
 
+const publicApplyLogin = asyncHandler(async (req, res) => {
+  const { email, mobile } = req.body;
+  const result = await authService.publicApplyLogin({ email, mobile });
+  authService.setAuthCookies(res, result.accessToken, result.refreshToken);
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Ready to apply", {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    }),
+  );
+});
+
 module.exports = {
   register,
   verifyOTP,
@@ -471,4 +490,5 @@ module.exports = {
   updateProfile,
   changePassword,
   resendOTP,
+  publicApplyLogin,
 };

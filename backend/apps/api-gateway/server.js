@@ -9,7 +9,7 @@ require("dotenv").config({
 });
 
 const app = express();
-const PORT = parseInt(process.env.API_GATEWAY_PORT) || 5000;
+const PORT = parseInt(process.env.PORT || process.env.API_GATEWAY_PORT, 10) || 5000;
 const ID_PORT = parseInt(process.env.IDENTITY_SERVICE_PORT) || 5001;
 const RC_PORT = parseInt(process.env.RECRUITMENT_SERVICE_PORT) || 5002;
 const CM_PORT = parseInt(process.env.COMMUNICATION_SERVICE_PORT) || 5003;
@@ -19,10 +19,9 @@ const RECRUITMENT_URL =
   process.env.RECRUITMENT_SERVICE_URL || `http://localhost:${RC_PORT}`;
 const COMMUNICATION_URL =
   process.env.COMMUNICATION_SERVICE_URL || `http://localhost:${CM_PORT}`;
-const parsedOrigins =
-  process.env.CLIENT_URL?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean) || ["http://localhost:5173"];
+const parsedOrigins = process.env.CLIENT_URL?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean) || ["http://localhost:5173"];
 const requestTimeoutMs = 15000;
 
 // ── Middleware ────────────────────────────────────────────────
@@ -143,16 +142,31 @@ app.get("/api/dashboard/admin", async (req, res) => {
     const cookie = req.headers.cookie || "";
     const [overview, funnel, topJobs, support, notifications] =
       await Promise.all([
-        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/overview"), authorization, cookie),
-        callJson(serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/funnel"), authorization, cookie),
+        callJson(
+          serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/overview"),
+          authorization,
+          cookie,
+        ),
+        callJson(
+          serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/funnel"),
+          authorization,
+          cookie,
+        ),
         callJson(
           serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/top-jobs?limit=5"),
           authorization,
           cookie,
         ),
-        callJson(serviceUrl(COMMUNICATION_URL, "/api/admin/support/stats"), authorization, cookie),
         callJson(
-          serviceUrl(IDENTITY_URL, "/api/admin/notifications?limit=20&isRead=false"),
+          serviceUrl(COMMUNICATION_URL, "/api/admin/support/stats"),
+          authorization,
+          cookie,
+        ),
+        callJson(
+          serviceUrl(
+            IDENTITY_URL,
+            "/api/admin/notifications?limit=20&isRead=false",
+          ),
           authorization,
           cookie,
         ),
@@ -206,7 +220,11 @@ app.get("/api/dashboard/candidate", async (req, res) => {
         authorization,
         cookie,
       ),
-      callJson(serviceUrl(RECRUITMENT_URL, "/api/jobs?limit=5"), authorization, cookie),
+      callJson(
+        serviceUrl(RECRUITMENT_URL, "/api/jobs?limit=5"),
+        authorization,
+        cookie,
+      ),
     ]);
 
     res.json({
@@ -239,79 +257,41 @@ app.get("/api/dashboard/candidate", async (req, res) => {
 
 // ── Identity Service routes ───────────────────────────────────
 app.use("/api/auth", proxy(IDENTITY_URL, "Identity"));
-app.use(
-  "/api/admin/employees",
-  proxy(IDENTITY_URL, "Identity"),
-);
+app.use("/api/admin/employees", proxy(IDENTITY_URL, "Identity"));
 app.use("/api/admin/roles", proxy(IDENTITY_URL, "Identity"));
-app.use(
-  "/api/admin/activity-logs",
-  proxy(IDENTITY_URL, "Identity"),
-);
-app.use(
-  "/api/admin/notifications",
-  proxy(IDENTITY_URL, "Identity"),
-);
+app.use("/api/admin/activity-logs", proxy(IDENTITY_URL, "Identity"));
+app.use("/api/admin/notifications", proxy(IDENTITY_URL, "Identity"));
 
 // ── Recruitment Service routes ────────────────────────────────
 app.use("/api/jobs", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admit-cards", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/cms", proxy(RECRUITMENT_URL, "Recruitment"));
-app.use(
-  "/api/admin/projects",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
+app.use("/api/public/projects", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/public/otp", proxy(IDENTITY_URL, "Identity"));
+app.use("/api/public/apply", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/public/application", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admin/projects", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/jobs", proxy(RECRUITMENT_URL, "Recruitment"));
-app.use(
-  "/api/admin/applications",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
-app.use(
-  "/api/admin/analytics",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
-app.use(
-  "/api/admin/cms",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
-app.use(
-  "/api/admin/exams",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
-app.use(
-  "/api/candidate/applications",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
-app.use(
-  "/api/candidate/admit-cards",
-  proxy(RECRUITMENT_URL, "Recruitment"),
-);
+app.use("/api/admin/applications", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admin/analytics", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admin/cms", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admin/exams", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/candidate/applications", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/candidate/admit-cards", proxy(RECRUITMENT_URL, "Recruitment"));
 
 // ── Communication & Payment Service routes ────────────────────
-app.use(
-  "/api/admin/payments",
-  proxy(COMMUNICATION_URL, "Communication"),
-);
+app.use("/api/admin/payments", proxy(COMMUNICATION_URL, "Communication"));
 app.use(
   "/api/admin/payment-gateways",
   proxy(COMMUNICATION_URL, "Communication"),
 );
-app.use(
-  "/api/admin/support",
-  proxy(COMMUNICATION_URL, "Communication"),
-);
+app.use("/api/admin/support", proxy(COMMUNICATION_URL, "Communication"));
 app.use(
   "/api/candidate/notifications",
   proxy(COMMUNICATION_URL, "Communication"),
 );
-app.use(
-  "/api/candidate/support",
-  proxy(COMMUNICATION_URL, "Communication"),
-);
-app.use(
-  "/api/candidate/payments",
-  proxy(COMMUNICATION_URL, "Communication"),
-);
+app.use("/api/candidate/support", proxy(COMMUNICATION_URL, "Communication"));
+app.use("/api/candidate/payments", proxy(COMMUNICATION_URL, "Communication"));
 
 // â”€â”€ Socket.IO routes through gateway â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(
@@ -334,12 +314,10 @@ app.get("/api/docs", (_req, res) => {
 
 // ── 404 ───────────────────────────────────────────────────────
 app.use((req, res) => {
-  res
-    .status(404)
-    .json({
-      success: false,
-      message: `Route not found: ${req.method} ${req.path}`,
-    });
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.path}`,
+  });
 });
 
 // ── Error handler ─────────────────────────────────────────────

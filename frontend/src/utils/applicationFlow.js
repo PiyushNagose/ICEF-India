@@ -36,6 +36,7 @@ export const getJobFormSections = (jobOrApplication) => {
         (section) =>
           Array.isArray(section.fields) &&
           section.fields.length > 0 &&
+          !section.systemSource &&
           !RESERVED_FORM_SECTION_TITLES.has(normaliseTitle(section.title)),
       )
     : [];

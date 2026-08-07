@@ -53,6 +53,11 @@ const STATUS_CONFIG = {
     color: "bg-green-100 text-green-700",
     icon: CheckCircle,
   },
+  clarification_required: {
+    label: "Clarification Required",
+    color: "bg-orange-100 text-orange-700",
+    icon: AlertCircle,
+  },
   rejected: {
     label: "Rejected",
     color: "bg-red-100 text-red-700",

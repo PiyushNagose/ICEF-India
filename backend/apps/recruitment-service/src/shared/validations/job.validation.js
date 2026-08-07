@@ -19,6 +19,42 @@ const educationItemSchema = z.object({
   university: z.string().optional(),
 });
 
+const formFieldSchema = z.object({
+  type: z
+    .enum([
+      "text",
+      "textarea",
+      "email",
+      "tel",
+      "number",
+      "date",
+      "select",
+      "radio",
+      "checkbox",
+      "file",
+    ])
+    .default("text"),
+  label: z.string().min(1),
+  required: z.boolean().optional(),
+  placeholder: z.string().optional(),
+  options: z.array(z.string()).optional(),
+  validation: z
+    .object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      pattern: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .optional(),
+});
+
+const formSectionSchema = z.object({
+  title: z.string().min(1),
+  systemSource: z.string().optional(),
+  required: z.boolean().optional(),
+  fields: z.array(formFieldSchema).optional().default([]),
+});
+
 const createJobSchema = z.object({
   projectId: z.string().min(1, "Project ID is required"),
   title: z.string().min(3, "Job title must be at least 3 characters").max(200),
@@ -44,6 +80,10 @@ const createJobSchema = z.object({
   description: z.string().max(5000).optional(),
   totalPosts: z.number().int().min(0).optional(),
   posts: z.array(jobPostSchema).optional(),
+  postSelectionMode: z
+    .enum(["single", "preference"])
+    .optional()
+    .default("single"),
   reservedPosts: z
     .object({
       sc: z.number().int().min(0).optional(),
@@ -132,6 +172,7 @@ const createJobSchema = z.object({
       }).passthrough(),
     )
     .optional(),
+  formSections: z.array(formSectionSchema).optional(),
   paymentConfig: z
     .object({
       applicationFee:      z.number().min(0).optional(),

@@ -125,6 +125,7 @@ const formFieldSchema = new mongoose.Schema(
 const formSectionSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
+    systemSource: { type: String, trim: true },
     required: { type: Boolean, default: false },
     fields: [formFieldSchema],
   },
@@ -185,6 +186,11 @@ const jobSchema = new mongoose.Schema(
     // Vacancy details
     totalPosts: { type: Number, default: 0 },
     posts: [jobPostSchema],
+    postSelectionMode: {
+      type: String,
+      enum: ["single", "preference"],
+      default: "single",
+    },
     reservedPosts: { type: reservedPostsSchema, default: () => ({}) },
     salaryRange: { type: salaryRangeSchema, default: () => ({}) },
     applicationFee: { type: applicationFeeSchema, default: () => ({}) },

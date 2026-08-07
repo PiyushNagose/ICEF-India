@@ -15,6 +15,7 @@ import {
   Loader,
   X,
   SlidersHorizontal,
+  Briefcase,
 } from "lucide-react";
 
 import PublicLayout from "../../components/layouts/PublicLayout";
@@ -222,20 +223,22 @@ const EligibleJobs = () => {
     <PublicLayout>
       <div className="min-h-[calc(100vh-122px)] bg-[#f3efe8]">
         {/* -- Page Header ---------------------------------------------------- */}
-        <div className="bg-[#1f1d1b] text-white py-8 lg:py-10">
+        <div className="relative overflow-hidden bg-[#1f1d1b] text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(228,106,29,0.22),transparent_34%),linear-gradient(90deg,rgba(0,0,0,0.05),rgba(0,0,0,0.28))]" />
           <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              className="relative py-10 lg:py-12"
             >
-              <p className="text-[10px] font-black tracking-[0.2em] text-orange-400 mb-2 uppercase">
+              <p className="text-[10px] font-black tracking-[0.24em] text-orange-400 mb-3 uppercase">
                 Smart Eligibility Filter
               </p>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
+              <h1 className="max-w-[720px] text-[30px] sm:text-[42px] lg:text-[48px] leading-[1.04] font-black tracking-normal">
                 Eligible Jobs for You
               </h1>
-              <p className="mt-2 text-white/60 text-sm">
+              <p className="mt-4 max-w-[560px] text-[13px] sm:text-[15px] leading-6 text-white/80">
                 {isLoading
                   ? "Searching matching opportunities..."
                   : jobs.length > 0
@@ -252,17 +255,17 @@ const EligibleJobs = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="bg-white rounded-[12px] border border-[#e0d7cd] shadow-sm mb-6 overflow-hidden"
+            className="bg-white rounded-[8px] border border-[#ded4c8] shadow-[0_10px_24px_rgba(31,29,27,0.06)] mb-7 overflow-hidden"
           >
             {/* Filter header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebe2d8]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebe2d8] bg-[#fffdf9]">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-bold text-[#1f1d1b]">
+                <span className="text-[15px] font-black text-[#1f1d1b]">
                   Filters
                 </span>
                 {hasActiveFilters && (
-                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                  <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2.5 py-1 rounded-full">
                     Active
                   </span>
                 )}
@@ -271,7 +274,7 @@ const EligibleJobs = () => {
                 {hasActiveFilters && (
                   <button
                     onClick={handleResetFilters}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-1 text-xs font-bold text-[#6d6761] hover:text-red-600 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                     Reset
@@ -280,7 +283,7 @@ const EligibleJobs = () => {
                 {/* Mobile toggle */}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="md:hidden flex items-center gap-1.5 text-xs font-semibold text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg"
+                  className="md:hidden flex items-center gap-1.5 text-xs font-bold text-orange-700 border border-orange-200 px-3 py-1.5 rounded-[6px]"
                 >
                   <Filter size={14} />
                   {showFilters ? "Hide" : "Show"}
@@ -294,10 +297,10 @@ const EligibleJobs = () => {
 
             {/* Filter grid */}
             <div className={`p-5 ${!showFilters ? "hidden md:block" : ""}`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-12 gap-4">
                 {/* Search */}
-                <div className="xl:col-span-2">
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                <div className="xl:col-span-4">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     Search
                   </label>
                   <div className="relative">
@@ -312,14 +315,14 @@ const EligibleJobs = () => {
                       onChange={(e) =>
                         handleFilterChange("search", e.target.value)
                       }
-                      className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-white"
+                      className="w-full h-12 pl-9 pr-4 border border-[#d8d0c6] rounded-[6px] text-[14px] text-[#1f1d1b] focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-white placeholder:text-[#9aa1ae]"
                     />
                   </div>
                 </div>
 
                 {/* Qualification */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                <div className="xl:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     Qualification
                   </label>
                   <CustomSelect
@@ -331,8 +334,8 @@ const EligibleJobs = () => {
                 </div>
 
                 {/* Age */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                <div className="xl:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     Your Age
                   </label>
                   <input
@@ -342,13 +345,13 @@ const EligibleJobs = () => {
                     onChange={(e) => handleFilterChange("age", e.target.value)}
                     min="18"
                     max="65"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-white"
+                    className="w-full h-12 px-4 border border-[#d8d0c6] rounded-[6px] text-[14px] text-[#1f1d1b] focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-white placeholder:text-[#9aa1ae]"
                   />
                 </div>
 
                 {/* Category */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                <div className="xl:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     Category
                   </label>
                   <CustomSelect
@@ -360,8 +363,8 @@ const EligibleJobs = () => {
                 </div>
 
                 {/* State */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                <div className="xl:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     State
                   </label>
                   <CustomSelect
@@ -376,7 +379,7 @@ const EligibleJobs = () => {
               {/* Second row — Department */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-[0.12em] font-black text-gray-500 mb-1.5">
+                  <label className="block text-[10px] uppercase tracking-[0.14em] font-black text-[#6d6761] mb-2">
                     Department
                   </label>
                   <CustomSelect
@@ -428,7 +431,7 @@ const EligibleJobs = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[12px] border border-[#e0d7cd] p-8 sm:p-10 text-center"
+              className="bg-white rounded-[8px] border border-[#ded4c8] p-8 sm:p-10 text-center"
             >
               <AlertCircle size={44} className="mx-auto text-gray-300 mb-4" />
               <h3 className="text-xl font-black text-[#1f1d1b] mb-2">
@@ -440,7 +443,7 @@ const EligibleJobs = () => {
               </p>
               <button
                 onClick={handleResetFilters}
-                className="px-6 py-2.5 bg-[#e46a1d] hover:bg-[#cb5d16] text-white text-sm font-bold rounded-[6px] transition-colors"
+                className="px-6 h-11 bg-[#e46a1d] hover:bg-[#cb5d16] text-white text-sm font-black rounded-[6px] transition-colors"
               >
                 Clear Filters
               </button>
@@ -454,143 +457,125 @@ const EligibleJobs = () => {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6 items-stretch"
+                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6 items-stretch"
               >
                 {jobs.map((job) => {
                   const badge = deadlineBadge(job.daysLeft);
+                  const feeLabel =
+                    job.applicableFee === 0
+                      ? "Free"
+                      : `₹${Number(job.applicableFee || 0).toLocaleString("en-IN")}`;
                   return (
                     <motion.div
                       key={job._id}
                       variants={itemVariants}
-                      className="h-full bg-white rounded-[10px] border border-[#e0d7cd] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
+                      className="group h-full min-h-[360px] bg-white rounded-[8px] border border-[#ded4c8] hover:border-orange-300 hover:shadow-[0_18px_38px_rgba(31,29,27,0.10)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
                     >
-                      {/* Card header */}
-                      <div className="bg-gradient-to-r from-[#1f1d1b] to-[#3a3530] p-4 text-white">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="text-[15px] font-black leading-tight line-clamp-2">
-                            {job.title}
-                          </h3>
+                      <div className="flex h-full flex-col p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-orange-50 text-orange-600">
+                            <Briefcase className="h-5 w-5" />
+                          </div>
                           <span
-                            className={`flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}
+                            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${badge.bg} ${badge.text}`}
                           >
                             {badge.label}
                           </span>
                         </div>
-                        <p className="text-[11px] text-white/60 font-medium">
-                          {job.postCode}
-                        </p>
-                      </div>
 
-                      {/* Card body */}
-                      <div className="p-4 space-y-2.5 flex-1">
-                        {/* Dept + category */}
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#6d6761] font-medium truncate max-w-[60%]">
-                            {job.department}
-                          </span>
-                          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">
-                            {job.category}
-                          </span>
+                        <div className="mt-5 min-h-[94px]">
+                          <h3 className="min-h-[52px] text-[21px] font-black leading-tight tracking-normal text-[#1f1d1b] line-clamp-2">
+                            {job.title}
+                          </h3>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-[12px] text-orange-600">
+                              {job.postCode || "Ref. not assigned"}
+                            </span>
+                            {job.category && (
+                              <span className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700">
+                                {job.category}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Location */}
-                        <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <MapPin
-                            size={13}
-                            className="text-orange-500 flex-shrink-0"
-                          />
-                          <span className="text-xs truncate">
-                            {job.workLocation || "Not specified"}
-                          </span>
+                        <div className="mt-4 min-h-[48px]">
+                          <p className="line-clamp-2 text-[14px] leading-6 text-[#6d6761]">
+                            {job.department || "Department not specified"}
+                          </p>
                         </div>
 
-                        {/* Vacancies */}
-                        <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <Users
-                            size={13}
-                            className="text-orange-500 flex-shrink-0"
-                          />
-                          <span className="text-xs">
-                            <strong className="text-[#1f1d1b]">
-                              {job.totalPosts}
-                            </strong>{" "}
-                            Vacancies
-                          </span>
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
+                          <div className="rounded-[6px] bg-[#faf7f2] p-3">
+                            <div className="flex items-center gap-1.5 text-orange-600">
+                              <Users size={14} />
+                              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6d6761]">
+                                Vacancies
+                              </span>
+                            </div>
+                            <p className="mt-2 font-black text-[#1f1d1b]">
+                              {job.totalPosts || 0}
+                            </p>
+                          </div>
+
+                          <div className="rounded-[6px] bg-[#faf7f2] p-3">
+                            <div className="flex items-center gap-1.5 text-orange-600">
+                              <IndianRupee size={14} />
+                              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6d6761]">
+                                Fee
+                              </span>
+                            </div>
+                            <p
+                              className={`mt-2 font-black ${
+                                job.applicableFee === 0
+                                  ? "text-emerald-700"
+                                  : "text-[#1f1d1b]"
+                              }`}
+                            >
+                              {feeLabel}
+                            </p>
+                          </div>
                         </div>
 
-                        {/* Salary */}
-                        {job.salaryRange?.min && job.salaryRange?.max && (
-                          <div className="flex items-center gap-1.5 text-[#6d6761]">
-                            <IndianRupee
-                              size={13}
-                              className="text-orange-500 flex-shrink-0"
+                        <div className="mt-4 space-y-2 text-[13px] text-[#4b4744]">
+                          <div className="flex items-center gap-2">
+                            <MapPin
+                              size={15}
+                              className="shrink-0 text-orange-600"
                             />
-                            <span className="text-xs">
-                              ₹{job.salaryRange.min.toLocaleString("en-IN")} – ₹
-                              {job.salaryRange.max.toLocaleString("en-IN")}
+                            <span className="truncate">
+                              {job.workLocation || job.state || "Location not specified"}
                             </span>
                           </div>
-                        )}
-
-                        {/* Fee */}
-                        <div className="flex items-center gap-1.5">
-                          <IndianRupee
-                            size={13}
-                            className="text-orange-500 flex-shrink-0"
-                          />
-                          <span className="text-xs">
-                            Fee:{" "}
-                            <strong
-                              className={
-                                job.applicableFee === 0
-                                  ? "text-emerald-600"
-                                  : "text-[#1f1d1b]"
-                              }
-                            >
-                              {job.applicableFee === 0
-                                ? "Free"
-                                : `₹${job.applicableFee}`}
-                            </strong>
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <Calendar
+                              size={15}
+                              className="shrink-0 text-orange-600"
+                            />
+                            <span>
+                              {job.daysLeft !== null && job.daysLeft > 0
+                                ? `${job.daysLeft} days left`
+                                : "Deadline passed"}
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Deadline */}
-                        <div className="flex items-center gap-1.5 text-[#6d6761]">
-                          <Calendar
-                            size={13}
-                            className="text-orange-500 flex-shrink-0"
-                          />
-                          <span className="text-xs">
-                            {job.daysLeft !== null && job.daysLeft > 0 ? (
-                              <>
-                                <strong className="text-[#1f1d1b]">
-                                  {job.daysLeft}
-                                </strong>{" "}
-                                days left
-                              </>
-                            ) : (
-                              "Deadline passed"
-                            )}
-                          </span>
+                        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-[#eee6dc] pt-4">
+                          <button
+                            onClick={() => handleViewDetails(job._id)}
+                            className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#ded4c8] bg-white text-[12px] font-black uppercase tracking-[0.12em] text-[#1f1d1b] transition-colors hover:border-orange-400 hover:text-orange-700"
+                          >
+                            Details
+                            <ArrowRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleApplyNow(job._id)}
+                            disabled={job.daysLeft <= 0}
+                            className="h-11 rounded-[6px] bg-[#e86a1a] text-[12px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(232,106,26,0.22)] transition-colors hover:bg-[#cf5d15] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none"
+                          >
+                            Apply Now
+                          </button>
                         </div>
-                      </div>
-
-                      {/* Card footer */}
-                      <div className="px-4 pb-4 flex gap-2 mt-auto">
-                        <button
-                          onClick={() => handleViewDetails(job._id)}
-                          className="flex-1 h-9 border border-[#e0d7cd] hover:bg-[#f6f1ea] text-[#1f1d1b] rounded-[6px] text-[11px] uppercase tracking-[0.1em] font-black transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          Details
-                          <ArrowRight size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleApplyNow(job._id)}
-                          disabled={job.daysLeft <= 0}
-                          className="flex-1 h-9 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[6px] text-[11px] uppercase tracking-[0.1em] font-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Apply Now
-                        </button>
                       </div>
                     </motion.div>
                   );

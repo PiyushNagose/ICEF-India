@@ -83,6 +83,40 @@ const getCustomFormSections = (job) =>
       )
     : [];
 
+const ensurePublicRegistrationNumber = async (app) => {
+  if (!app?.isPublicApplication || app.registrationNumber) return app;
+
+  const {
+    generateRegistrationNumber,
+    buildProjectCode,
+  } = require("../../shared/services/registrationNumber.service");
+  const Project = require("../../shared/models/Project");
+
+  const job = app.jobId?._id ? app.jobId : await Job.findById(app.jobId);
+  const project = job?.projectId
+    ? await Project.findById(job.projectId).select("name publicSlug")
+    : null;
+  const projectCode = project
+    ? buildProjectCode(project.name, new Date().getFullYear())
+    : "APP26";
+  const registrationNumber = await generateRegistrationNumber(projectCode);
+  const numericPart = parseInt(registrationNumber.slice(-6), 10) || 1;
+  const batchNumber = `batch-${Math.ceil(numericPart / 10000)}`;
+
+  app.registrationNumber = registrationNumber;
+  app.fileStorage = {
+    ...(app.fileStorage || {}),
+    batchNumber,
+    basePath: `recruitment_portal/projects/${project?.publicSlug || "general"}/applicants/${batchNumber}/${registrationNumber}`,
+  };
+
+  await User.findByIdAndUpdate(app.candidateId?._id || app.candidateId, {
+    registrationNumber,
+  });
+
+  return app;
+};
+
 const assertCandidateMutationWindow = (app) => {
   const correctionOpen = ["requested", "in_progress"].includes(
     app.correction?.status,
@@ -203,19 +237,44 @@ const createApplication = asyncHandler(async (req, res) => {
     );
   assertApplicationWindowOpen(job);
 
-  const existing = await Application.findOne({ candidateId, jobId });
+  const candidate = await User.findById(candidateId);
+  const isPublicApplySession =
+    candidate?.accountType === "ghost" ||
+    candidate?.createdVia === "public_application";
+
+  const existing = await Application.findOne({ candidateId, jobId }).populate(
+    "jobId",
+    "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
+  );
+  if (existing?.status === "draft") {
+    if (isPublicApplySession && !existing.isPublicApplication) {
+      existing.isPublicApplication = true;
+      existing.contactEmail = existing.contactEmail || candidate.email;
+      existing.contactMobile =
+        existing.contactMobile || candidate.registeredMobile || "";
+      await existing.save();
+    }
+    return res.status(StatusCodes.OK).json(
+      new ApiResponse(StatusCodes.OK, "Existing draft application resumed", {
+        application: existing,
+      }),
+    );
+  }
   if (existing)
     throw new ApiError(
       StatusCodes.CONFLICT,
       "You have already applied for this job",
     );
 
-  const candidate = await User.findById(candidateId);
-
   const application = await Application.create({
     applicationId: generateApplicationId(),
     candidateId,
     jobId,
+    isPublicApplication: isPublicApplySession,
+    contactEmail: isPublicApplySession ? candidate.email : undefined,
+    contactMobile: isPublicApplySession
+      ? candidate.registeredMobile || ""
+      : undefined,
     personalDetails: {
       fullName: candidate.fullName || "",
       registeredMobile: candidate.registeredMobile || "",
@@ -232,7 +291,7 @@ const createApplication = asyncHandler(async (req, res) => {
 
   await application.populate(
     "jobId",
-    "title department postCode applicationDeadline formSections documentRequirements posts applicationFee paymentConfig",
+    "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
   );
 
   try {
@@ -288,7 +347,7 @@ const getMyApplications = asyncHandler(async (req, res) => {
     Application.find(filter)
       .populate(
         "jobId",
-        "title department postCode applicationDeadline examDate formSections documentRequirements posts applicationFee paymentConfig",
+        "title department postCode applicationDeadline examDate formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
       )
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -889,10 +948,21 @@ const updatePostSelection = asyncHandler(async (req, res) => {
   const availablePostMap = new Map(
     availablePosts.map((post) => [post._id.toString(), post]),
   );
+  const postSelectionMode = app.jobId.postSelectionMode || "single";
+  const requestedPosts = Array.isArray(appliedPosts) ? appliedPosts : [];
+  if (requestedPosts.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Select at least one post");
+  }
+  if (postSelectionMode !== "preference" && requestedPosts.length > 1) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "This recruitment allows only one post selection",
+    );
+  }
   const preferences = new Set();
   const selectedPostIds = new Set();
 
-  const postsWithFee = (appliedPosts || []).map((post) => {
+  const postsWithFee = requestedPosts.map((post, index) => {
     const key = (post.postId || post.jobId || "").toString();
     const jobPost = availablePostMap.get(key);
     if (!jobPost) {
@@ -910,13 +980,14 @@ const updatePostSelection = asyncHandler(async (req, res) => {
     }
     selectedPostIds.add(key);
 
-    if (preferences.has(post.preference)) {
+    const preference = postSelectionMode === "preference" ? post.preference : 1;
+    if (preferences.has(preference)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         "Post preferences must be unique",
       );
     }
-    preferences.add(post.preference);
+    preferences.add(preference);
 
     return {
       jobId: app.jobId._id,
@@ -926,7 +997,7 @@ const updatePostSelection = asyncHandler(async (req, res) => {
       designation: jobPost.designation || jobPost.title,
       department: jobPost.department || app.jobId.department || "",
       vacancies: jobPost.vacancies || 0,
-      preference: post.preference,
+      preference: preference || index + 1,
       fee: 0,
     };
   });
@@ -1083,10 +1154,13 @@ const finalizeApplication = asyncHandler(async (req, res) => {
 
   // Already fully finalized with payment — idempotent
   if (app.status === "submitted" && app.paymentStatus === "paid") {
+    await ensurePublicRegistrationNumber(app);
+    await app.save();
     return res.status(StatusCodes.OK).json(
       new ApiResponse(StatusCodes.OK, "Application already submitted", {
         _id: app._id,
         applicationId: app.applicationId,
+        registrationNumber: app.registrationNumber,
         status: app.status,
         submittedAt: app.submittedAt,
       }),
@@ -1104,6 +1178,9 @@ const finalizeApplication = asyncHandler(async (req, res) => {
   app.currentStep = 9 + formSectionsCount;
   if (req.body.transactionId) app.transactionId = req.body.transactionId;
   if (req.body.declaration) app.declaration = req.body.declaration;
+
+  await ensurePublicRegistrationNumber(app);
+
   await app.save();
 
   const candidate = await User.findById(req.user.id).select("fullName email");
@@ -1169,6 +1246,7 @@ const finalizeApplication = asyncHandler(async (req, res) => {
     new ApiResponse(StatusCodes.OK, "Application finalized successfully", {
       _id: app._id,
       applicationId: app.applicationId,
+      registrationNumber: app.registrationNumber,
       status: app.status,
       submittedAt: app.submittedAt,
     }),

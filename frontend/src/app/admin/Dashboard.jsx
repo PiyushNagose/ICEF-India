@@ -23,6 +23,10 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { dashboardService } from '../../services/dashboard.service'
 import { adminService } from '../../services/admin.service'
+import {
+  getProjectLifecycleStatus,
+  getProjectStatusBadgeClass,
+} from '../../utils/projectLifecycle'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -99,7 +103,10 @@ const Dashboard = () => {
     ['SUBMITTED', funnel.submitted],
   ]
 
-  const projects = projectsData?.projects || []
+  const projects = (projectsData?.projects || []).map((project) => ({
+    ...project,
+    status: getProjectLifecycleStatus(project),
+  }))
 
   const notificationTypeStyles = {
     payment_success: { icon: CheckCircle, border: 'border-emerald-100', bg: 'bg-emerald-50', iconColor: 'text-emerald-600', titleColor: 'text-emerald-700', bodyColor: 'text-emerald-600' },
@@ -711,7 +718,7 @@ const Dashboard = () => {
                         {project.department}{' • '}{project.state}
                       </p>
                     </div>
-                    <Badge className={project.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                    <Badge className={getProjectStatusBadgeClass(project.status)}>
                       {project.status}
                     </Badge>
                   </div>

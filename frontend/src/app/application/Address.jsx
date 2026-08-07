@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -9,6 +9,7 @@ import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import { INDIA_STATE_CITIES, INDIA_STATES } from "../../constants/indiaLocations";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
+import JobConfiguredSection from "./JobConfiguredSection";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -179,6 +180,7 @@ const Address = () => {
 
   const applicationId = getAppId();
   const [dataLoaded, setDataLoaded] = useState(false);
+  const configuredFieldsRef = useRef(null);
 
   const [jobId, setJobId] = useState(() => {
     try {
@@ -301,13 +303,17 @@ const Address = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => {
+  const app = appData?.application || appData;
+
+  const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found");
       navigate("/jobs");
       return;
     }
     if (!validate()) return;
+    const extraSaved = await configuredFieldsRef.current?.validateAndSave?.();
+    if (extraSaved === false) return;
     saveStep({
       permanent,
       correspondence: sameAsPermanent ? permanent : correspondence,
@@ -380,6 +386,13 @@ const Address = () => {
             </div>
           </CardContent>
         </Card>
+
+        <JobConfiguredSection
+          ref={configuredFieldsRef}
+          app={app}
+          applicationId={applicationId}
+          systemSource="address"
+        />
 
         <div className="flex justify-between">
           <Button

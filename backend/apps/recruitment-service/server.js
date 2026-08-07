@@ -29,6 +29,9 @@ const swaggerSpec = require("./src/docs/swagger");
 const publicJobRoutes = require("./src/routes/public/job.routes");
 const publicCmsRoutes = require("./src/routes/public/cms.routes");
 const publicAdmitCardRoutes = require("./src/routes/public/admitCard.routes");
+const publicProjectRoutes = require("./src/routes/public/project.routes");
+const publicApplicationRoutes = require("./src/routes/public/application.routes");
+const publicStatusRoutes = require("./src/routes/public/status.routes");
 const adminProjectRoutes = require("./src/routes/admin/project.routes");
 const adminJobRoutes = require("./src/routes/admin/job.routes");
 const adminApplicationRoutes = require("./src/routes/admin/application.routes");
@@ -39,10 +42,9 @@ const candidateApplicationRoutes = require("./src/routes/candidate/application.r
 const candidateAdmitCardRoutes = require("./src/routes/candidate/admitCard.routes");
 
 const PORT = parseInt(process.env.RECRUITMENT_SERVICE_PORT, 10) || 5002;
-const parsedOrigins =
-  env.CLIENT_URL?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean) || ["http://localhost:5173"];
+const parsedOrigins = env.CLIENT_URL?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean) || ["http://localhost:5173"];
 
 const app = express();
 
@@ -86,6 +88,9 @@ app.use("/api", apiLimiter);
 app.use("/api/jobs", publicJobRoutes);
 app.use("/api/cms/state", publicCmsRoutes);
 app.use("/api/admit-cards", publicAdmitCardRoutes);
+app.use("/api/public/projects", publicProjectRoutes);
+app.use("/api/public/apply", publicApplicationRoutes);
+app.use("/api/public/application", publicStatusRoutes);
 app.use("/api/admin/projects", adminProjectRoutes);
 app.use("/api/admin/jobs", adminJobRoutes);
 app.use("/api/admin/applications", adminApplicationRoutes);

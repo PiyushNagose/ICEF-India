@@ -24,12 +24,53 @@ import Badge from '../../components/ui/Badge'
 
 import { jobService } from '../../services/job.service'
 import { adminService } from '../../services/admin.service'
+import {
+  getProjectLifecycleStatus,
+  getProjectStatusBadgeClass,
+} from '../../utils/projectLifecycle'
 
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-700',
   active: 'bg-green-100 text-green-700',
   closed: 'bg-red-100 text-red-700',
   published: 'bg-green-100 text-green-700',
+}
+
+const STORAGE_KEY = 'job_draft'
+
+const toDraftPayload = (job) => {
+  const projectId = job.projectId?._id || job.projectId || ''
+  return {
+    _jobId: job._id,
+    projectId,
+    title: job.title || '',
+    postCode: job.postCode || '',
+    department: job.department || '',
+    category: job.category || 'General',
+    jobType: job.jobType || 'Permanent',
+    description: job.description || '',
+    totalPosts: job.totalPosts || '',
+    posts: Array.isArray(job.posts) ? job.posts : [],
+    postSelectionMode: job.postSelectionMode || 'single',
+    reservedPosts: job.reservedPosts || {},
+    applicationFee: job.applicationFee || {},
+    applicationStartDate: job.applicationStartDate || '',
+    applicationDeadline: job.applicationDeadline || '',
+    correctionStartDate: job.correctionStartDate || '',
+    correctionDeadline: job.correctionDeadline || '',
+    admitCardReleaseDate: job.admitCardReleaseDate || '',
+    examDate: job.examDate || '',
+    resultDate: job.resultDate || '',
+    ageLimit: job.ageLimit || {},
+    education: job.education || {},
+    experience: job.experience || {},
+    physicalStandards: job.physicalStandards || {},
+    medicalStandards: job.medicalStandards || {},
+    otherRequirements: job.otherRequirements || [],
+    formSections: job.formSections || [],
+    documentRequirements: job.documentRequirements || [],
+    paymentConfig: job.paymentConfig || {},
+  }
 }
 
 const Jobs = () => {
@@ -149,8 +190,26 @@ const Jobs = () => {
     }
   }
 
+  const openDraftJob = async (job, step = 'review') => {
+    try {
+      const data = await adminService.getAdminJob(job._id)
+      const fullJob = data?.job || data
+      const draft = toDraftPayload(fullJob)
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
+      const projectId = draft.projectId
+      navigate(
+        `/admin/jobs/create/${step}${projectId ? `?project=${projectId}` : ''}`
+      )
+    } catch (err) {
+      toast.error(err.message || 'Unable to open draft job')
+    }
+  }
+
   const jobs = jobsData?.jobs || []
-  const projects = projectsData?.projects || []
+  const projects = (projectsData?.projects || []).map((project) => ({
+    ...project,
+    status: getProjectLifecycleStatus(project),
+  }))
 
   const statusStats =
     statsData?.statusStats || []
@@ -564,12 +623,12 @@ const Jobs = () => {
                         flex items-center gap-2
                       ">
 
-                        {/* VIEW */}
+                        {/* VIEW / EDIT */}
                         <button
                           onClick={() =>
-                            navigate(
-                              `/jobs/${job._id}`
-                            )
+                            job.status === 'draft' || job.status === 'Draft'
+                              ? openDraftJob(job, 'review')
+                              : navigate(`/jobs/${job._id}`)
                           }
                           className="
                             w-9 h-9 rounded-xl
@@ -579,9 +638,15 @@ const Jobs = () => {
                             transition-all
                           "
                         >
-                          <Eye className="
-                            w-4 h-4
-                          " />
+                          {job.status === 'draft' || job.status === 'Draft' ? (
+                            <Edit className="
+                              w-4 h-4
+                            " />
+                          ) : (
+                            <Eye className="
+                              w-4 h-4
+                            " />
+                          )}
                         </button>
 
                         {/* PUBLISH */}
@@ -823,12 +888,7 @@ const Jobs = () => {
                       </div>
 
                       <Badge
-                        className={
-                          project.status ===
-                          'Active'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }
+                        className={getProjectStatusBadgeClass(project.status)}
                       >
                         {project.status}
                       </Badge>

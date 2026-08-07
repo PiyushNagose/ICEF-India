@@ -108,17 +108,33 @@ const submitApplicationSchema = z.object({
 });
 
 const updateStatusSchema = z.object({
-  status: z.enum(["under_review", "approved", "rejected", "shortlisted"]),
+  status: z.enum([
+    "under_review",
+    "verified",
+    "approved",
+    "clarification_required",
+    "rejected",
+    "shortlisted",
+  ]),
   rejectionReason: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 const bulkActionSchema = z.object({
   applicationIds: z.array(z.string()).min(1, "Select at least one application"),
   action: z.enum(["update_status"]),
   status: z
-    .enum(["under_review", "approved", "rejected", "shortlisted"])
+    .enum([
+      "under_review",
+      "verified",
+      "approved",
+      "clarification_required",
+      "rejected",
+      "shortlisted",
+    ])
     .optional(),
   rejectionReason: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 module.exports = {

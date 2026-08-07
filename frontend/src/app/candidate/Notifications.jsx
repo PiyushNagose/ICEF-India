@@ -40,6 +40,11 @@ const TYPE_CONFIG = {
     color: "bg-red-100 text-red-700",
     icon: XCircle,
   },
+  application_correction: {
+    label: "Clarification",
+    color: "bg-orange-100 text-orange-700",
+    icon: AlertCircle,
+  },
   document_verified: {
     label: "Document",
     color: "bg-green-100 text-green-700",

@@ -17,6 +17,27 @@ const verifyAdmitCard = asyncHandler(async (req, res) => {
     .json(new ApiResponse(StatusCodes.OK, "Admit card verified", result));
 });
 
+// Public render — no auth needed, uses admitCardId from lookup response
+const renderPublicAdmitCardHtml = asyncHandler(async (req, res) => {
+  const { htmlToPdfBuffer } = require("../../shared/services/pdf.service");
+  const html = await examService.renderAdmitCardHtml(req.params.id, {
+    trackDownload: true,
+    embed: req.query.embed === "1",
+  });
+  if (req.query.pdf === "1") {
+    const pdf = await htmlToPdfBuffer(html);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="admit-card.pdf"`,
+    );
+    res.setHeader("Content-Length", pdf.length);
+    return res.status(StatusCodes.OK).send(pdf);
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.status(StatusCodes.OK).send(html);
+});
+
 module.exports = {
   lookupAdmitCard,
   verifyAdmitCard,

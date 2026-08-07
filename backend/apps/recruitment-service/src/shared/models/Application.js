@@ -146,7 +146,9 @@ const applicationSchema = new mongoose.Schema(
         "draft",
         "submitted",
         "under_review",
+        "verified",
         "approved",
+        "clarification_required",
         "rejected",
         "shortlisted",
       ],
@@ -184,7 +186,10 @@ const applicationSchema = new mongoose.Schema(
       requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
       requestedAt: { type: Date },
       submittedAt: { type: Date },
-      supportTicket: { type: mongoose.Schema.Types.ObjectId, ref: "SupportTicket" },
+      supportTicket: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SupportTicket",
+      },
       note: { type: String },
     },
 
@@ -194,6 +199,93 @@ const applicationSchema = new mongoose.Schema(
 
     // ── Current step (for draft tracking) ─────────────────
     currentStep: { type: Number, default: 1, min: 1, max: 30 },
+
+    // ── Public flow fields (NEW) ──────────────────────────
+
+    // Registration number — generated after payment success
+    registrationNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
+    // Whether this was submitted via public form (no login)
+    isPublicApplication: { type: Boolean, default: false },
+
+    // Payment timing preference
+    paymentTiming: {
+      type: String,
+      enum: ["step1", "last_step"],
+      default: "last_step",
+    },
+
+    // Contact for OTP verification (used in public flow)
+    contactEmail: { type: String },
+    contactMobile: { type: String },
+
+    // Exam allocation (populated when admit card is generated)
+    examAllocation: {
+      examScheduleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ExamSchedule",
+      },
+      allocatedDate: { type: Date },
+      allocatedShift: { type: String },
+      preferredCity: { type: String },
+      preferredDistrict: { type: String },
+      admitCardGenerated: { type: Boolean, default: false },
+      admitCardGeneratedAt: { type: Date },
+      rollNumber: { type: String },
+      seatNumber: { type: String },
+      examCenter: { type: mongoose.Schema.Types.Mixed },
+    },
+
+    // Correction window tracking
+    correctionWindow: {
+      startDate: { type: Date },
+      endDate: { type: Date },
+      isActive: { type: Boolean, default: false },
+    },
+    corrections: [
+      {
+        requestId: { type: String },
+        requestedAt: { type: Date },
+        requestedFields: [
+          {
+            field: { type: String },
+            oldValue: { type: String },
+            newValue: { type: String },
+            supportingDocument: { type: String },
+          },
+        ],
+        reason: { type: String },
+        status: {
+          type: String,
+          enum: ["pending", "approved", "rejected", "more_info_needed"],
+          default: "pending",
+        },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+        reviewedAt: { type: Date },
+        reviewComments: { type: String },
+        supportTicketId: { type: mongoose.Schema.Types.ObjectId },
+      },
+    ],
+
+    // Biometric data (encrypted)
+    biometricData: {
+      fingerprintsEncrypted: { type: String },
+      facePhotoHash: { type: String },
+      encryptionAlgorithm: { type: String, default: "AES-256-GCM" },
+      uploadedAt: { type: Date },
+    },
+
+    // File storage batch info (for 10 lakh+ scale)
+    fileStorage: {
+      batchNumber: { type: String },
+      basePath: { type: String },
+      totalStorageUsed: { type: Number, default: 0 },
+    },
   },
   { timestamps: true },
 );
@@ -203,5 +295,7 @@ applicationSchema.index({ jobId: 1 });
 applicationSchema.index({ status: 1 });
 applicationSchema.index({ paymentStatus: 1 });
 applicationSchema.index({ submittedAt: -1 });
+applicationSchema.index({ isPublicApplication: 1 });
+applicationSchema.index({ contactMobile: 1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

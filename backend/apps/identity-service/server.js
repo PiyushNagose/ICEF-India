@@ -29,12 +29,12 @@ const employeeRoutes = require("./src/routes/employee.routes");
 const roleRoutes = require("./src/routes/role.routes");
 const activityLogRoutes = require("./src/routes/activityLog.routes");
 const adminNotificationRoutes = require("./src/routes/adminNotification.routes");
+const publicOtpRoutes = require("./src/routes/publicOtp.routes");
 
 const PORT = parseInt(process.env.IDENTITY_SERVICE_PORT, 10) || 5001;
-const parsedOrigins =
-  env.CLIENT_URL?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean) || ["http://localhost:5173"];
+const parsedOrigins = env.CLIENT_URL?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean) || ["http://localhost:5173"];
 
 const app = express();
 
@@ -63,6 +63,9 @@ app.use("/api/admin/employees", employeeRoutes);
 app.use("/api/admin/roles", roleRoutes);
 app.use("/api/admin/activity-logs", activityLogRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
+
+// ── Public Routes (NO AUTH REQUIRED) ──────────────────────────
+app.use("/api/public/otp", publicOtpRoutes);
 
 // ── Health ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {

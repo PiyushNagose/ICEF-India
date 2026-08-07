@@ -105,17 +105,43 @@ const Payment = () => {
     return "upi";
   };
 
+  const buildSuccessState = ({
+    finalized,
+    amount,
+    transactionId,
+    submittedAt,
+  }) => {
+    const submitted = finalized?.application || finalized || {};
+    return {
+      applicationId,
+      paymentSuccess: true,
+      amount,
+      transactionId,
+      submittedAt: submitted?.submittedAt || submittedAt || new Date().toISOString(),
+      registrationNumber: submitted?.registrationNumber || "",
+    };
+  };
+
   const handlePay = async () => {
     if (grandTotal === 0) {
       // Free application — submit directly
       setProcessing(true);
       try {
         const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
-        await candidateService.finalizeApplication(applicationId, `FREE-${Date.now()}`, draft.declaration || "");
+        const freeTransactionId = `FREE-${Date.now()}`;
+        const finalized = await candidateService.finalizeApplication(
+          applicationId,
+          freeTransactionId,
+          draft.declaration || "",
+        );
         sessionStorage.removeItem(APP_KEY);
         toast.success("Application submitted successfully!");
         navigate("/application/success", {
-          state: { applicationId, paymentSuccess: true, amount: 0, submittedAt: new Date().toISOString() },
+          state: buildSuccessState({
+            finalized,
+            amount: 0,
+            transactionId: freeTransactionId,
+          }),
         });
       } catch (err) {
         toast.error(err.message || "Submission failed");
@@ -229,10 +255,16 @@ const Payment = () => {
                 await candidateService.verifyPayment({ transactionId, gatewayOrderId, status });
                 if (status === "success") {
                   const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
-                  await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
+                  const finalized = await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
                   sessionStorage.removeItem(APP_KEY);
                   sessionStorage.removeItem("pending_payment");
-                  navigate("/application/success", { state: { applicationId, paymentSuccess: true, amount: payableAmount, transactionId, submittedAt: new Date().toISOString() } });
+                  navigate("/application/success", {
+                    state: buildSuccessState({
+                      finalized,
+                      amount: payableAmount,
+                      transactionId,
+                    }),
+                  });
                 }
               },
             },
@@ -246,11 +278,15 @@ const Payment = () => {
 
       // ── FINALIZE (common for Razorpay + Cashfree) ─────────
       const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
-      await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
+      const finalized = await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
       sessionStorage.removeItem(APP_KEY);
       toast.success("Payment successful! Application submitted.");
       navigate("/application/success", {
-        state: { applicationId, paymentSuccess: true, amount: payableAmount, transactionId, submittedAt: new Date().toISOString() },
+        state: buildSuccessState({
+          finalized,
+          amount: payableAmount,
+          transactionId,
+        }),
       });
     } catch (err) {
       if (err.message === "Payment cancelled by user") {

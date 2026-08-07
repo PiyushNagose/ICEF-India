@@ -50,13 +50,17 @@ const buildUpdatePayload = (draft) => {
     const cat = draft.category;
     payload.category = CATEGORY_MAP[cat?.toLowerCase()] || cat;
   }
+  if (def(draft.title)) payload.title = str(draft.title);
+  if (def(draft.postCode)) payload.postCode = str(draft.postCode);
+  if (def(draft.department)) payload.department = str(draft.department);
   if (def(draft.jobType)) {
     const jt = draft.jobType;
     payload.jobType = JOB_TYPE_MAP[jt?.toLowerCase()] || jt;
   }
-  if (def(draft.workLocation)) payload.workLocation = draft.workLocation;
   if (def(draft.description)) payload.description = draft.description;
   if (num(draft.totalPosts)) payload.totalPosts = num(draft.totalPosts);
+  payload.postSelectionMode =
+    draft.postSelectionMode === "preference" ? "preference" : "single";
 
   // Posts — normalise types, strip _id so Zod doesn't choke on ObjectId format
   if (Array.isArray(draft.posts) && draft.posts.length > 0) {
@@ -83,14 +87,6 @@ const buildUpdatePayload = (draft) => {
       obc: num(draft.reservedPosts.obc) || 0,
       ews: num(draft.reservedPosts.ews) || 0,
       pwd: num(draft.reservedPosts.pwd) || 0,
-    };
-  }
-
-  // Salary
-  if (draft.salaryRange?.min || draft.salaryRange?.max) {
-    payload.salaryRange = {
-      min: num(draft.salaryRange.min) || 0,
-      max: num(draft.salaryRange.max) || 0,
     };
   }
 
@@ -168,12 +164,9 @@ const buildUpdatePayload = (draft) => {
     payload.otherRequirements = draft.otherRequirements.filter(Boolean);
   }
 
-  if (
-    Array.isArray(draft.documentRequirements) &&
-    draft.documentRequirements.length > 0
-  ) {
+  if (Array.isArray(draft.documentRequirements)) {
     const validDocs = draft.documentRequirements.filter((d) => d?.name?.trim());
-    if (validDocs.length > 0) payload.documentRequirements = validDocs;
+    payload.documentRequirements = validDocs;
   }
 
   if (Array.isArray(draft.formSections)) {
@@ -181,6 +174,7 @@ const buildUpdatePayload = (draft) => {
       .map((section) => ({
         title: str(section.title),
         required: Boolean(section.required),
+        ...(section.systemSource && { systemSource: str(section.systemSource) }),
         fields: Array.isArray(section.fields)
           ? section.fields
               .map((field) => {
@@ -288,18 +282,42 @@ const JobReview = () => {
   // Validate projectId is a valid MongoDB ObjectId (24 hex chars)
   const isValidObjectId = (id) => /^[a-f\d]{24}$/i.test(id);
 
+  const readStoredDraft = () => {
+    try {
+      const storedDraft = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+      return Object.keys(storedDraft).length ? storedDraft : draft;
+    } catch {
+      return draft;
+    }
+  };
+
+  const clearStoredJobId = () => {
+    const current = readStoredDraft();
+    delete current._jobId;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  };
+
   // Create job or recover existing ID on 409 conflict
   const getOrCreateJobId = async () => {
-    // If we already have a jobId stored in the draft (from a previous save attempt), use it
-    if (draft._jobId && /^[a-f\d]{24}$/i.test(draft._jobId)) {
-      return draft._jobId;
+    const currentDraft = readStoredDraft();
+    const existingJobId = currentDraft._jobId || draft._jobId;
+
+    // If we already have a jobId stored in the draft, verify it still exists.
+    if (existingJobId && /^[a-f\d]{24}$/i.test(existingJobId)) {
+      try {
+        const existing = await adminService.getAdminJob(existingJobId);
+        if (existing?.job?._id) return existingJobId;
+      } catch (err) {
+        if (![404, 400].includes(err?.status)) throw err;
+        clearStoredJobId();
+      }
     }
 
     const createPayload = {
-      projectId: draft.projectId,
-      title: draft.title,
-      postCode: draft.postCode,
-      department: draft.department,
+      projectId: currentDraft.projectId || draft.projectId,
+      title: currentDraft.title || draft.title,
+      postCode: currentDraft.postCode || draft.postCode,
+      department: currentDraft.department || draft.department,
     };
 
     try {
@@ -318,7 +336,7 @@ const JobReview = () => {
       if (err?.status === 409) {
         // postCode already in DB — fetch that job directly
         try {
-          const res = await adminService.getAdminJobByPostCode(draft.postCode);
+          const res = await adminService.getAdminJobByPostCode(createPayload.postCode);
           const jobId = res?.job?._id;
           if (jobId) {
             // Cache it for future retries
@@ -335,11 +353,25 @@ const JobReview = () => {
           // lookup failed
         }
         toast.error(
-          `Post code "${draft.postCode}" is already used. Go to Step 1 and change it.`,
+          `Post code "${createPayload.postCode}" is already used. Go to Step 1 and change it.`,
         );
         return null;
       }
       throw err;
+    }
+  };
+
+  const savePayloadToJob = async (jobId, updatePayload) => {
+    try {
+      await updateJob({ id: jobId, data: updatePayload });
+      return jobId;
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+      clearStoredJobId();
+      const recoveredJobId = await getOrCreateJobId();
+      if (!recoveredJobId) throw err;
+      await updateJob({ id: recoveredJobId, data: updatePayload });
+      return recoveredJobId;
     }
   };
 
@@ -356,9 +388,8 @@ const JobReview = () => {
       if (!jobId) return; // error already shown
       const updatePayload = buildUpdatePayload(draft);
       if (Object.keys(updatePayload).length > 0) {
-        try {
-          await updateJob({ id: jobId, data: updatePayload });
-        } catch (updateErr) {
+        await savePayloadToJob(jobId, updatePayload);
+        if (false) {
           // Log for debugging but don't block — job was created as draft
           toast.success("Job saved as draft (some optional fields skipped)");
           sessionStorage.removeItem(STORAGE_KEY);
@@ -383,6 +414,10 @@ const JobReview = () => {
       toast.error("Please complete Step 1 (Basic Info) first");
       return;
     }
+    if (!draft.applicationStartDate) {
+      toast.error("Application start date is required to publish");
+      return;
+    }
     if (!draft.applicationDeadline) {
       toast.error("Application deadline is required to publish");
       return;
@@ -396,10 +431,11 @@ const JobReview = () => {
       const jobId = await getOrCreateJobId();
       if (!jobId) return;
       const updatePayload = buildUpdatePayload(draft);
+      let publishJobId = jobId;
       if (Object.keys(updatePayload).length > 0) {
-        await updateJob({ id: jobId, data: updatePayload });
+        publishJobId = await savePayloadToJob(jobId, updatePayload);
       }
-      await publishJob(jobId);
+      await publishJob(publishJobId);
       toast.success("Job published successfully!");
       sessionStorage.removeItem(STORAGE_KEY);
       queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
@@ -486,14 +522,13 @@ const JobReview = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2.5">
-                  <InfoRow label="Job Title" value={draft.title} />
-                  <InfoRow label="Post Code" value={draft.postCode} />
+                  <InfoRow label="Advertisement / Exam Title" value={draft.title} />
+                  <InfoRow label="Advertisement / Exam Code" value={draft.postCode} />
                   <InfoRow label="Department" value={draft.department} />
                   <InfoRow label="Category" value={draft.category} />
                   <InfoRow label="Job Type" value={draft.jobType} />
                   <InfoRow label="Total Posts" value={draft.totalPosts} />
-                  <InfoRow label="Work Location" value={draft.workLocation} />
-                  {draft.salaryRange?.min && (
+                  {false && draft.salaryRange?.min && (
                     <InfoRow
                       label="Salary Range"
                       value={`₹${draft.salaryRange.min?.toLocaleString("en-IN")} – ₹${draft.salaryRange.max?.toLocaleString("en-IN")}`}
@@ -509,7 +544,7 @@ const JobReview = () => {
                       <div className="flex items-center space-x-2">
                         <Users className="w-5 h-5 text-orange-600" />
                         <h3 className="font-semibold text-gray-900">
-                          Post Types & Preferences
+                          Posts / Vacancies
                         </h3>
                       </div>
                       <Button
@@ -524,6 +559,16 @@ const JobReview = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    <div className="mb-3 rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-sm">
+                      <span className="font-semibold text-gray-900">
+                        Candidate selection:
+                      </span>{" "}
+                      <span className="text-gray-700">
+                        {draft.postSelectionMode === "preference"
+                          ? "Multiple posts with preference ranking"
+                          : "Single post only"}
+                      </span>
+                    </div>
                     <div className="space-y-3">
                       {draft.posts.map((post, index) => (
                         <div
@@ -772,11 +817,22 @@ const JobReview = () => {
               {/* Dates */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-900">
-                      Important Dates
-                    </h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-5 h-5 text-orange-600" />
+                      <h3 className="font-semibold text-gray-900">
+                        Important Dates
+                      </h3>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => editStep("basic-info")}
+                      className="text-orange-600 hover:bg-orange-50"
+                    >
+                      <Edit className="w-3.5 h-3.5 mr-1" />
+                      Edit
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2.5 text-sm">

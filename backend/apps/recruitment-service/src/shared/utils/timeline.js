@@ -7,6 +7,27 @@ const parseDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const startOfDay = (value) => {
+  const date = parseDate(value);
+  if (!date) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
+  if (!projectLike) return "Upcoming";
+  if (projectLike.status === "Cancelled") return "Cancelled";
+
+  const start = startOfDay(projectLike.startDate);
+  const closure = startOfDay(projectLike.closureDate || projectLike.endDate);
+  const today = startOfDay(now);
+
+  if (start && today < start) return "Upcoming";
+  if (closure && today > closure) return "Completed";
+  if (start && (!closure || today <= closure)) return "Active";
+
+  return projectLike.status || "Upcoming";
+};
+
 const getProjectClosureDate = (project) =>
   parseDate(project?.closureDate || project?.endDate);
 
@@ -159,6 +180,8 @@ const assertAdmitCardReleaseOpen = (job) => {
 
 module.exports = {
   parseDate,
+  startOfDay,
+  getProjectLifecycleStatus,
   getProjectClosureDate,
   getPaymentDeadline,
   assertProjectTimeline,

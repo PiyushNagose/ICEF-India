@@ -51,6 +51,11 @@ const STATUS_CFG = {
     cls: "bg-emerald-100 text-emerald-800",
     dot: "bg-emerald-500",
   },
+  clarification_required: {
+    label: "Clarification Required",
+    cls: "bg-orange-100 text-orange-800",
+    dot: "bg-orange-500",
+  },
   rejected: {
     label: "Rejected",
     cls: "bg-red-100 text-red-800",
@@ -169,6 +174,8 @@ const ApplicationDetails = () => {
   const [activeTab, setActiveTab] = useState("custom");
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [clarificationNote, setClarificationNote] = useState("");
+  const [showClarificationModal, setShowClarificationModal] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -182,20 +189,26 @@ const ApplicationDetails = () => {
     mutationFn: ({ status, notes }) =>
       adminService.updateApplicationStatus(id, {
         status,
+        notes,
         rejectionReason: notes,
       }),
     onSuccess: (_, vars) => {
       toast.success(
-        vars.status === "approved"
-          ? "Application approved"
+        vars.status === "verified"
+          ? "Application verified"
           : vars.status === "rejected"
             ? "Application rejected"
+            : vars.status === "clarification_required"
+              ? "Clarification requested"
             : "Status updated",
       );
       queryClient.invalidateQueries({ queryKey: ["admin-application", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
       setShowRejectModal(false);
+      setShowClarificationModal(false);
       setReviewNote("");
+      setRejectReason("");
+      setClarificationNote("");
     },
     onError: (err) => toast.error(err.message || "Failed to update"),
   });
@@ -242,7 +255,9 @@ const ApplicationDetails = () => {
       if (field.name) fieldLabelMap[String(field.name)] = field.label;
     });
   });
-  const canAct = ["submitted", "under_review"].includes(application.status);
+  const canAct = ["submitted", "under_review", "clarification_required"].includes(
+    application.status,
+  );
 
   const sCfg = STATUS_CFG[application.status] || STATUS_CFG.draft;
   const payCfg =
@@ -253,8 +268,13 @@ const ApplicationDetails = () => {
     application.candidate?.fullName ||
     "";
   const candidateEmail =
-    application.candidateId?.email || application.candidate?.email || personal.email || "";
+    application.contactEmail ||
+    application.candidateId?.email ||
+    application.candidate?.email ||
+    personal.email ||
+    "";
   const candidateMobile =
+    application.contactMobile ||
     personal.registeredMobile ||
     application.candidateId?.registeredMobile ||
     application.candidateId?.contactNumber ||
@@ -286,8 +306,13 @@ const ApplicationDetails = () => {
                 </h1>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
                 <span className="font-mono text-sm font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">
-                  {application.applicationId || id}
+                  {application.registrationNumber || application.applicationId || id}
                 </span>
+                {application.registrationNumber && (
+                  <span className="font-mono text-xs text-gray-500">
+                    {application.applicationId}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 {application.submittedAt
@@ -330,8 +355,13 @@ const ApplicationDetails = () => {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100">
+          <div className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-gray-100">
             {[
+              {
+                label: "Registration No.",
+                val: application.registrationNumber || "Pending",
+                sub: application.applicationId,
+              },
               {
                 label: "Job Applied",
                 val: application.jobId?.title,
@@ -408,7 +438,7 @@ const ApplicationDetails = () => {
                 </Button>
                 <Button
                   onClick={() =>
-                    updateStatus({ status: "approved", notes: reviewNote })
+                    updateStatus({ status: "verified", notes: reviewNote })
                   }
                   disabled={isPending}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -418,9 +448,17 @@ const ApplicationDetails = () => {
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4 mr-1.5" />
-                      Approve
+                      Verify
                     </>
                   )}
+                </Button>
+                <Button
+                  onClick={() => setShowClarificationModal(true)}
+                  disabled={isPending}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  <AlertCircle className="w-4 h-4 mr-1.5" />
+                  Clarification
                 </Button>
                 <Button
                   onClick={() => setShowRejectModal(true)}
@@ -505,6 +543,14 @@ const ApplicationDetails = () => {
                   </p>
                 ) : (
                   <Grid>
+                    <Row
+                      label="Registration Number"
+                      value={application.registrationNumber}
+                    />
+                    <Row
+                      label="Application ID"
+                      value={application.applicationId}
+                    />
                     <Row label="Full Name" value={personal.fullName} />
                     <Row label="Email" value={candidateEmail} />
                     <Row label="Father's Name" value={personal.fatherName} />
@@ -913,6 +959,55 @@ const ApplicationDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Clarification Modal */}
+      {showClarificationModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Request Clarification
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Tell the candidate exactly what must be corrected or clarified.
+              </p>
+            </div>
+            <div className="p-6">
+              <textarea
+                rows="4"
+                placeholder="Enter clarification note (required)..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
+                value={clarificationNote}
+                onChange={(e) => setClarificationNote(e.target.value)}
+              />
+            </div>
+            <div className="px-6 pb-6 flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowClarificationModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  updateStatus({
+                    status: "clarification_required",
+                    notes: clarificationNote,
+                  })
+                }
+                disabled={isPending || !clarificationNote.trim()}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Send Request"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {showRejectModal && (

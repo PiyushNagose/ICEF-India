@@ -18,6 +18,10 @@ import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { adminService } from '../../services/admin.service'
+import {
+  getProjectLifecycleStatus,
+  getProjectStatusBadgeClass,
+} from '../../utils/projectLifecycle'
 
 const Projects = () => {
   const navigate = useNavigate()
@@ -61,7 +65,10 @@ const Projects = () => {
     }
   }
 
-  const projects = data?.projects || []
+  const projects = (data?.projects || []).map((project) => ({
+    ...project,
+    status: getProjectLifecycleStatus(project),
+  }))
 
   const stats = [
     {
@@ -77,7 +84,6 @@ const Projects = () => {
     {
       title: 'ACTIVE',
       value:
-        statsData?.activeProjects ||
         projects.filter((p) => p.status === 'Active').length,
       icon: Rocket,
       color:
@@ -292,11 +298,7 @@ const Projects = () => {
 
                       <Badge
                         className={
-                          project.status === 'Active'
-                            ? 'bg-green-100 text-green-700'
-                            : project.status === 'Completed'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-orange-100 text-orange-700'
+                          getProjectStatusBadgeClass(project.status)
                         }
                       >
                         {project.status}
@@ -326,7 +328,7 @@ const Projects = () => {
                         <button
                           onClick={() =>
                             navigate(
-                              `/admin/projects/${project._id}/edit`
+                              `/admin/projects/${project._id}`
                             )
                           }
                           className="
@@ -343,7 +345,7 @@ const Projects = () => {
                         <button
                           onClick={() =>
                             navigate(
-                              `/admin/projects/${project._id}`
+                              `/admin/projects/${project._id}/edit`
                             )
                           }
                           className="

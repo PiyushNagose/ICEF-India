@@ -14,14 +14,40 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        // Password NOT required for ghost accounts
+        return this.accountType !== "ghost";
+      },
       minlength: 8,
       select: false, // never returned in queries by default
     },
+
+    // ── Account Type (NEW) ────────────────────────────────
+    accountType: {
+      type: String,
+      enum: ["ghost", "candidate", "admin", "employee"],
+      default: "ghost", // Default for public applications
+    },
+
+    // ── Registration Number (NEW) ─────────────────────────
+    registrationNumber: {
+      type: String,
+      unique: true,
+      sparse: true, // Allow null values
+      index: true,
+    },
+
+    // ── Creation Source (NEW) ─────────────────────────────
+    createdVia: {
+      type: String,
+      enum: ["public_application", "admin", "manual"],
+      default: "public_application",
+    },
+
     role: {
       type: String,
-      enum: ["candidate"],
-      default: "candidate",
+      enum: ["candidate", "applicant"], // applicant = ghost users
+      default: "applicant",
     },
     isEmailVerified: { type: Boolean, default: false },
     isMobileVerified: { type: Boolean, default: false },
@@ -69,10 +95,13 @@ const userSchema = new mongoose.Schema(
 
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ registeredMobile: 1 });
+userSchema.index({ accountType: 1 });
+userSchema.index({ email: 1, accountType: 1 });
 
 // ── Hash password before save ─────────────────────────────
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  // Skip password hashing for ghost accounts without password
+  if (!this.password || !this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });

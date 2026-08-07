@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -7,6 +7,7 @@ import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
+import JobConfiguredSection from "./JobConfiguredSection";
 
 const APP_KEY = "app_draft";
 
@@ -53,6 +54,7 @@ const PersonalDetails = () => {
   });
   const [errors, setErrors] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false);
+  const configuredFieldsRef = useRef(null);
 
   // Load existing application data
   const { data: appData, isLoading: loadingApp } = useQuery({
@@ -123,13 +125,17 @@ const PersonalDetails = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => {
+  const app = appData?.application || appData;
+
+  const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found. Please start from a job listing.");
       navigate("/jobs");
       return;
     }
     if (!validate()) return;
+    const extraSaved = await configuredFieldsRef.current?.validateAndSave?.();
+    if (extraSaved === false) return;
     saveStep({
       fullName: formData.fullName.trim(),
       fatherName: formData.fatherName.trim() || undefined,
@@ -404,6 +410,13 @@ const PersonalDetails = () => {
             </div>
           </CardContent>
         </Card>
+
+        <JobConfiguredSection
+          ref={configuredFieldsRef}
+          app={app}
+          applicationId={applicationId}
+          systemSource="personal"
+        />
 
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
           <strong>Important:</strong> Please ensure all data matches your

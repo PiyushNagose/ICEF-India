@@ -1,16 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import ProtectedRoute from "../components/common/ProtectedRoute";
-
-// Loading component
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="flex items-center space-x-3">
-      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-      <span className="text-gray-600">Loading...</span>
-    </div>
-  </div>
-);
+import GlobalPageLoader from "../components/common/GlobalPageLoader";
 
 // Import Home directly for better performance
 import Home from "../app/public/Home";
@@ -54,6 +45,11 @@ const Contact = lazy(() => import("../app/public/Contact"));
 const HowToApply = lazy(() => import("../app/public/HowToApply"));
 const HelpCenter = lazy(() => import("../app/public/HelpCenter"));
 const TechnicalSupport = lazy(() => import("../app/public/TechnicalSupport"));
+const ProjectLanding = lazy(() => import("../app/public/ProjectLanding"));
+const StateLanding = lazy(() => import("../app/public/StateLanding"));
+const PublicApplyEntry = lazy(() => import("../app/public/PublicApplyEntry"));
+const CheckStatus = lazy(() => import("../app/public/CheckStatus"));
+const CorrectionRequest = lazy(() => import("../app/public/CorrectionRequest"));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import("../app/admin/Dashboard"));
@@ -127,7 +123,7 @@ const Notifications = lazy(() => import("../app/candidate/Notifications"));
 
 const AppRoutes = () => {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<GlobalPageLoader />}>
       <Routes>
         {/* Home Route */}
         <Route path="/" element={<Home />} />
@@ -249,6 +245,13 @@ const AppRoutes = () => {
         <Route path="/how-to-apply" element={<HowToApply />} />
         <Route path="/help-center" element={<HelpCenter />} />
         <Route path="/technical-support" element={<TechnicalSupport />} />
+
+        {/* Public project landing + OTP verified application entry */}
+        <Route path="/apply/:slug" element={<ProjectLanding />} />
+        <Route path="/state/:stateSlug" element={<StateLanding />} />
+        <Route path="/apply/:slug/start" element={<PublicApplyEntry />} />
+        <Route path="/check-status" element={<CheckStatus />} />
+        <Route path="/correction-request" element={<CorrectionRequest />} />
 
         {/* Admin Routes */}
         <Route

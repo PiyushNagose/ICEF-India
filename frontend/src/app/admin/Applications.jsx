@@ -58,6 +58,12 @@ const STATUS_CONFIG = {
     text: "text-emerald-800",
     dot: "bg-emerald-500",
   },
+  clarification_required: {
+    label: "Clarification Required",
+    bg: "bg-orange-100",
+    text: "text-orange-800",
+    dot: "bg-orange-500",
+  },
   rejected: {
     label: "Rejected",
     bg: "bg-red-100",
@@ -224,6 +230,11 @@ const Applications = () => {
       count: countByStatus("under_review"),
     },
     { id: "verified", label: "Verified", count: countByStatus("verified") },
+    {
+      id: "clarification_required",
+      label: "Clarification",
+      count: countByStatus("clarification_required"),
+    },
     { id: "rejected", label: "Rejected", count: countByStatus("rejected") },
   ];
 
@@ -238,7 +249,7 @@ const Applications = () => {
 
   const handleBulkApply = async () => {
     if (!bulkAction || selected.length === 0) return;
-    const newStatus = bulkAction === "approve" ? "approved" : "rejected";
+    const newStatus = bulkAction === "approve" ? "verified" : "rejected";
     let done = 0;
     for (const id of selected) {
       await new Promise((resolve) => {
@@ -289,12 +300,15 @@ const Applications = () => {
       const exportData = validApps.map((app) => ({
         "Application ID": app.applicationId || "",
 
+        "Registration Number": app.registrationNumber || "",
+
         "Candidate Name":
           app.personalDetails?.fullName || app.candidateId?.fullName || "",
 
-        Email: app.candidateId?.email || "",
+        Email: app.contactEmail || app.candidateId?.email || "",
 
-        Mobile: app.personalDetails?.registeredMobile || "",
+        Mobile:
+          app.contactMobile || app.personalDetails?.registeredMobile || "",
 
         Gender: app.personalDetails?.gender || "",
 
@@ -376,12 +390,14 @@ const Applications = () => {
     null;
 
   const getCandidateEmail = (app) =>
+    app.contactEmail ||
     app.candidate?.email ||
     app.candidateId?.email ||
     app.personalDetails?.email ||
     null;
 
   const getCandidateMobile = (app) =>
+    app.contactMobile ||
     app.personalDetails?.registeredMobile ||
     app.candidate?.registeredMobile ||
     app.candidateId?.registeredMobile ||
@@ -478,7 +494,7 @@ const Applications = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, email, or application ID..."
+                placeholder="Search name, email, mobile, registration, or application ID..."
                 className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
@@ -496,8 +512,7 @@ const Applications = () => {
                   onChange={(e) => setBulkAction(e.target.value)}
                 >
                   <option value="">Bulk Action</option>
-                  <option value="approve">Approve All</option>
-                  <option value="reject">Reject All</option>
+                  <option value="approve">Verify Selected</option>
                 </select>
                 <Button
                   size="sm"
@@ -538,7 +553,7 @@ const Applications = () => {
                     Candidate
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
-                    Application ID
+                    Registration / Application
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Job Applied
@@ -637,11 +652,22 @@ const Applications = () => {
                         </div>
                       </td>
 
-                      {/* Application ID */}
+                      {/* Registration / Application ID */}
                       <td className="py-4 px-4">
-                        <span className="font-mono text-sm font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
-                          {app.applicationId}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          {app.registrationNumber ? (
+                            <span className="font-mono text-sm font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                              {app.registrationNumber}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              Registration pending
+                            </span>
+                          )}
+                          <span className="font-mono text-xs text-gray-500">
+                            {app.applicationId}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Job */}
@@ -702,7 +728,7 @@ const Applications = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {["submitted", "under_review"].includes(
+                          {["submitted", "under_review", "clarification_required"].includes(
                             app.status,
                           ) && (
                             <>
@@ -710,27 +736,14 @@ const Applications = () => {
                                 onClick={() =>
                                   updateStatus({
                                     id: app._id,
-                                    status: "approved",
+                                    status: "verified",
                                     rejectionReason: "",
                                   })
                                 }
                                 className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Approve"
+                                title="Verify"
                               >
                                 <CheckCircle className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  updateStatus({
-                                    id: app._id,
-                                    status: "rejected",
-                                    rejectionReason: "",
-                                  })
-                                }
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Reject"
-                              >
-                                <X className="w-4 h-4" />
                               </button>
                             </>
                           )}
@@ -842,15 +855,7 @@ const Applications = () => {
             <div className="p-6">
               <p className="text-gray-600 text-sm">
                 You are about to{" "}
-                <strong
-                  className={
-                    bulkAction === "approve"
-                      ? "text-emerald-700"
-                      : "text-red-700"
-                  }
-                >
-                  {bulkAction}
-                </strong>{" "}
+                <strong className="text-emerald-700">verify</strong>{" "}
                 <strong>{selected.length}</strong> application(s). This action
                 cannot be undone.
               </p>
@@ -865,11 +870,7 @@ const Applications = () => {
               <Button
                 onClick={handleBulkApply}
                 disabled={isUpdating}
-                className={
-                  bulkAction === "approve"
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                    : "bg-red-600 hover:bg-red-700 text-white"
-                }
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {isUpdating ? (
                   <>
@@ -877,7 +878,7 @@ const Applications = () => {
                     Processing...
                   </>
                 ) : (
-                  `Confirm ${bulkAction === "approve" ? "Approval" : "Rejection"}`
+                  "Confirm Verification"
                 )}
               </Button>
             </div>

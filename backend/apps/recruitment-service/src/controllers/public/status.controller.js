@@ -1,0 +1,295 @@
+const { StatusCodes } = require("http-status-codes");
+const Application = require("../../shared/models/Application");
+const SupportTicket = require("../../shared/models/SupportTicket");
+const User = require("../../shared/models/User");
+const ApiError = require("../../shared/utils/ApiError");
+const { ApiResponse } = require("../../shared/utils/ApiResponse");
+const asyncHandler = require("../../shared/utils/asyncHandler");
+const crypto = require("crypto");
+const {
+  normalizeOtpIdentifier,
+  assertOTPVerified,
+} = require("../../shared/utils/publicOtp");
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/public/application/status
+// Check application status by registration number (OTP verified)
+// ─────────────────────────────────────────────────────────────
+exports.checkStatus = asyncHandler(async (req, res) => {
+  const { registrationNumber, dateOfBirth } = req.body;
+  const mobile = normalizeOtpIdentifier(req.body.mobile, "mobile");
+
+  if (!registrationNumber || !mobile) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Registration number and mobile are required",
+    );
+  }
+
+  // Verify mobile OTP
+  await assertOTPVerified(mobile, "mobile");
+
+  // Find application
+  const application = await Application.findOne({ registrationNumber })
+    .populate(
+      "jobId",
+      "title department postCode examDate admitCardReleaseDate resultDate applicationDeadline correctionStartDate correctionDeadline",
+    )
+    .populate("candidateId", "email registeredMobile dateOfBirth")
+    .lean();
+
+  if (!application) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "No application found with this registration number",
+    );
+  }
+
+  // Verify mobile matches
+  const storedMobile = normalizeOtpIdentifier(
+    application.candidateId?.registeredMobile || application.contactMobile,
+    "mobile",
+  );
+  if (storedMobile && storedMobile !== mobile) {
+    throw new ApiError(
+      StatusCodes.UNAUTHORIZED,
+      "Mobile number does not match our records",
+    );
+  }
+
+  // Optionally verify DOB
+  if (dateOfBirth && application.personalDetails?.dateOfBirth) {
+    const storedDOB = new Date(application.personalDetails.dateOfBirth)
+      .toISOString()
+      .split("T")[0];
+    if (storedDOB !== dateOfBirth) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        "Date of birth does not match our records",
+      );
+    }
+  }
+
+  const job = application.jobId;
+  const now = new Date();
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Application status fetched", {
+      registrationNumber: application.registrationNumber,
+      applicationId: application.applicationId,
+      applicantName: application.personalDetails?.fullName,
+      status: application.status,
+      paymentStatus: application.paymentStatus,
+      totalFee: application.totalFee,
+      appliedPosts: application.appliedPosts?.map((p) => ({
+        title: p.title,
+        postCode: p.postCode,
+        department: p.department,
+      })),
+      submittedAt: application.submittedAt,
+      jobDetails: job
+        ? {
+            title: job.title,
+            department: job.department,
+            postCode: job.postCode,
+            examDate: job.examDate,
+            admitCardDate: job.admitCardReleaseDate,
+            resultDate: job.resultDate,
+            applicationDeadline: job.applicationDeadline,
+          }
+        : null,
+      correctionWindow: {
+        isOpen:
+          job?.correctionStartDate &&
+          job?.correctionDeadline &&
+          job.correctionStartDate <= now &&
+          job.correctionDeadline >= now,
+        startDate: job?.correctionStartDate,
+        endDate: job?.correctionDeadline,
+      },
+      admitCardAvailable:
+        job?.admitCardReleaseDate && job.admitCardReleaseDate <= now,
+      hasExistingCorrection:
+        application.corrections?.length > 0 &&
+        application.corrections.some((c) =>
+          ["pending", "approved"].includes(c.status),
+        ),
+    }),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/public/application/request-correction
+// Submit correction request during correction window
+// ─────────────────────────────────────────────────────────────
+exports.requestCorrection = asyncHandler(async (req, res) => {
+  const {
+    registrationNumber,
+    corrections, // array of { field, oldValue, newValue, reason }
+    overallReason,
+  } = req.body;
+  const mobile = normalizeOtpIdentifier(req.body.mobile, "mobile");
+
+  if (!registrationNumber || !mobile) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Registration number and mobile are required",
+    );
+  }
+  if (!corrections?.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "At least one correction is required",
+    );
+  }
+
+  // Verify mobile OTP
+  await assertOTPVerified(mobile, "mobile");
+
+  // Find application
+  const application = await Application.findOne({ registrationNumber })
+    .populate("jobId", "title correctionStartDate correctionDeadline")
+    .populate("candidateId", "registeredMobile _id");
+
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+  }
+
+  // Verify mobile
+  const storedMobile = normalizeOtpIdentifier(
+    application.candidateId?.registeredMobile || application.contactMobile,
+    "mobile",
+  );
+  if (storedMobile && storedMobile !== mobile) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Mobile does not match");
+  }
+
+  // Check correction window
+  const now = new Date();
+  const job = application.jobId;
+  const windowOpen =
+    job?.correctionStartDate &&
+    job?.correctionDeadline &&
+    job.correctionStartDate <= now &&
+    job.correctionDeadline >= now;
+
+  if (!windowOpen) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      job?.correctionStartDate
+        ? `Correction window is closed. It was open from ${job.correctionStartDate.toDateString()} to ${job.correctionDeadline.toDateString()}`
+        : "No correction window is configured for this recruitment",
+    );
+  }
+
+  // Check no existing pending correction
+  const existingPending = application.corrections?.find(
+    (c) => c.status === "pending",
+  );
+  if (existingPending) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      `A correction request (${existingPending.requestId}) is already pending review`,
+    );
+  }
+
+  // Build correction entry
+  const requestId = `CORR-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  const correctionEntry = {
+    requestId,
+    requestedAt: now,
+    requestedFields: corrections.map((c) => ({
+      field: c.field,
+      oldValue: String(c.oldValue || ""),
+      newValue: String(c.newValue || ""),
+      supportingDocument: c.supportingDocumentUrl || "",
+    })),
+    reason: overallReason || corrections.map((c) => c.reason).join("; "),
+    status: "pending",
+  };
+
+  application.corrections.push(correctionEntry);
+
+  // Also set the legacy correction field for compatibility with existing admin views
+  application.correction = {
+    status: "requested",
+    requestedAt: now,
+    note: overallReason,
+  };
+
+  await application.save();
+
+  // Create support ticket
+  const ticketId = `TKT-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  const ticket = await SupportTicket.create({
+    ticketId,
+    title: `Correction Request — ${application.personalDetails?.fullName || registrationNumber}`,
+    description: `Registration: ${registrationNumber}\n\nRequested Changes:\n${corrections
+      .map(
+        (c) => `• ${c.field}: "${c.oldValue}" → "${c.newValue}" (${c.reason})`,
+      )
+      .join("\n")}`,
+    category: "Application",
+    priority: "High",
+    status: "Open",
+    raisedBy: application.candidateId._id,
+    raisedByEmail: application.contactEmail,
+  });
+
+  // Link ticket to correction
+  application.corrections[application.corrections.length - 1].supportTicketId =
+    ticket._id;
+  application.correction.supportTicket = ticket._id;
+  await application.save();
+
+  res.status(StatusCodes.CREATED).json(
+    new ApiResponse(
+      StatusCodes.CREATED,
+      "Correction request submitted successfully",
+      {
+        requestId,
+        ticketId,
+        status: "pending",
+        message:
+          "Your correction request has been submitted. You will be notified once reviewed.",
+        estimatedResolutionTime: "48 hours",
+      },
+    ),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/public/application/correction-status/:requestId
+// Check status of a correction request
+// ─────────────────────────────────────────────────────────────
+exports.getCorrectionStatus = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const { registrationNumber } = req.query;
+
+  if (!registrationNumber) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Registration number required");
+  }
+
+  const application = await Application.findOne({ registrationNumber }).lean();
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+  }
+
+  const correction = application.corrections?.find(
+    (c) => c.requestId === requestId,
+  );
+  if (!correction) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Correction request not found");
+  }
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Correction request status", {
+      requestId: correction.requestId,
+      status: correction.status,
+      requestedAt: correction.requestedAt,
+      reviewedAt: correction.reviewedAt,
+      reviewComments: correction.reviewComments,
+      requestedFields: correction.requestedFields,
+    }),
+  );
+});
