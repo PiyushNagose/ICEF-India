@@ -44,4 +44,13 @@ export const publicService = {
   // Download admit card by registration number + OTP
   downloadAdmitCard: (payload) =>
     apiClient.post("/admit-cards/lookup", payload).then(unwrapData),
+
+  submitSupportEnquiry: (payload) =>
+    apiClient.post("/public/support/enquiry", payload).then(unwrapData),
+
+  lookupSupportTicket: (payload) =>
+    apiClient.post("/public/support/lookup", payload).then(unwrapData),
+
+  replySupportTicket: (payload) =>
+    apiClient.post("/public/support/reply", payload).then(unwrapData),
 };

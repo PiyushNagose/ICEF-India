@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -20,9 +20,14 @@ import {
   Trash2,
   ChevronRight,
   Info,
+  FileText,
+  Briefcase,
+  Calendar,
+  IndianRupee,
 } from "lucide-react";
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
+import { showOtpToast } from "../../utils/otpToast";
 
 const CORRECTABLE_FIELDS = [
   { value: "personalDetails.fullName", label: "Full Name" },
@@ -41,23 +46,44 @@ const CORRECTABLE_FIELDS = [
   { value: "documents.domicile", label: "Domicile Certificate" },
 ];
 
-const Input = ({ ...props }) => (
+const Input = ({ className = "", ...props }) => (
   <input
-    className="w-full h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm text-[#1f1d1b] placeholder-[#b0a89e] outline-none focus:ring-2 focus:ring-orange-400 transition"
+    className={`h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition placeholder:text-[#b0a89e] focus:border-orange-400 focus:ring-2 focus:ring-orange-200 disabled:bg-[#faf7f2] ${className}`}
     {...props}
   />
 );
 
+const labelClass =
+  "mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]";
+
+const panelClass =
+  "rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7";
+
+const fmt = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
+
 export default function CorrectionRequest() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialLookup = location.state?.lookup || {};
 
-  const [regNumber, setRegNumber] = useState("");
-  const [mobile, setMobile] = useState("");
+  const [regNumber, setRegNumber] = useState(
+    initialLookup.registrationNumber || "",
+  );
+  const [mobile, setMobile] = useState(initialLookup.mobile || "");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [applicationLoading, setApplicationLoading] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitted, setSubmitted] = useState(null);
 
@@ -87,9 +113,9 @@ export default function CorrectionRequest() {
     }
     setSendLoading(true);
     try {
-      await publicService.sendOTP(mobile, "mobile");
+      const response = await publicService.sendOTP(mobile, "mobile");
       setOtpSent(true);
-      toast.success("OTP sent to your mobile");
+      showOtpToast(response, "OTP sent to your mobile");
     } catch (err) {
       if (!err.toastShown) toast.error(err.message || "Failed to send OTP");
     } finally {
@@ -98,6 +124,10 @@ export default function CorrectionRequest() {
   };
 
   const handleVerifyOTP = async () => {
+    if (!regNumber.trim()) {
+      toast.error("Enter your registration number first");
+      return;
+    }
     if (otp.length !== 6) {
       toast.error("Enter 6-digit OTP");
       return;
@@ -106,11 +136,25 @@ export default function CorrectionRequest() {
     try {
       await publicService.verifyOTP(mobile, "mobile", otp);
       setOtpVerified(true);
-      toast.success("Mobile verified!");
+      setApplicationLoading(true);
+      const application = await publicService.checkStatus({
+        registrationNumber: regNumber.trim().toUpperCase(),
+        mobile,
+      });
+      setSelectedApplication(application);
+      toast.success("Application verified");
     } catch (err) {
-      if (!err.toastShown) toast.error("Invalid or expired OTP");
+      setOtpVerified(false);
+      setSelectedApplication(null);
+      if (!err.toastShown) {
+        toast.error(
+          err.message ||
+            "Unable to verify this registration number and mobile",
+        );
+      }
     } finally {
       setVerifyLoading(false);
+      setApplicationLoading(false);
     }
   };
 
@@ -121,6 +165,10 @@ export default function CorrectionRequest() {
     }
     if (!otpVerified) {
       toast.error("Please verify your mobile first");
+      return;
+    }
+    if (!selectedApplication?.registrationNumber) {
+      toast.error("Confirm the linked application before submitting");
       return;
     }
     if (corrections.some((c) => !c.field || !c.newValue || !c.reason)) {
@@ -157,9 +205,9 @@ export default function CorrectionRequest() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-[#e0d7cd] rounded-2xl p-8 max-w-md w-full text-center shadow-sm"
+            className="w-full max-w-md rounded-[8px] border border-[#e0d7cd] bg-white p-8 text-center shadow-sm"
           >
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
             <h2 className="text-xl font-black text-[#1f1d1b]">
@@ -173,6 +221,9 @@ export default function CorrectionRequest() {
               {[
                 { label: "Request ID", val: submitted.requestId },
                 { label: "Ticket ID", val: submitted.ticketId },
+                { label: "Registration", val: submitted.registrationNumber },
+                { label: "Application", val: submitted.applicationId },
+                { label: "Recruitment", val: submitted.jobTitle },
                 { label: "Status", val: "Pending Review" },
                 {
                   label: "Est. Resolution",
@@ -214,55 +265,63 @@ export default function CorrectionRequest() {
       <div className="min-h-screen bg-[#f5efe9]">
         {/* Hero */}
         <div className="bg-[#201d1a] text-white">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-            <p className="text-[10px] uppercase tracking-widest font-black text-orange-400 mb-2">
+          <div className="mx-auto max-w-[1380px] px-4 py-9 sm:px-6 lg:px-8">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-2xl font-black">
+            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
               Request Application Correction
             </h1>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-white/70">
               Submit a correction during the correction window. Ensure you have
               supporting documents ready.
             </p>
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-5">
-          {/* Notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
-            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800">
-              <p className="font-black">Correction Window</p>
-              <p className="mt-0.5">
-                Corrections can only be submitted during the official correction
-                window. Check your recruitment notification for exact dates.
-                Only 1 correction request is allowed per application.
+        <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+          <div className="grid items-stretch gap-7 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="space-y-5">
+          {/* Identity */}
+          <div className={`${panelClass} space-y-5`}>
+            <div className="border-b border-[#f0e8e0] pb-5">
+              <h2 className="text-[20px] font-black text-[#1f1d1b]">
+                Verify Your Identity
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[#6d6761]">
+                Enter your registration number and verify the registered mobile
+                before requesting corrections.
               </p>
             </div>
-          </div>
-
-          {/* Identity */}
-          <div className="bg-white border border-[#e0d7cd] rounded-xl p-6 space-y-4">
-            <h2 className="font-black text-[#1f1d1b]">Verify Your Identity</h2>
 
             {/* Reg number */}
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
+              <label className={labelClass}>
                 Registration Number *
               </label>
               <Input
                 type="text"
                 placeholder="e.g. BPOL2600001234"
                 value={regNumber}
-                onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setRegNumber(e.target.value.toUpperCase());
+                  setOtpSent(false);
+                  setOtpVerified(false);
+                  setOtp("");
+                  setSelectedApplication(null);
+                }}
                 className="font-mono"
               />
+              <p className="mt-2 text-xs font-medium leading-5 text-[#7a7168]">
+                Each submitted application has its own registration number. If
+                you applied for multiple jobs, enter the registration number of
+                the exact application you want corrected.
+              </p>
             </div>
 
             {/* Mobile OTP */}
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5 flex items-center gap-1.5">
+              <label className={`${labelClass} flex items-center gap-1.5`}>
                 <Phone className="w-3.5 h-3.5 text-[#e46a1d]" />
                 Registered Mobile
                 {otpVerified && (
@@ -283,6 +342,7 @@ export default function CorrectionRequest() {
                     setOtpSent(false);
                     setOtpVerified(false);
                     setOtp("");
+                    setSelectedApplication(null);
                   }}
                   disabled={otpVerified}
                 />
@@ -290,7 +350,7 @@ export default function CorrectionRequest() {
                   <button
                     disabled={sendLoading || mobile.length !== 10}
                     onClick={handleSendOTP}
-                    className="h-11 px-4 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-xs flex items-center gap-1.5 transition"
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {sendLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -314,7 +374,7 @@ export default function CorrectionRequest() {
                   <button
                     disabled={verifyLoading || otp.length !== 6}
                     onClick={handleVerifyOTP}
-                    className="h-11 px-4 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-xs flex items-center gap-1.5 transition"
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {verifyLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -327,21 +387,122 @@ export default function CorrectionRequest() {
             </div>
           </div>
 
+          {applicationLoading && (
+            <div className={`${panelClass} flex items-center gap-3`}>
+              <Loader2 className="h-5 w-5 animate-spin text-[#e46a1d]" />
+              <div>
+                <p className="text-sm font-black text-[#1f1d1b]">
+                  Verifying application
+                </p>
+                <p className="text-xs font-medium text-[#7a7168]">
+                  Matching registration number with registered mobile.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {selectedApplication && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="overflow-hidden rounded-[8px] border border-emerald-200 bg-white shadow-sm"
+            >
+              <div className="border-b border-emerald-100 bg-emerald-50 px-6 py-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                  Application Confirmed
+                </p>
+                <h3 className="mt-1 text-lg font-black text-[#1f1d1b]">
+                  Correction will be raised for this application only
+                </h3>
+              </div>
+              <div className="grid gap-3 p-6 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                  <FileText className="mb-3 h-5 w-5 text-[#e46a1d]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                    Registration
+                  </p>
+                  <p className="mt-1 break-all font-mono text-sm font-black text-[#1f1d1b]">
+                    {selectedApplication.registrationNumber}
+                  </p>
+                  <p className="mt-1 font-mono text-xs font-semibold text-[#7a7168]">
+                    {selectedApplication.applicationId}
+                  </p>
+                </div>
+                <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                  <Briefcase className="mb-3 h-5 w-5 text-[#e46a1d]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                    Recruitment
+                  </p>
+                  <p className="mt-1 text-sm font-black text-[#1f1d1b]">
+                    {selectedApplication.jobDetails?.title || "Not available"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#7a7168]">
+                    {selectedApplication.jobDetails?.department || "-"}
+                  </p>
+                </div>
+                <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                  <IndianRupee className="mb-3 h-5 w-5 text-[#e46a1d]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                    Payment
+                  </p>
+                  <p className="mt-1 text-sm font-black capitalize text-[#1f1d1b]">
+                    {selectedApplication.paymentStatus || "-"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#7a7168]">
+                    Fee: INR {selectedApplication.totalFee || 0}
+                  </p>
+                </div>
+                <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                  <Calendar className="mb-3 h-5 w-5 text-[#e46a1d]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                    Correction Window
+                  </p>
+                  <p className="mt-1 text-sm font-black text-[#1f1d1b]">
+                    {selectedApplication.correctionWindow?.isOpen
+                      ? "Open"
+                      : "Closed"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#7a7168]">
+                    {fmt(selectedApplication.correctionWindow?.startDate)} to{" "}
+                    {fmt(selectedApplication.correctionWindow?.endDate)}
+                  </p>
+                </div>
+              </div>
+              {selectedApplication.appliedPosts?.length > 0 && (
+                <div className="border-t border-[#f0e8e0] px-6 py-4">
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                    Applied Post(s)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedApplication.appliedPosts.map((post, index) => (
+                      <span
+                        key={`${post.postCode || post.title}-${index}`}
+                        className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-black text-[#c8510d]"
+                      >
+                        {post.title} {post.postCode ? `- ${post.postCode}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Corrections form */}
-          {otpVerified && (
+          {otpVerified && selectedApplication && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-5"
             >
-              <div className="bg-white border border-[#e0d7cd] rounded-xl p-6 space-y-5">
+              <div className={`${panelClass} space-y-5`}>
                 <div className="flex items-center justify-between">
-                  <h2 className="font-black text-[#1f1d1b]">
+                  <h2 className="text-[20px] font-black text-[#1f1d1b]">
                     Correction Details
                   </h2>
                   <button
                     onClick={addCorrection}
-                    className="inline-flex items-center gap-1.5 text-xs font-black text-[#e46a1d] hover:text-[#cb5d16]"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-[6px] border border-orange-200 px-3 text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] transition hover:bg-orange-50 hover:text-[#cb5d16]"
                   >
                     <Plus className="w-4 h-4" /> Add Field
                   </button>
@@ -350,7 +511,7 @@ export default function CorrectionRequest() {
                 {corrections.map((c, i) => (
                   <div
                     key={i}
-                    className="border border-[#f0e9e1] rounded-xl p-4 space-y-3"
+                    className="space-y-3 rounded-[8px] border border-[#f0e9e1] bg-[#fffdfb] p-4"
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-black text-[#1f1d1b]">
@@ -375,7 +536,7 @@ export default function CorrectionRequest() {
                         onChange={(e) =>
                           updateCorrection(i, "field", e.target.value)
                         }
-                        className="w-full h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm text-[#1f1d1b] outline-none focus:ring-2 focus:ring-orange-400 transition"
+                        className="h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
                       >
                         <option value="">Select field</option>
                         {CORRECTABLE_FIELDS.map((f) => (
@@ -438,7 +599,7 @@ export default function CorrectionRequest() {
                     placeholder="Describe why corrections are needed (attach supporting documents if applicable)"
                     value={overallReason}
                     onChange={(e) => setOverallReason(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg border border-[#e0d7cd] bg-white text-sm text-[#1f1d1b] placeholder-[#b0a89e] outline-none focus:ring-2 focus:ring-orange-400 transition resize-none"
+                        className="w-full resize-none rounded-[6px] border border-[#e0d7cd] bg-white px-4 py-3 text-sm text-[#1f1d1b] outline-none transition placeholder:text-[#b0a89e] focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
                   />
                 </div>
 
@@ -456,7 +617,7 @@ export default function CorrectionRequest() {
                 <button
                   disabled={submitLoading}
                   onClick={handleSubmit}
-                  className="w-full h-12 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -470,6 +631,44 @@ export default function CorrectionRequest() {
               </div>
             </motion.div>
           )}
+            </div>
+
+            <aside className="space-y-5">
+              <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-6">
+                <div className="flex items-start gap-3">
+                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="text-sm text-amber-800">
+                    <p className="text-sm font-black">Correction Window</p>
+                    <p className="mt-1 text-sm font-medium leading-6">
+                      Corrections can only be submitted during the official
+                      correction window. Check your recruitment notification for
+                      exact dates. Only 1 correction request is allowed per
+                      application.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
+                  Before Submitting
+                </p>
+                <div className="mt-4 grid gap-4 text-sm font-medium leading-6 text-[#4a4540]">
+                  {[
+                    "Keep the registration number from your submitted application.",
+                    "Use the same mobile number used during application.",
+                    "Request only fields that require correction.",
+                    "Keep supporting documents ready for admin review.",
+                  ].map((item) => (
+                    <div key={item} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
     </PublicLayout>

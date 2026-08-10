@@ -26,7 +26,6 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import heroBg from "../../assets/herobg.jpg";
 import { jobService } from "../../services/job.service";
 import { getStoredUser } from "../../services/auth.service";
-import { getDashboardPath } from "../../hooks/useAuth";
 import CustomSelect from "../../components/ui/CustomSelect";
 import { publicService } from "../../services/public.service";
 
@@ -105,21 +104,11 @@ const Home = () => {
   };
 
   const handleNewUser = () => {
-    const user = getStoredUser();
-    if (user) {
-      navigate(getDashboardPath(user));
-    } else {
-      navigate("/auth/register");
-    }
+    navigate("/jobs");
   };
 
   const handleLogin = () => {
-    const user = getStoredUser();
-    if (user) {
-      navigate(getDashboardPath(user));
-    } else {
-      navigate("/auth/candidate-login");
-    }
+    navigate("/check-status");
   };
 
   const handleGetHelp = () => {
@@ -133,7 +122,7 @@ const Home = () => {
         limit: 6,
         state: selectedState || undefined,
       }),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 15 * 1000,
   });
 
   const activeProjects = projectsData?.projects || [];
@@ -429,8 +418,8 @@ const Home = () => {
                   color: "text-[#4f6ef7]",
                   bg: "bg-[#eef2ff]",
                   title: "New User?",
-                  desc: "Create your profile and apply to multiple openings.",
-                  action: "Register Now",
+                  desc: "Browse active recruitments and start with OTP verification.",
+                  action: "View Openings",
                   onClick: handleNewUser,
                 },
                 {
@@ -439,7 +428,7 @@ const Home = () => {
                   bg: "bg-[#ecfff2]",
                   title: "Already Applied?",
                   desc: "Check status, download admit cards, and results.",
-                  action: "Login Here",
+                  action: "Check Status",
                   onClick: handleLogin,
                 },
                 {

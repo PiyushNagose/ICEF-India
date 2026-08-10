@@ -31,6 +31,18 @@ const STATUS_COLORS = {
   Closed: "bg-gray-100 text-gray-800",
 };
 
+const getTicketContact = (ticket) => ({
+  name:
+    ticket.raisedBy?.fullName ||
+    ticket.guestContact?.name ||
+    "Public candidate",
+  email:
+    ticket.raisedBy?.email ||
+    ticket.guestContact?.email ||
+    ticket.guestContact?.mobile ||
+    "No contact provided",
+});
+
 const Support = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
@@ -102,9 +114,22 @@ const Support = () => {
           t.title?.toLowerCase().includes(search.toLowerCase()) ||
           t.ticketId?.toLowerCase().includes(search.toLowerCase()) ||
           t.raisedBy?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-          t.raisedBy?.email?.toLowerCase().includes(search.toLowerCase()),
+          t.raisedBy?.email?.toLowerCase().includes(search.toLowerCase()) ||
+          t.guestContact?.name?.toLowerCase().includes(search.toLowerCase()) ||
+          t.guestContact?.email?.toLowerCase().includes(search.toLowerCase()) ||
+          t.registrationNumber?.toLowerCase().includes(search.toLowerCase()),
       )
     : tickets;
+  const displayTickets = filtered.map((ticket) => ({
+    ...ticket,
+    raisedBy: ticket.raisedBy || {
+      fullName: ticket.guestContact?.name || "Public candidate",
+      email:
+        ticket.guestContact?.email ||
+        ticket.guestContact?.mobile ||
+        "No contact provided",
+    },
+  }));
 
   return (
     <AdminLayout title="Support">
@@ -222,7 +247,7 @@ const Support = () => {
                     </td>
                   </tr>
                 )}
-                {filtered.map((ticket) => (
+                {displayTickets.map((ticket) => (
                   <tr
                     key={ticket._id}
                     className="hover:bg-orange-50 transition-colors"

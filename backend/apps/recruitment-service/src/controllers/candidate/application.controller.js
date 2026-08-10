@@ -1,4 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
+const fs = require("fs");
+const path = require("path");
+const { Readable } = require("stream");
 const Application = require("../../shared/models/Application");
 const Job = require("../../shared/models/Job");
 const User = require("../../shared/models/User");
@@ -235,7 +238,6 @@ const createApplication = asyncHandler(async (req, res) => {
       StatusCodes.BAD_REQUEST,
       "Job is not accepting applications",
     );
-  assertApplicationWindowOpen(job);
 
   const candidate = await User.findById(candidateId);
   const isPublicApplySession =
@@ -246,6 +248,56 @@ const createApplication = asyncHandler(async (req, res) => {
     "jobId",
     "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
   );
+  if (existing && existing.status !== "draft")
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "You have already applied for this job",
+      [
+        {
+          field: "jobId",
+          message: "Application already exists for this recruitment",
+          applicationId: existing._id,
+          publicApplicationId: existing.applicationId,
+          status: existing.status,
+          registrationNumber: existing.registrationNumber,
+        },
+      ],
+    );
+
+  if (!existing && isPublicApplySession) {
+    const duplicateContactFilters = [];
+    if (candidate.email) duplicateContactFilters.push({ contactEmail: candidate.email });
+    if (candidate.registeredMobile)
+      duplicateContactFilters.push({ contactMobile: candidate.registeredMobile });
+
+    const contactDuplicate = duplicateContactFilters.length
+      ? await Application.findOne({
+          jobId,
+          status: { $ne: "draft" },
+          $or: duplicateContactFilters,
+        }).select("_id applicationId status registrationNumber")
+      : null;
+
+    if (contactDuplicate) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        "You have already applied for this job",
+        [
+          {
+            field: "jobId",
+            message: "Application already exists for this recruitment",
+            applicationId: contactDuplicate._id,
+            publicApplicationId: contactDuplicate.applicationId,
+            status: contactDuplicate.status,
+            registrationNumber: contactDuplicate.registrationNumber,
+          },
+        ],
+      );
+    }
+  }
+
+  assertApplicationWindowOpen(job);
+
   if (existing?.status === "draft") {
     if (isPublicApplySession && !existing.isPublicApplication) {
       existing.isPublicApplication = true;
@@ -260,11 +312,6 @@ const createApplication = asyncHandler(async (req, res) => {
       }),
     );
   }
-  if (existing)
-    throw new ApiError(
-      StatusCodes.CONFLICT,
-      "You have already applied for this job",
-    );
 
   const application = await Application.create({
     applicationId: generateApplicationId(),
@@ -823,6 +870,9 @@ const uploadDocument = asyncHandler(async (req, res) => {
   if (existingDoc?.cloudinaryPublicId) {
     await deleteFromCloudinary(existingDoc.cloudinaryPublicId);
   }
+  if (existingDoc?.localPath) {
+    fs.promises.unlink(existingDoc.localPath).catch(() => {});
+  }
 
   // Upload to Cloudinary
   const result = await uploadToCloudinary(req.file.buffer, {
@@ -830,12 +880,28 @@ const uploadDocument = asyncHandler(async (req, res) => {
     public_id: `${docType}_${Date.now()}`,
   });
 
+  const safeOriginalName = path
+    .basename(req.file.originalname || docType)
+    .replace(/[^\w.\-() ]+/g, "_");
+  const localDir = path.resolve(
+    process.cwd(),
+    "uploads",
+    "applications",
+    String(app._id),
+    docType,
+  );
+  await fs.promises.mkdir(localDir, { recursive: true });
+  const localPath = path.join(localDir, `${Date.now()}-${safeOriginalName}`);
+  await fs.promises.writeFile(localPath, req.file.buffer);
+
   // Update or add document entry
   const docData = {
     type: docType,
     name: selectedRequirement?.name || docType.replace(/_/g, " "),
     cloudinaryUrl: result.secure_url,
     cloudinaryPublicId: result.public_id,
+    localPath,
+    mimeType: req.file.mimetype,
     originalName: req.file.originalname,
     sizeKB: Math.round(req.file.size / 1024),
     status: "uploaded",
@@ -1153,7 +1219,8 @@ const finalizeApplication = asyncHandler(async (req, res) => {
   if (!app) throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
 
   // Already fully finalized with payment — idempotent
-  if (app.status === "submitted" && app.paymentStatus === "paid") {
+  if (["submitted", "approved"].includes(app.status) && app.paymentStatus === "paid") {
+    if (app.status === "submitted") app.status = "approved";
     await ensurePublicRegistrationNumber(app);
     await app.save();
     return res.status(StatusCodes.OK).json(
@@ -1172,7 +1239,7 @@ const finalizeApplication = asyncHandler(async (req, res) => {
 
   // Mark payment as simulated/paid and finalize
   app.paymentStatus = "paid";
-  app.status = "submitted";
+  app.status = "approved";
   app.submittedAt = new Date();
   const formSectionsCount = getCustomFormSections(app.jobId).length;
   app.currentStep = 9 + formSectionsCount;
@@ -1190,7 +1257,7 @@ const finalizeApplication = asyncHandler(async (req, res) => {
     recipientId: req.user.id,
     type: "payment_success",
     title: "Payment Successful",
-    message: `Your payment for application ${app.applicationId} was successful. Application submitted!`,
+    message: `Your payment for application ${app.applicationId} was successful. Application approved automatically.`,
     link: `/candidate/applications`,
     metadata: {
       applicationId: app.applicationId,
@@ -1375,6 +1442,51 @@ const submitCorrection = asyncHandler(async (req, res) => {
   );
 });
 
+const previewDocument = asyncHandler(async (req, res) => {
+  const app = await Application.findOne({
+    _id: req.params.id,
+    candidateId: req.user.id,
+  });
+  if (!app) throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+
+  const document = app.documents.find((doc) => doc.type === req.params.type);
+  if (!document?.localPath && !document?.cloudinaryUrl) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Document not found");
+  }
+
+  const filename = (document.originalName || document.name || "document").replace(
+    /["\\]/g,
+    "_",
+  );
+
+  res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  if (document.localPath && fs.existsSync(document.localPath)) {
+    res.setHeader(
+      "Content-Type",
+      document.mimeType || "application/octet-stream",
+    );
+    return fs.createReadStream(document.localPath).pipe(res);
+  }
+
+  const response = await fetch(document.cloudinaryUrl);
+  if (!response.ok) {
+    throw new ApiError(
+      StatusCodes.BAD_GATEWAY,
+      "Unable to load document preview. Please re-upload the document or contact support.",
+    );
+  }
+
+  res.setHeader(
+    "Content-Type",
+    response.headers.get("content-type") ||
+      document.mimeType ||
+      "application/octet-stream",
+  );
+  return Readable.fromWeb(response.body).pipe(res);
+});
+
 module.exports = {
   createApplication,
   getMyApplications,
@@ -1385,6 +1497,7 @@ module.exports = {
   updateAddress,
   updateFormResponses,
   uploadDocument,
+  previewDocument,
   updatePostSelection,
   submitApplication,
   finalizeApplication,

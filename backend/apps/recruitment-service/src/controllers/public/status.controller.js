@@ -148,8 +148,11 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
 
   // Find application
   const application = await Application.findOne({ registrationNumber })
-    .populate("jobId", "title correctionStartDate correctionDeadline")
-    .populate("candidateId", "registeredMobile _id");
+    .populate(
+      "jobId",
+      "title department postCode correctionStartDate correctionDeadline applicationDeadline",
+    )
+    .populate("candidateId", "fullName email registeredMobile _id");
 
   if (!application) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
@@ -162,6 +165,13 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
   );
   if (storedMobile && storedMobile !== mobile) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Mobile does not match");
+  }
+
+  if (application.paymentStatus !== "paid" || application.status === "draft") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Correction can be requested only for a submitted paid application",
+    );
   }
 
   // Check correction window
@@ -182,14 +192,14 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     );
   }
 
-  // Check no existing pending correction
-  const existingPending = application.corrections?.find(
-    (c) => c.status === "pending",
+  // Public correction is one request per submitted application.
+  const existingPending = application.corrections?.find((c) =>
+    ["pending", "approved", "more_info_needed"].includes(c.status),
   );
   if (existingPending) {
     throw new ApiError(
       StatusCodes.CONFLICT,
-      `A correction request (${existingPending.requestId}) is already pending review`,
+      `A correction request (${existingPending.requestId}) already exists for this application`,
     );
   }
 
@@ -236,6 +246,35 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     raisedByEmail: application.contactEmail,
   });
 
+  ticket.title = `Correction Request - ${application.applicationId}`;
+  ticket.description = `Application ID: ${application.applicationId}\nRegistration Number: ${registrationNumber}\nCandidate: ${application.personalDetails?.fullName || application.candidateId?.fullName || "Not provided"}\nJob: ${application.jobId?.title || "Not linked"}\n\nRequested Changes:\n${corrections
+    .map(
+      (c) =>
+        `- ${c.field}: "${c.oldValue || "not provided"}" -> "${c.newValue}" (${c.reason})`,
+    )
+    .join("\n")}`;
+  ticket.source = "web";
+  ticket.guestContact = {
+    name: application.personalDetails?.fullName || application.candidateId?.fullName,
+    email: application.contactEmail || application.candidateId?.email,
+    mobile: application.contactMobile || application.candidateId?.registeredMobile,
+  };
+  ticket.registrationNumber = registrationNumber;
+  ticket.linkedApplication = application._id;
+  ticket.resolutionAction = {
+    type: "application_correction",
+    status: "requested",
+    requestedAt: now,
+    note: overallReason || undefined,
+  };
+  ticket.raisedBy = application.candidateId?._id;
+  ticket.raisedByEmail = application.contactEmail || application.candidateId?.email;
+  ticket.sla = {
+    firstResponseDueAt: new Date(now.getTime() + 8 * 60 * 60 * 1000),
+    resolutionDueAt: new Date(now.getTime() + 48 * 60 * 60 * 1000),
+  };
+  await ticket.save();
+
   // Link ticket to correction
   application.corrections[application.corrections.length - 1].supportTicketId =
     ticket._id;
@@ -250,6 +289,9 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
         requestId,
         ticketId,
         status: "pending",
+        registrationNumber: application.registrationNumber,
+        applicationId: application.applicationId,
+        jobTitle: application.jobId?.title,
         message:
           "Your correction request has been submitted. You will be notified once reviewed.",
         estimatedResolutionTime: "48 hours",

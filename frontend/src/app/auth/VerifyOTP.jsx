@@ -6,6 +6,7 @@ import Button from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
 import heroBg from "../../assets/herobg.jpg";
 import { authService } from "../../services/auth.service";
+import { showOtpToast } from "../../utils/otpToast";
 
 const VerifyOTP = () => {
   const navigate = useNavigate();
@@ -48,9 +49,9 @@ const VerifyOTP = () => {
     setError("");
     setIsSending(true);
     try {
-      await authService.resendOtp(email.trim());
+      const response = await authService.resendOtp(email.trim());
       setOtpSent(true);
-      toast.success("OTP sent to your email");
+      showOtpToast(response, "OTP sent to your email");
       startCooldown(60);
       // Clear any previously entered OTP
       setOtp(["", "", "", "", "", ""]);

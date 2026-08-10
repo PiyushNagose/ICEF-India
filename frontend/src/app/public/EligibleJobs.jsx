@@ -21,7 +21,7 @@ import {
 import PublicLayout from "../../components/layouts/PublicLayout";
 import CustomSelect from "../../components/ui/CustomSelect";
 import { jobService } from "../../services/job.service";
-import { getStoredUser } from "../../services/auth.service";
+import { getJobAvailability } from "../../utils/jobAvailability";
 
 // -- Indian states list --------------------------------------------------------
 const INDIAN_STATES = [
@@ -170,15 +170,9 @@ const EligibleJobs = () => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
-  const handleApplyNow = (jobId) => {
-    const user = getStoredUser();
-    if (user && user.role === "candidate") {
-      navigate(`/candidate/jobs/${jobId}`);
-    } else {
-      navigate("/auth/candidate-login", {
-        state: { jobId, redirectTo: `/candidate/jobs/${jobId}` },
-      });
-    }
+  const handleApplyNow = (job) => {
+    const slug = job?.projectId?.publicSlug;
+    navigate(slug ? `/apply/${slug}/start?jobId=${job._id}` : `/jobs/${job._id}`);
   };
 
   const handleViewDetails = (jobId) => {
@@ -457,10 +451,11 @@ const EligibleJobs = () => {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6 items-stretch"
+                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6 items-stretch"
               >
                 {jobs.map((job) => {
-                  const badge = deadlineBadge(job.daysLeft);
+                  const availability = getJobAvailability(job);
+                  const badge = deadlineBadge(availability.daysLeft ?? job.daysLeft);
                   const feeLabel =
                     job.applicableFee === 0
                       ? "Free"
@@ -469,11 +464,11 @@ const EligibleJobs = () => {
                     <motion.div
                       key={job._id}
                       variants={itemVariants}
-                      className="group h-full min-h-[360px] bg-white rounded-[8px] border border-[#ded4c8] hover:border-orange-300 hover:shadow-[0_18px_38px_rgba(31,29,27,0.10)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
+                      className="group h-full min-h-[332px] bg-white rounded-[8px] border border-[#ded4c8] hover:border-orange-300 hover:shadow-[0_18px_38px_rgba(31,29,27,0.10)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
                     >
-                      <div className="flex h-full flex-col p-5">
+                      <div className="flex h-full flex-col p-4">
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-orange-50 text-orange-600">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] bg-orange-50 text-orange-600">
                             <Briefcase className="h-5 w-5" />
                           </div>
                           <span
@@ -483,8 +478,8 @@ const EligibleJobs = () => {
                           </span>
                         </div>
 
-                        <div className="mt-5 min-h-[94px]">
-                          <h3 className="min-h-[52px] text-[21px] font-black leading-tight tracking-normal text-[#1f1d1b] line-clamp-2">
+                        <div className="mt-4 min-h-[82px]">
+                          <h3 className="min-h-[48px] text-[20px] font-black leading-tight tracking-normal text-[#1f1d1b] line-clamp-2">
                             {job.title}
                           </h3>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -499,14 +494,14 @@ const EligibleJobs = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 min-h-[48px]">
-                          <p className="line-clamp-2 text-[14px] leading-6 text-[#6d6761]">
+                        <div className="mt-3 min-h-[40px]">
+                          <p className="line-clamp-2 text-[14px] leading-5 text-[#6d6761]">
                             {job.department || "Department not specified"}
                           </p>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
-                          <div className="rounded-[6px] bg-[#faf7f2] p-3">
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-[13px]">
+                          <div className="rounded-[6px] bg-[#faf7f2] p-2.5">
                             <div className="flex items-center gap-1.5 text-orange-600">
                               <Users size={14} />
                               <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6d6761]">
@@ -518,7 +513,7 @@ const EligibleJobs = () => {
                             </p>
                           </div>
 
-                          <div className="rounded-[6px] bg-[#faf7f2] p-3">
+                          <div className="rounded-[6px] bg-[#faf7f2] p-2.5">
                             <div className="flex items-center gap-1.5 text-orange-600">
                               <IndianRupee size={14} />
                               <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6d6761]">
@@ -537,7 +532,7 @@ const EligibleJobs = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 space-y-2 text-[13px] text-[#4b4744]">
+                        <div className="mt-3 space-y-1.5 text-[13px] text-[#4b4744]">
                           <div className="flex items-center gap-2">
                             <MapPin
                               size={15}
@@ -553,27 +548,27 @@ const EligibleJobs = () => {
                               className="shrink-0 text-orange-600"
                             />
                             <span>
-                              {job.daysLeft !== null && job.daysLeft > 0
-                                ? `${job.daysLeft} days left`
-                                : "Deadline passed"}
+                              {availability.canApply && availability.daysLeft !== null
+                                ? `${availability.daysLeft} days left`
+                                : availability.label}
                             </span>
                           </div>
                         </div>
 
-                        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-[#eee6dc] pt-4">
+                        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-[#eee6dc] pt-3">
                           <button
                             onClick={() => handleViewDetails(job._id)}
-                            className="flex h-11 items-center justify-center gap-2 rounded-[6px] border border-[#ded4c8] bg-white text-[12px] font-black uppercase tracking-[0.12em] text-[#1f1d1b] transition-colors hover:border-orange-400 hover:text-orange-700"
+                            className="flex h-10 items-center justify-center gap-2 rounded-[6px] border border-[#ded4c8] bg-white text-[12px] font-black uppercase tracking-[0.12em] text-[#1f1d1b] transition-colors hover:border-orange-400 hover:text-orange-700"
                           >
                             Details
                             <ArrowRight size={14} />
                           </button>
                           <button
-                            onClick={() => handleApplyNow(job._id)}
-                            disabled={job.daysLeft <= 0}
-                            className="h-11 rounded-[6px] bg-[#e86a1a] text-[12px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(232,106,26,0.22)] transition-colors hover:bg-[#cf5d15] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none"
+                            onClick={() => handleApplyNow(job)}
+                            disabled={!availability.canApply}
+                            className="h-10 rounded-[6px] bg-[#e86a1a] text-[12px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(232,106,26,0.22)] transition-colors hover:bg-[#cf5d15] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none"
                           >
-                            Apply Now
+                            {availability.canApply ? "Apply Now" : availability.label}
                           </button>
                         </div>
                       </div>

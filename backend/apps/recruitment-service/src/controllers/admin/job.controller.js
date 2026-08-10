@@ -19,6 +19,9 @@ const {
   assertJobTimeline,
   getProjectLifecycleStatus,
 } = require("../../shared/utils/timeline");
+const {
+  invalidatePublicRecruitmentCache,
+} = require("../../shared/utils/publicCache");
 
 const normalizePosts = (posts = []) =>
   posts
@@ -309,6 +312,8 @@ const createJob = asyncHandler(async (req, res) => {
     { path: "createdBy", select: "fullName employeeId" },
   ]);
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notification
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "job_created",
@@ -447,6 +452,8 @@ const updateJob = asyncHandler(async (req, res) => {
     { path: "createdBy", select: "fullName employeeId" },
   ]);
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notification
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "job_updated",
@@ -507,6 +514,8 @@ const publishJob = asyncHandler(async (req, res) => {
     { path: "createdBy", select: "fullName employeeId" },
   ]);
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notifications
   emitToAdmins(SOCKET_EVENTS.JOB_PUBLISHED, {
     type: "job_published",
@@ -558,6 +567,8 @@ const closeJob = asyncHandler(async (req, res) => {
   job.status = "closed";
   await job.save();
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notifications
   emitToAdmins(SOCKET_EVENTS.JOB_CLOSED, {
     type: "job_closed",
@@ -603,6 +614,8 @@ const deleteJob = asyncHandler(async (req, res) => {
   }
 
   await Job.findByIdAndDelete(req.params.id);
+
+  await invalidatePublicRecruitmentCache();
 
   // Real-time notification
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {

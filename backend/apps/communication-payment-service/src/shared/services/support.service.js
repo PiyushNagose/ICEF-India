@@ -23,6 +23,70 @@ const { notifyAdmins } = require("../utils/notifyAdmins");
 
 let ticketCounter = 1000;
 const generateTicketId = () => `TKT-${Date.now()}-${++ticketCounter}`;
+const SLA_HOURS = {
+  Low: { first: 48, resolution: 120 },
+  Medium: { first: 24, resolution: 72 },
+  High: { first: 8, resolution: 48 },
+  Critical: { first: 2, resolution: 24 },
+};
+
+const buildSla = (priority = "Medium") => {
+  const hours = SLA_HOURS[priority] || SLA_HOURS.Medium;
+  const now = Date.now();
+  return {
+    firstResponseDueAt: new Date(now + hours.first * 60 * 60 * 1000),
+    resolutionDueAt: new Date(now + hours.resolution * 60 * 60 * 1000),
+  };
+};
+
+const normalizeContact = (value = "") => String(value).trim().toLowerCase();
+
+const contactMatchesTicket = (ticket, contact) => {
+  const normalized = normalizeContact(contact);
+  const mobile = String(ticket.guestContact?.mobile || "").trim();
+  const email = normalizeContact(ticket.guestContact?.email || ticket.raisedByEmail);
+  const candidateEmail = normalizeContact(ticket.raisedBy?.email);
+  const candidateMobile = String(ticket.raisedBy?.registeredMobile || "").trim();
+
+  return (
+    normalized === email ||
+    normalized === candidateEmail ||
+    normalized === mobile ||
+    normalized === candidateMobile
+  );
+};
+
+const sanitizePublicTicket = (ticket) => ({
+  ticketId: ticket.ticketId,
+  title: ticket.title,
+  description: ticket.description,
+  category: ticket.category,
+  priority: ticket.priority,
+  status: ticket.status,
+  source: ticket.source,
+  registrationNumber: ticket.registrationNumber,
+  createdAt: ticket.createdAt,
+  updatedAt: ticket.updatedAt,
+  resolvedAt: ticket.resolvedAt,
+  closedAt: ticket.closedAt,
+  sla: ticket.sla,
+  linkedApplication: ticket.linkedApplication
+    ? {
+        applicationId: ticket.linkedApplication.applicationId,
+        status: ticket.linkedApplication.status,
+        paymentStatus: ticket.linkedApplication.paymentStatus,
+      }
+    : null,
+  replies: (ticket.replies || []).map((reply) => ({
+    message: reply.message,
+    sentByModel: reply.sentByModel,
+    sentByName:
+      reply.sentByModel === "Employee"
+        ? reply.sentByName || "Support Team"
+        : "Candidate",
+    createdAt: reply.createdAt,
+  })),
+});
 
 const createTicket = async (data, candidateId, email) => {
   const ticketData = { ...data };
@@ -56,6 +120,8 @@ const createTicket = async (data, candidateId, email) => {
     ticketId: generateTicketId(),
     raisedBy: candidateId,
     raisedByEmail: email,
+    source: ticketData.source || "candidate_portal",
+    sla: buildSla(ticketData.priority),
   });
 
   // Notify all admins in real-time
@@ -64,6 +130,78 @@ const createTicket = async (data, candidateId, email) => {
     title: ticket.title,
     priority: ticket.priority,
     category: ticket.category,
+  });
+
+  return ticket;
+};
+
+const createPublicTicket = async (data, requestMeta = {}) => {
+  const ticketData = {
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    priority: data.priority || "Medium",
+    source: "web",
+    sourceMetadata: requestMeta,
+    guestContact: {
+      name: data.name,
+      email: data.email,
+      mobile: data.mobile,
+    },
+    raisedByEmail: data.email,
+    registrationNumber: data.registrationNumber,
+    attachments: data.attachments || [],
+    sla: buildSla(data.priority || "Medium"),
+  };
+
+  if (data.registrationNumber || data.applicationId) {
+    const application = await Application.findOne({
+      $or: [
+        data.registrationNumber ? { registrationNumber: data.registrationNumber } : null,
+        data.applicationId ? { applicationId: data.applicationId } : null,
+      ].filter(Boolean),
+    }).select("_id candidateId applicationId registrationNumber");
+
+    if (application) {
+      ticketData.linkedApplication = application._id;
+      ticketData.raisedBy = application.candidateId;
+      ticketData.registrationNumber =
+        application.registrationNumber || data.registrationNumber;
+    }
+  }
+
+  if (!ticketData.raisedBy && (data.email || data.mobile)) {
+    const user = await User.findOne({
+      $or: [
+        data.email ? { email: data.email.toLowerCase() } : null,
+        data.mobile ? { registeredMobile: data.mobile } : null,
+      ].filter(Boolean),
+    }).select("_id email registeredMobile");
+    if (user) {
+      ticketData.raisedBy = user._id;
+      ticketData.raisedByEmail = user.email || data.email;
+    }
+  }
+
+  const ticket = await SupportTicket.create({
+    ...ticketData,
+    ticketId: generateTicketId(),
+  });
+
+  emitToAdmins(SOCKET_EVENTS.TICKET_CREATED, {
+    ticketId: ticket.ticketId,
+    title: ticket.title,
+    priority: ticket.priority,
+    category: ticket.category,
+    source: ticket.source,
+  });
+
+  await notifyAdmins({
+    type: "general",
+    title: "New Public Support Ticket",
+    message: `${ticket.guestContact?.name || "Candidate"} submitted ${ticket.category} support ticket ${ticket.ticketId}.`,
+    link: `/admin/support/ticket/${ticket._id}`,
+    metadata: { ticketId: ticket.ticketId, source: ticket.source },
   });
 
   return ticket;
@@ -96,7 +234,7 @@ const getTicketById = async (id) => {
     .populate("assignedTo", "fullName employeeId")
     .populate(
       "linkedApplication",
-      "applicationId status paymentStatus correction personalDetails totalFee transactionId",
+      "applicationId registrationNumber status paymentStatus correction personalDetails totalFee transactionId jobId appliedPosts",
     )
     .populate(
       "linkedPayment",
@@ -105,6 +243,23 @@ const getTicketById = async (id) => {
     .populate("replies.sentBy", "fullName");
   if (!ticket) throw new ApiError(404, "Ticket not found");
   return ticket;
+};
+
+const getPublicTicket = async ({ ticketId, contact }) => {
+  const ticket = await SupportTicket.findOne({
+    ticketId: String(ticketId || "").trim(),
+  })
+    .populate("raisedBy", "fullName email registeredMobile")
+    .populate(
+      "linkedApplication",
+      "applicationId status paymentStatus registrationNumber",
+    );
+
+  if (!ticket || !contactMatchesTicket(ticket, contact)) {
+    throw new ApiError(404, "Ticket not found for the provided details");
+  }
+
+  return sanitizePublicTicket(ticket);
 };
 
 const updateTicket = async (id, data, updatedBy) => {
@@ -116,20 +271,24 @@ const updateTicket = async (id, data, updatedBy) => {
     await ticket.save();
 
     // Notify candidate via socket
-    emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_RESOLVED, {
-      ticketId: ticket.ticketId,
-      message: "Your support ticket has been resolved.",
-    });
+    if (ticket.raisedBy) {
+      emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_RESOLVED, {
+        ticketId: ticket.ticketId,
+        message: "Your support ticket has been resolved.",
+      });
+    }
 
     // Persist notification in DB
-    await notify({
-      recipientId: ticket.raisedBy,
-      type: "ticket_resolved",
-      title: "Support Ticket Resolved",
-      message: `Your support ticket ${ticket.ticketId} has been resolved. Please close it if your issue is fixed.`,
-      link: `/candidate/support/${id}`,
-      metadata: { ticketId: ticket.ticketId },
-    });
+    if (ticket.raisedBy) {
+      await notify({
+        recipientId: ticket.raisedBy,
+        type: "ticket_resolved",
+        title: "Support Ticket Resolved",
+        message: `Your support ticket ${ticket.ticketId} has been resolved. Please close it if your issue is fixed.`,
+        link: `/candidate/support/${id}`,
+        metadata: { ticketId: ticket.ticketId },
+      });
+    }
 
     // Send email notification
     await sendTicketResolvedEmail(ticket.raisedByEmail, ticket.ticketId);
@@ -144,26 +303,36 @@ const addReply = async (ticketId, message, sentBy, sentByModel, sentByName) => {
 
   ticket.replies.push({ message, sentBy, sentByModel, sentByName });
   if (ticket.status === "Open") ticket.status = "In Progress";
+  if (!ticket.sla?.firstRespondedAt && sentByModel === "Employee") {
+    ticket.sla = {
+      ...(ticket.sla?.toObject?.() || ticket.sla || {}),
+      firstRespondedAt: new Date(),
+    };
+  }
   await ticket.save();
 
   // Notify the other party
   if (sentByModel === "Employee") {
     // Admin replied — notify candidate via socket
-    emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_REPLY, {
-      ticketId: ticket.ticketId,
-      message,
-      from: sentByName,
-    });
+    if (ticket.raisedBy) {
+      emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_REPLY, {
+        ticketId: ticket.ticketId,
+        message,
+        from: sentByName,
+      });
+    }
 
     // Persist notification in DB for candidate
-    await notify({
-      recipientId: ticket.raisedBy,
-      type: "ticket_reply",
-      title: "Support Team Replied",
-      message: `${sentByName || "Support Team"} replied to your ticket ${ticket.ticketId}: "${message.substring(0, 80)}${message.length > 80 ? "..." : ""}"`,
-      link: `/candidate/support/${ticketId}`,
-      metadata: { ticketId: ticket.ticketId },
-    });
+    if (ticket.raisedBy) {
+      await notify({
+        recipientId: ticket.raisedBy,
+        type: "ticket_reply",
+        title: "Support Team Replied",
+        message: `${sentByName || "Support Team"} replied to your ticket ${ticket.ticketId}: "${message.substring(0, 80)}${message.length > 80 ? "..." : ""}"`,
+        link: `/candidate/support/${ticketId}`,
+        metadata: { ticketId: ticket.ticketId },
+      });
+    }
 
     // Send email notification
     await sendTicketReplyEmail(ticket.raisedByEmail, ticket.ticketId, message);
@@ -177,6 +346,36 @@ const addReply = async (ticketId, message, sentBy, sentByModel, sentByName) => {
   }
 
   return ticket;
+};
+
+const addPublicReply = async ({ ticketId, contact, message }) => {
+  const ticket = await SupportTicket.findOne({
+    ticketId: String(ticketId || "").trim(),
+  }).populate("raisedBy", "fullName email registeredMobile");
+
+  if (!ticket || !contactMatchesTicket(ticket, contact)) {
+    throw new ApiError(404, "Ticket not found for the provided details");
+  }
+  if (["Resolved", "Closed"].includes(ticket.status)) {
+    throw new ApiError(400, "This ticket is already resolved or closed");
+  }
+
+  ticket.replies.push({
+    message,
+    sentBy: ticket.raisedBy?._id,
+    sentByModel: ticket.raisedBy ? "User" : undefined,
+    sentByName: ticket.guestContact?.name || ticket.raisedBy?.fullName || "Candidate",
+  });
+  if (ticket.status === "Open") ticket.status = "In Progress";
+  await ticket.save();
+
+  emitToAdmins(SOCKET_EVENTS.TICKET_REPLY, {
+    ticketId: ticket.ticketId,
+    message,
+    from: ticket.guestContact?.name || "Candidate",
+  });
+
+  return getPublicTicket({ ticketId, contact });
 };
 
 const requestApplicationCorrection = async (ticketId, adminId, note) => {
@@ -421,10 +620,13 @@ const getCandidateTickets = async (candidateId, query) => {
 
 module.exports = {
   createTicket,
+  createPublicTicket,
+  getPublicTicket,
   getAdminTickets,
   getTicketById,
   updateTicket,
   addReply,
+  addPublicReply,
   requestApplicationCorrection,
   completeCandidateAction,
   verifyPaymentForTicket,

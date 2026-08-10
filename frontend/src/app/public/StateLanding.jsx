@@ -81,7 +81,7 @@ const StateLanding = () => {
     queryKey: ["public-state-projects", stateName],
     queryFn: () => publicService.getActiveProjects({ state: stateName, limit: 50 }),
     enabled: !!stateName,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 15 * 1000,
   });
 
   const page = cmsData?.page || null;
@@ -281,7 +281,7 @@ const StateLanding = () => {
                   </div>
                   <button
                     onClick={() => navigate(`/apply/${project.publicSlug}`)}
-                    className="mt-auto flex h-11 items-center justify-center gap-2 rounded-[4px] bg-[#e46a1d] text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-[#cb5d16]"
+                    className="mt-4 flex h-11 items-center justify-center gap-2 rounded-[4px] bg-[#e46a1d] text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-[#cb5d16]"
                   >
                     Open Recruitment
                     <ArrowRight className="h-4 w-4" />

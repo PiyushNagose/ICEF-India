@@ -20,6 +20,7 @@ import {
   buildApplicationSteps,
   getJobDocumentRequirements,
 } from "../../utils/applicationFlow";
+import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -329,7 +330,8 @@ const Documents = () => {
                           const url = uploadedInfo.url;
                           if (url) {
                             setPreviewDoc({
-                              url,
+                              url: `/api/candidate/applications/${applicationId}/documents/${doc.id}/preview`,
+                              originalUrl: url,
                               title: doc.name,
                               name: uploadedInfo.name,
                             });
@@ -459,47 +461,17 @@ const Documents = () => {
               </div>
             </div>
 
-            <div className="max-h-[calc(94vh-76px)] overflow-auto bg-slate-100 p-4">
-              {isImagePreview(previewDoc) ? (
-                <div className="mx-auto flex min-h-[70vh] w-full max-w-[794px] items-center justify-center bg-white p-6 shadow-xl ring-1 ring-slate-200">
-                  <img
-                    src={previewDoc.url}
-                    alt={previewDoc.name || "Uploaded document"}
-                    className="max-h-[78vh] max-w-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="mx-auto min-h-[80vh] w-full max-w-[794px] overflow-hidden bg-white shadow-xl ring-1 ring-slate-200">
-                  <iframe
-                    src={getEmbeddablePreviewUrl(previewDoc)}
-                    title={previewDoc.name || "Uploaded document"}
-                    className="h-[80vh] w-full border-0 bg-white"
-                  />
-                </div>
-              )}
+            <div className="h-[calc(94vh-76px)] bg-slate-100">
+              <DocumentPreviewFrame
+                src={previewDoc.url}
+                title={previewDoc.name || "Uploaded document"}
+              />
             </div>
           </div>
         </div>
       )}
     </ApplicationLayout>
   );
-};
-
-const isImagePreview = (doc = {}) => {
-  const value = `${doc.name || ""} ${doc.url || ""}`.toLowerCase();
-  return /\.(png|jpe?g|webp|gif)(\?|#|$)/.test(value);
-};
-
-const isPdfPreview = (doc = {}) => {
-  const value = `${doc.name || ""} ${doc.url || ""}`.toLowerCase();
-  return /\.pdf(\?|#|$)/.test(value);
-};
-
-const getEmbeddablePreviewUrl = (doc = {}) => {
-  if (isPdfPreview(doc)) {
-    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(doc.url)}`;
-  }
-  return doc.url;
 };
 
 export default Documents;

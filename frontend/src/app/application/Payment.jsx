@@ -76,7 +76,7 @@ const Payment = () => {
   useEffect(() => {
     if (!applicationId) {
       toast.error("No application found");
-      navigate("/candidate/applications");
+      navigate("/check-status");
     }
   }, [applicationId, navigate]);
 
@@ -315,7 +315,7 @@ const Payment = () => {
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">Application not found</p>
-            <Button onClick={() => navigate("/candidate/applications")}>Go to Applications</Button>
+            <Button onClick={() => navigate("/check-status")}>View Application</Button>
           </CardContent>
         </Card>
       </ApplicationLayout>

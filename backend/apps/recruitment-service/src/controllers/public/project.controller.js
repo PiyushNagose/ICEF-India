@@ -7,7 +7,54 @@ const asyncHandler = require("../../shared/utils/asyncHandler");
 const { getRedis } = require("../../shared/config/redis");
 const { getProjectLifecycleStatus } = require("../../shared/utils/timeline");
 
-const CACHE_TTL = 5 * 60; // 5 minutes
+const CACHE_TTL = 60; // public data changes often during admin setup
+const PUBLIC_JOB_FILTER = { status: "active" };
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const buildAvailability = (job, now = new Date()) => {
+  const start = job.applicationStartDate
+    ? new Date(job.applicationStartDate)
+    : null;
+  const deadline = job.applicationDeadline
+    ? new Date(job.applicationDeadline)
+    : null;
+
+  if (job.status !== "active") {
+    return {
+      status: "inactive",
+      label: "Inactive",
+      canApply: false,
+      reason: "This recruitment is not accepting applications.",
+      daysLeft: null,
+    };
+  }
+  if (start && now < start) {
+    return {
+      status: "not_open",
+      label: "Not Open Yet",
+      canApply: false,
+      reason: "Application window has not opened yet.",
+      daysUntilOpen: Math.max(0, Math.ceil((start - now) / MS_PER_DAY)),
+      daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+    };
+  }
+  if (deadline && now > deadline) {
+    return {
+      status: "closed",
+      label: "Closed",
+      canApply: false,
+      reason: "Application deadline has passed.",
+      daysLeft: 0,
+    };
+  }
+  return {
+    status: "open",
+    label: "Open",
+    canApply: true,
+    reason: "Applications are open.",
+    daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+  };
+};
 
 /**
  * GET /api/public/projects/:slug
@@ -16,7 +63,7 @@ const CACHE_TTL = 5 * 60; // 5 minutes
 const getProjectBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const redis = getRedis();
-  const cacheKey = `public:project:${slug}`;
+  const cacheKey = `public:v2:project:${slug}`;
 
   // Try cache first
   if (redis) {
@@ -34,35 +81,33 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Recruitment not found");
   }
 
-  const jobs = await Job.find({ projectId: project._id, status: "active" })
+  const jobs = await Job.find({ projectId: project._id, ...PUBLIC_JOB_FILTER })
     .select(
       "title postCode department category totalPosts posts salaryRange " +
         "applicationFee applicationStartDate applicationDeadline correctionStartDate " +
         "correctionDeadline admitCardReleaseDate examDate resultDate ageLimit " +
-        "education physicalStandards description",
+        "education physicalStandards description status",
     )
     .sort({ createdAt: 1 })
     .lean();
 
   const now = new Date();
-  const enrichedJobs = jobs.map((job) => ({
-    ...job,
-    isApplicationOpen:
-      job.applicationStartDate <= now && job.applicationDeadline >= now,
-    daysLeft: job.applicationDeadline
-      ? Math.max(
-          0,
-          Math.ceil((new Date(job.applicationDeadline) - now) / 86400000),
-        )
-      : null,
-    isCorrectionOpen:
-      job.correctionStartDate &&
-      job.correctionDeadline &&
-      job.correctionStartDate <= now &&
-      job.correctionDeadline >= now,
-    isAdmitCardAvailable:
-      job.admitCardReleaseDate && job.admitCardReleaseDate <= now,
-  }));
+  const enrichedJobs = jobs.map((job) => {
+    const availability = buildAvailability(job, now);
+    return {
+      ...job,
+      availability,
+      isApplicationOpen: availability.canApply,
+      daysLeft: availability.daysLeft,
+      isCorrectionOpen:
+        job.correctionStartDate &&
+        job.correctionDeadline &&
+        job.correctionStartDate <= now &&
+        job.correctionDeadline >= now,
+      isAdmitCardAvailable:
+        job.admitCardReleaseDate && job.admitCardReleaseDate <= now,
+    };
+  });
 
   const payload = new ApiResponse(
     StatusCodes.OK,
@@ -85,7 +130,7 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
 const getActiveProjects = asyncHandler(async (req, res) => {
   const { page = 1, limit = 12, state, department, search } = req.query;
   const redis = getRedis();
-  const cacheKey = `public:projects:${JSON.stringify(req.query)}`;
+  const cacheKey = `public:v2:projects:${JSON.stringify(req.query)}`;
 
   if (redis) {
     const cached = await redis.get(cacheKey);
@@ -122,21 +167,29 @@ const getActiveProjects = asyncHandler(async (req, res) => {
       status: getProjectLifecycleStatus(project),
     }))
     .filter((project) => project.status === "Active");
-  const activeProjects = (
-    await Promise.all(
-      lifecycleActiveProjects.map(async (project) => {
-        const activeJobCount = await Job.countDocuments({
-          projectId: project._id,
-          status: "active",
-        });
-        if (!activeJobCount) return null;
-        return {
-          ...project,
-          totalJobs: activeJobCount,
-        };
-      }),
-    )
-  ).filter(Boolean);
+
+  const projectIds = lifecycleActiveProjects.map((project) => project._id);
+  const jobCounts = projectIds.length
+    ? await Job.aggregate([
+        {
+          $match: {
+            projectId: { $in: projectIds },
+            ...PUBLIC_JOB_FILTER,
+          },
+        },
+        { $group: { _id: "$projectId", totalJobs: { $sum: 1 } } },
+      ])
+    : [];
+  const countByProjectId = new Map(
+    jobCounts.map((item) => [String(item._id), item.totalJobs]),
+  );
+
+  const activeProjects = lifecycleActiveProjects
+    .map((project) => ({
+      ...project,
+      totalJobs: countByProjectId.get(String(project._id)) || 0,
+    }))
+    .filter((project) => project.totalJobs > 0);
   const total = activeProjects.length;
   const skip = (requestedPage - 1) * requestedLimit;
   const projects = activeProjects.slice(skip, skip + requestedLimit);

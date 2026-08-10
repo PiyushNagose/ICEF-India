@@ -34,6 +34,8 @@ const documentSchema = new mongoose.Schema(
     name: { type: String },
     cloudinaryUrl: { type: String },
     cloudinaryPublicId: { type: String },
+    localPath: { type: String },
+    mimeType: { type: String },
     originalName: { type: String },
     sizeKB: { type: Number },
     status: {

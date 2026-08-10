@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
+import { showOtpToast } from "../../utils/otpToast";
 
 const fmt = (d) =>
   d
@@ -55,6 +56,15 @@ const paymentColor = (s) =>
       ? "bg-yellow-50 text-yellow-700 border-yellow-200"
       : "bg-red-50 text-red-700 border-red-200";
 
+const InfoTile = ({ label, value }) => (
+  <div className="rounded border border-[#eadfd2] bg-[#fbf7f1] px-4 py-3">
+    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+      {label}
+    </p>
+    <p className="mt-1 truncate text-sm font-black text-[#1f1d1b]">{value}</p>
+  </div>
+);
+
 export default function CheckStatus() {
   const navigate = useNavigate();
 
@@ -75,9 +85,9 @@ export default function CheckStatus() {
     }
     setSendLoading(true);
     try {
-      await publicService.sendOTP(mobile, "mobile");
+      const response = await publicService.sendOTP(mobile, "mobile");
       setOtpSent(true);
-      toast.success("OTP sent to your mobile");
+      showOtpToast(response, "OTP sent to your mobile");
     } catch (err) {
       if (!err.toastShown) toast.error(err.message || "Failed to send OTP");
     } finally {
@@ -127,36 +137,49 @@ export default function CheckStatus() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f5efe9]">
+      <div className="min-h-[calc(100vh-90px)] bg-[#f5efe9]">
         {/* Hero */}
         <div className="bg-[#201d1a] text-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-            <p className="text-[10px] uppercase tracking-widest font-black text-orange-400 mb-2">
+          <div className="mx-auto max-w-[1380px] px-4 py-9 sm:px-6 lg:px-8">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-2xl sm:text-3xl font-black">
+            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
               Check Application Status
             </h1>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/70">
               No login required. Enter your registration number to check your
               application status.
             </p>
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-          <div className="grid lg:grid-cols-[1fr_320px] gap-8">
+        <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+          <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_420px]">
             {/* Form */}
             <div className="space-y-5">
-              <div className="bg-white border border-[#e0d7cd] rounded-xl p-6 space-y-5">
-                <h2 className="font-black text-[#1f1d1b] flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-[#e46a1d]" />
-                  Enter Your Details
-                </h2>
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
+                <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-[18px] font-black text-[#1f1d1b]">
+                      <FileText className="h-5 w-5 text-[#e46a1d]" />
+                      Enter Your Details
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-[#6d6761]">
+                      Use the registration number issued after payment.
+                    </p>
+                  </div>
+                  {otpVerified && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-black text-green-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                    </span>
+                  )}
+                </div>
 
                 {/* Registration Number */}
+                <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
+                  <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
                     Registration Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -164,13 +187,13 @@ export default function CheckStatus() {
                     placeholder="e.g. BPOL2600001234"
                     value={regNumber}
                     onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
-                    className="w-full h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm font-mono text-[#1f1d1b] placeholder-[#b0a89e] outline-none focus:ring-2 focus:ring-orange-400 transition"
+                    className="h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 font-mono text-sm text-[#1f1d1b] outline-none transition placeholder:text-[#b0a89e] focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
                   />
                 </div>
 
                 {/* Mobile OTP */}
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5 flex items-center gap-1.5">
+                  <label className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
                     <Phone className="w-3.5 h-3.5 text-[#e46a1d]" />
                     Registered Mobile{" "}
                     {otpVerified && (
@@ -193,13 +216,13 @@ export default function CheckStatus() {
                         setOtp("");
                       }}
                       disabled={otpVerified}
-                      className="flex-1 h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm text-[#1f1d1b] placeholder-[#b0a89e] outline-none focus:ring-2 focus:ring-orange-400 transition disabled:bg-[#faf7f2]"
+                      className="h-12 min-w-0 flex-1 rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition placeholder:text-[#b0a89e] focus:border-orange-400 focus:ring-2 focus:ring-orange-200 disabled:bg-[#faf7f2]"
                     />
                     {!otpVerified && (
                       <button
                         disabled={sendLoading || mobile.length !== 10}
                         onClick={handleSendOTP}
-                        className="inline-flex items-center gap-1.5 h-11 px-4 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-xs transition"
+                        className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         {sendLoading ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -223,12 +246,12 @@ export default function CheckStatus() {
                         onChange={(e) =>
                           setOtp(e.target.value.replace(/\D/g, ""))
                         }
-                        className="flex-1 h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm font-mono outline-none focus:ring-2 focus:ring-orange-400 transition"
+                        className="h-12 min-w-0 flex-1 rounded-[6px] border border-[#e0d7cd] bg-white px-4 font-mono text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
                       />
                       <button
                         disabled={verifyLoading || otp.length !== 6}
                         onClick={handleVerifyOTP}
-                        className="inline-flex items-center gap-1.5 h-11 px-4 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-xs transition"
+                        className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         {verifyLoading ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -243,7 +266,7 @@ export default function CheckStatus() {
                 <button
                   disabled={checkLoading || !otpVerified || !regNumber.trim()}
                   onClick={handleCheckStatus}
-                  className="w-full h-12 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 text-white rounded-lg font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:bg-[#efb38e] disabled:shadow-none"
                 >
                   {checkLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -253,6 +276,7 @@ export default function CheckStatus() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
 
               {/* Result */}
@@ -264,7 +288,16 @@ export default function CheckStatus() {
                   className="space-y-4"
                 >
                   {/* Status header */}
-                  <div className="bg-white border border-[#e0d7cd] rounded-xl p-6">
+                  <div className="overflow-hidden rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm">
+                    <div className="border-b border-[#eadfd2] bg-[#201d1a] px-6 py-4 text-white">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">
+                        Application Status Report
+                      </p>
+                      <h2 className="mt-1 text-xl font-black">
+                        Official Submission Summary
+                      </h2>
+                    </div>
+                    <div className="p-6">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <p className="text-xs font-black uppercase tracking-widest text-[#6d6761]">
@@ -293,20 +326,35 @@ export default function CheckStatus() {
                         </div>
                       </div>
                     </div>
+                    <div className="mt-5 grid gap-3 border-t border-[#f0e8e0] pt-5 sm:grid-cols-3">
+                      <InfoTile
+                        label="Application ID"
+                        value={result.applicationId || "Not available"}
+                      />
+                      <InfoTile
+                        label="Mobile"
+                        value={mobile ? `******${mobile.slice(-4)}` : "Verified"}
+                      />
+                      <InfoTile
+                        label="Submitted On"
+                        value={fmt(result.submittedAt || result.createdAt)}
+                      />
+                    </div>
+                    </div>
                   </div>
 
                   {/* Applied posts */}
                   {result.appliedPosts?.length > 0 && (
-                    <div className="bg-white border border-[#e0d7cd] rounded-xl p-6">
+                    <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
                       <h3 className="font-black text-[#1f1d1b] mb-3 flex items-center gap-2">
                         <Briefcase className="w-4 h-4 text-[#e46a1d]" />
                         Applied Posts
                       </h3>
-                      <div className="space-y-2">
+                      <div className="divide-y divide-[#f0e9e1] rounded border border-[#f0e9e1]">
                         {result.appliedPosts.map((p, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between py-2 border-b border-[#f0e9e1] last:border-0"
+                            className="flex items-center justify-between gap-4 px-4 py-3"
                           >
                             <span className="text-sm text-[#1f1d1b] font-semibold">
                               {p.title}
@@ -322,12 +370,12 @@ export default function CheckStatus() {
 
                   {/* Important dates */}
                   {result.jobDetails && (
-                    <div className="bg-white border border-[#e0d7cd] rounded-xl p-6">
+                    <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
                       <h3 className="font-black text-[#1f1d1b] mb-3 flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-[#e46a1d]" />
                         Important Dates
                       </h3>
-                      <div className="space-y-0">
+                      <div className="rounded border border-[#f0e9e1]">
                         {[
                           {
                             label: "Exam Date",
@@ -344,7 +392,7 @@ export default function CheckStatus() {
                         ].map(({ label, val }) => (
                           <div
                             key={label}
-                            className="flex items-center justify-between py-2.5 border-b border-[#f0e9e1] last:border-0"
+                            className="flex items-center justify-between gap-4 border-b border-[#f0e9e1] px-4 py-3 last:border-0"
                           >
                             <span className="text-sm text-[#6d6761]">
                               {label}
@@ -362,7 +410,7 @@ export default function CheckStatus() {
                   <div className="grid sm:grid-cols-2 gap-3">
                     {result.admitCardAvailable && (
                       <button
-                        onClick={() => navigate("/download-admit-card")}
+                        onClick={() => navigate("/admit-cards")}
                         className="flex items-center justify-center gap-2 h-12 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-lg font-black uppercase tracking-widest text-xs transition"
                       >
                         <Download className="w-4 h-4" />
@@ -371,7 +419,16 @@ export default function CheckStatus() {
                     )}
                     {result.correctionWindow?.isOpen && (
                       <button
-                        onClick={() => navigate("/correction-request")}
+                        onClick={() =>
+                          navigate("/correction-request", {
+                            state: {
+                              lookup: {
+                                registrationNumber: result.registrationNumber,
+                                mobile,
+                              },
+                            },
+                          })
+                        }
                         className="flex items-center justify-center gap-2 h-12 bg-white border-2 border-[#e46a1d] text-[#e46a1d] hover:bg-orange-50 rounded-lg font-black uppercase tracking-widest text-xs transition"
                       >
                         <RefreshCw className="w-4 h-4" />
@@ -393,22 +450,22 @@ export default function CheckStatus() {
             </div>
 
             {/* Sidebar */}
-            <aside className="space-y-5 self-start">
-              <div className="bg-white border border-[#e0d7cd] rounded-xl p-5">
-                <h3 className="font-black text-[#1f1d1b] mb-3">
+            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+              <div>
+                <h3 className="mb-4 text-[18px] font-black text-[#1f1d1b]">
                   Other Services
                 </h3>
                 {[
-                  { label: "Download Admit Card", to: "/download-admit-card" },
+                  { label: "Download Admit Card", to: "/admit-cards" },
                   { label: "Request Correction", to: "/correction-request" },
-                  { label: "Contact Support", to: "/support" },
+                  { label: "Contact Support", to: "/contact" },
                 ].map((item) => (
                   <button
                     key={item.label}
                     onClick={() => navigate(item.to)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[#e0d7cd] hover:border-orange-300 hover:bg-orange-50 transition mb-2 last:mb-0"
+                    className="mb-2 flex h-14 w-full items-center justify-between rounded-[6px] border border-[#e0d7cd] px-4 transition hover:border-orange-300 hover:bg-orange-50 last:mb-0"
                   >
-                    <span className="text-sm font-semibold text-[#1f1d1b]">
+                    <span className="text-sm font-bold text-[#1f1d1b]">
                       {item.label}
                     </span>
                     <ChevronRight className="w-4 h-4 text-[#9a8f86]" />
@@ -416,12 +473,14 @@ export default function CheckStatus() {
                 ))}
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                <AlertCircle className="w-5 h-5 text-amber-600 mb-2" />
-                <p className="text-sm font-black text-amber-800">
-                  Keep your registration number safe
-                </p>
-                <p className="mt-1 text-xs text-amber-700">
+              <div className="mt-6 rounded-[8px] border border-amber-200 bg-[#fff8e6] p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <p className="text-sm font-black text-amber-800">
+                    Keep your registration number safe
+                  </p>
+                </div>
+                <p className="text-sm leading-6 text-amber-800/90">
                   You will need it for admit card download and result checking.
                   It was sent to your registered email and mobile.
                 </p>

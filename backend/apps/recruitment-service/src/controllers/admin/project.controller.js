@@ -12,6 +12,9 @@ const {
   assertProjectTimeline,
   getProjectLifecycleStatus,
 } = require("../../shared/utils/timeline");
+const {
+  invalidatePublicRecruitmentCache,
+} = require("../../shared/utils/publicCache");
 
 const withProjectLifecycleStatus = (project) => {
   const plain = typeof project.toObject === "function" ? project.toObject() : project;
@@ -181,6 +184,8 @@ const createProject = asyncHandler(async (req, res) => {
 
   await project.populate("createdBy", "fullName employeeId");
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notification to all admins
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "project_created",
@@ -229,6 +234,8 @@ const updateProject = asyncHandler(async (req, res) => {
   await project.save();
   await project.populate("createdBy", "fullName employeeId");
 
+  await invalidatePublicRecruitmentCache();
+
   // Real-time notification
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "project_updated",
@@ -267,6 +274,8 @@ const deleteProject = asyncHandler(async (req, res) => {
   }
 
   await Project.findByIdAndDelete(req.params.id);
+
+  await invalidatePublicRecruitmentCache();
 
   // Real-time notification
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {

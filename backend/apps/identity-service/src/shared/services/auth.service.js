@@ -91,7 +91,7 @@ const registerCandidate = async ({
   // Send OTP email directly (not queued for immediate delivery)
   await sendOTPEmail(email, otp, fullName || email);
 
-  return { userId: user._id, email: user.email };
+  return { userId: user._id, email: user.email, ...includeDevOtp(otp) };
 };
 
 const verifyOTP = async ({ email, otp }) => {
@@ -142,6 +142,8 @@ const isSuperAdminEmployee = (employee) =>
 const RESET_ACCOUNT_TYPES = new Set(["candidate", "admin", "employee"]);
 const PASSWORD_RESET_MESSAGE =
   "If an account exists for this email, a reset OTP has been sent.";
+const includeDevOtp = (otp) =>
+  process.env.NODE_ENV === "development" ? { otp } : {};
 
 const normalizeAccountType = (accountType = "candidate") =>
   RESET_ACCOUNT_TYPES.has(accountType) ? accountType : "candidate";
@@ -328,7 +330,7 @@ const forgotPassword = async ({ email, accountType = "candidate" }) => {
     resolvedType,
   );
 
-  return { message: PASSWORD_RESET_MESSAGE };
+  return { message: PASSWORD_RESET_MESSAGE, ...includeDevOtp(otp) };
 };
 
 const resetPassword = async ({
@@ -445,7 +447,7 @@ const resendOTP = async (email) => {
   // Send OTP email directly
   await sendOTPEmail(email, otp, user.fullName || email);
 
-  return { message: "OTP resent successfully" };
+  return { message: "OTP resent successfully", ...includeDevOtp(otp) };
 };
 
 module.exports = {

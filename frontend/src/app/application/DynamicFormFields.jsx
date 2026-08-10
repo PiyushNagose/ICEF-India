@@ -222,7 +222,7 @@ const DynamicFormFields = () => {
 
   const handleBack = () => {
     if (previousStep) navigate(previousStep.path, { state: { applicationId } });
-    else navigate("/candidate/jobs");
+    else navigate("/jobs");
   };
 
   if (isLoading || !app) {

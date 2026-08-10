@@ -22,17 +22,11 @@ export const ROUTES = {
   RESET_PASSWORD: "/auth/reset-password",
   VERIFY_OTP: "/auth/verify-otp",
 
-  // Candidate Routes
-  CANDIDATE_DASHBOARD: "/candidate/dashboard",
-  CANDIDATE_PROFILE: "/candidate/profile",
-  CANDIDATE_JOBS: "/candidate/jobs",
-  CANDIDATE_APPLICATIONS: "/candidate/applications",
-  CANDIDATE_DOCUMENTS: "/candidate/documents",
-  CANDIDATE_PAYMENTS: "/candidate/payments",
-  CANDIDATE_ADMIT_CARD: "/candidate/admit-card",
-  CANDIDATE_RESULTS: "/candidate/results",
-  CANDIDATE_SUPPORT: "/candidate/support",
-  CANDIDATE_NOTIFICATIONS: "/candidate/notifications",
+  // Public candidate service routes
+  VIEW_APPLICATION: "/check-status",
+  PUBLIC_ADMIT_CARD: "/admit-cards",
+  PUBLIC_RESULTS: "/results",
+  PUBLIC_NOTICES: "/notices",
 
   // Admin Routes
   ADMIN_DASHBOARD: "/admin/dashboard",

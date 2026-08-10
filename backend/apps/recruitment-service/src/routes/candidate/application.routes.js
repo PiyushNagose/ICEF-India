@@ -50,6 +50,10 @@ router.post(
   upload.single("file"),
   applicationController.uploadDocument,
 );
+router.get(
+  "/:id/documents/:type/preview",
+  applicationController.previewDocument,
+);
 router.put(
   "/:id/post-selection",
   validate(postSelectionSchema),

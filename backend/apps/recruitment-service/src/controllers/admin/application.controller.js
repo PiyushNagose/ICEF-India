@@ -25,12 +25,7 @@ const getApplicationCandidateName = (application) =>
   "Candidate";
 
 const REVIEW_STATUSES = new Set([
-  "submitted",
-  "under_review",
-  "verified",
-  "approved",
   "clarification_required",
-  "rejected",
 ]);
 
 const getRequiredDocumentIssues = (application) => {
@@ -76,29 +71,10 @@ const assertReviewTransitionAllowed = (application, status, reason) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid application status");
   }
 
-  if (["verified", "approved"].includes(status)) {
-    if (application.paymentStatus !== "paid") {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "Only paid applications can be verified",
-      );
-    }
-
-    const documentIssues = getRequiredDocumentIssues(application);
-    if (documentIssues.length > 0) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        `Verify all required documents first: ${documentIssues.slice(0, 3).join(", ")}`,
-      );
-    }
-  }
-
-  if (["rejected", "clarification_required"].includes(status) && !reason?.trim()) {
+  if (status === "clarification_required" && !reason?.trim()) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      status === "rejected"
-        ? "Rejection reason is required"
-        : "Clarification note is required",
+      "Clarification note is required",
     );
   }
 };

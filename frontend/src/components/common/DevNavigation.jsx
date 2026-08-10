@@ -38,17 +38,12 @@ const DevNavigation = () => {
       { name: "Razorpay Config", path: "/admin/payment-settings/razorpay" },
       { name: "Add Gateway", path: "/admin/payment-settings/add-gateway" },
     ],
-    "Candidate Pages": [
-      { name: "Dashboard", path: "/candidate/dashboard" },
-      { name: "Profile", path: "/candidate/profile" },
-      { name: "Jobs", path: "/candidate/jobs" },
-      { name: "Applications", path: "/candidate/applications" },
-      { name: "Documents", path: "/candidate/documents" },
-      { name: "Payments", path: "/candidate/payments" },
-      { name: "Admit Card", path: "/candidate/admit-card" },
-      { name: "Results", path: "/candidate/results" },
-      { name: "Support", path: "/candidate/support" },
-      { name: "Notifications", path: "/candidate/notifications" },
+    "Candidate Public Services": [
+      { name: "View Application", path: "/check-status" },
+      { name: "Notifications", path: "/notices" },
+      { name: "Admit Cards", path: "/admit-cards" },
+      { name: "Results", path: "/results" },
+      { name: "Support", path: "/contact" },
     ],
     "Application Flow": [
       { name: "OTP Verification", path: "/auth/verify-otp" },

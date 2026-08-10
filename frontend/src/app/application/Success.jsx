@@ -9,7 +9,6 @@ import {
   Eye,
   FileText,
   Loader2,
-  LayoutDashboard,
   X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
@@ -93,11 +92,7 @@ const Success = () => {
   const closeAcknowledgement = () => setShowAcknowledgement(false);
 
   const handleBackToTicket = () => {
-    if (draft.supportTicketId) {
-      navigate(`/candidate/support/${draft.supportTicketId}`);
-    } else {
-      navigate("/candidate/support");
-    }
+    navigate("/contact");
   };
 
   // Show correction success message
@@ -185,14 +180,14 @@ const Success = () => {
                   onClick={handleBackToTicket}
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  Back to Support Ticket
+                  Contact Support
                 </Button>
                 <Button
                   className="w-full bg-orange-600 hover:bg-orange-700"
-                  onClick={() => navigate("/candidate/applications")}
+                  onClick={() => navigate("/check-status")}
                 >
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  View All Applications
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Application
                 </Button>
               </div>
 
@@ -380,15 +375,15 @@ const Success = () => {
               </Card>
             )}
 
-            <div className="no-print mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="no-print mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
               <ActionCard
                 icon={FileText}
                 iconClass="text-green-600"
-                title="Track Application"
-                description="Monitor your application status and updates"
-                buttonLabel="View Applications"
+                title="View Application"
+                description="Check your submitted application status"
+                buttonLabel="View Application"
                 buttonClass="border-green-200 text-green-600 hover:bg-green-50"
-                onClick={() => navigate("/candidate/applications")}
+                onClick={() => navigate("/check-status")}
               />
               <ActionCard
                 icon={Calendar}
@@ -397,16 +392,7 @@ const Success = () => {
                 description="Stay updated with exam dates and results"
                 buttonLabel="View Notifications"
                 buttonClass="border-blue-200 text-blue-600 hover:bg-blue-50"
-                onClick={() => navigate("/candidate/notifications")}
-              />
-              <ActionCard
-                icon={LayoutDashboard}
-                iconClass="text-orange-600"
-                title="Dashboard"
-                description="Go to your candidate dashboard"
-                buttonLabel="Go to Dashboard"
-                buttonVariant="primary"
-                onClick={() => navigate("/candidate/dashboard")}
+                onClick={() => navigate("/notices")}
               />
             </div>
 

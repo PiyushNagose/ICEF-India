@@ -218,7 +218,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const result = await authService.forgotPassword(req.body);
   res
     .status(StatusCodes.OK)
-    .json(new ApiResponse(StatusCodes.OK, result.message));
+    .json(new ApiResponse(StatusCodes.OK, result.message, result));
 });
 
 /**
@@ -460,7 +460,7 @@ const resendOTP = asyncHandler(async (req, res) => {
   const result = await authService.resendOTP(req.body.email);
   res
     .status(StatusCodes.OK)
-    .json(new ApiResponse(StatusCodes.OK, result.message));
+    .json(new ApiResponse(StatusCodes.OK, result.message, result));
 });
 
 const publicApplyLogin = asyncHandler(async (req, res) => {

@@ -68,7 +68,7 @@ const CandidateLogin = () => {
     try {
       await authService.candidateLogin(formData);
       toast.success("Login successful");
-      navigate("/candidate/dashboard", { replace: true });
+      navigate("/check-status", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

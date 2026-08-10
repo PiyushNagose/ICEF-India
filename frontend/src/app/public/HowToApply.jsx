@@ -114,10 +114,10 @@ const HowToApply = () => (
             viewport={{ once: true, amount: 0.2 }}
           >
             <Link
-              to="/auth/register"
+              to="/jobs"
               className="flex h-12 items-center justify-center rounded bg-[#e46a1d] text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16] transition-colors"
             >
-              Register Now
+              View Openings
             </Link>
           </motion.div>
         </aside>

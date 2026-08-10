@@ -74,7 +74,7 @@ const Results = () => {
             >
               <JobListCard
                 job={job}
-                meta={`Exam conducted/scheduled on ${formatDate(job.examDate)}. Login as a candidate for application-specific result updates.`}
+                meta={`Exam conducted/scheduled on ${formatDate(job.examDate)}. Use the public status page for application-specific result updates.`}
                 actionLabel="Open Recruitment"
               />
             </motion.div>
@@ -86,7 +86,7 @@ const Results = () => {
             <BarChart3 className="w-6 h-6 text-orange-600 shrink-0" />
             <div>
               <h2 className="font-black text-[#1f1d1b]">
-                Candidate result dashboard
+                Public result status
               </h2>
               <p className="mt-1 text-sm text-[#6d6761]">
                 View result status against your submitted applications.
@@ -94,7 +94,7 @@ const Results = () => {
             </div>
           </div>
           <Link
-            to="/candidate/results"
+            to="/results"
             className="inline-flex h-11 items-center justify-center rounded bg-[#e46a1d] px-5 text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16]"
           >
             View My Results

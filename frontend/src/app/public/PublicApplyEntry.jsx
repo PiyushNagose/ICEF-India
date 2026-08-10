@@ -16,6 +16,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -23,10 +24,12 @@ import {
   Phone,
   ShieldCheck,
   CheckCircle2,
+  BadgeCheck,
   ChevronRight,
   Loader2,
   AlertCircle,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
@@ -36,6 +39,8 @@ import {
   getFirstApplicationRoute,
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
+import { getJobAvailability } from "../../utils/jobAvailability";
+import { showOtpToast } from "../../utils/otpToast";
 
 // ── helpers ───────────────────────────────────────────────────
 
@@ -76,9 +81,9 @@ function OtpTimer({ active, onExpire }) {
   );
 }
 
-const Input = ({ ...props }) => (
+const Input = ({ className = "", ...props }) => (
   <input
-    className="w-full h-11 px-3 rounded-lg border border-[#e0d7cd] bg-white text-sm text-[#1f1d1b] placeholder-[#b0a89e] outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition"
+    className={`h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition placeholder:text-[#b0a89e] focus:border-orange-400 focus:ring-2 focus:ring-orange-200 disabled:bg-[#faf7f2] ${className}`}
     {...props}
   />
 );
@@ -86,7 +91,7 @@ const Input = ({ ...props }) => (
 const PrimaryBtn = ({ loading, children, className = "", ...props }) => (
   <button
     disabled={loading || props.disabled}
-    className={`inline-flex items-center justify-center gap-2 h-11 px-5 bg-[#e46a1d] hover:bg-[#cb5d16] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-black uppercase tracking-widest text-xs transition ${className}`}
+    className={`inline-flex h-12 items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
     {...props}
   >
     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -127,6 +132,26 @@ export default function PublicApplyEntry() {
   const [verifyMobileLoading, setVerifyMobileLoading] = useState(false);
   const [proceedLoading, setProceedLoading] = useState(false);
 
+  const { data: projectData, isLoading: isCheckingJob } = useQuery({
+    queryKey: ["public-apply-entry", slug],
+    queryFn: () => publicService.getProjectBySlug(slug),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+
+  const selectedJob = (projectData?.jobs || []).find((job) => job._id === jobId);
+  const availability = selectedJob ? getJobAvailability(selectedJob) : null;
+  const entryBlocked =
+    !jobId ||
+    (!isCheckingJob && (!selectedJob || (availability && !availability.canApply)));
+  const blockedMessage = !jobId
+    ? "Please select a post before starting the application."
+    : !selectedJob && !isCheckingJob
+      ? "This post is not available under the selected recruitment."
+      : availability && !availability.canApply
+        ? availability.reason || availability.label
+        : "";
+
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isMobileValid = /^[6-9]\d{9}$/.test(mobile);
 
@@ -137,11 +162,15 @@ export default function PublicApplyEntry() {
       toast.error("Enter a valid email address");
       return;
     }
+    if (entryBlocked) {
+      toast.error(blockedMessage || "This application is not available");
+      return;
+    }
     setSendEmailLoading(true);
     try {
-      await publicService.sendOTP(email, "email");
+      const response = await publicService.sendOTP(email, "email");
       setEmailOtpSent(true);
-      toast.success("OTP sent to your email");
+      showOtpToast(response, "OTP sent to your email");
     } catch (err) {
       if (!err.toastShown) toast.error(err.message || "Failed to send OTP");
     } finally {
@@ -154,11 +183,15 @@ export default function PublicApplyEntry() {
       toast.error("Enter a valid 10-digit mobile number");
       return;
     }
+    if (entryBlocked) {
+      toast.error(blockedMessage || "This application is not available");
+      return;
+    }
     setSendMobileLoading(true);
     try {
-      await publicService.sendOTP(mobile, "mobile");
+      const response = await publicService.sendOTP(mobile, "mobile");
       setMobileOtpSent(true);
-      toast.success("OTP sent to your mobile");
+      showOtpToast(response, "OTP sent to your mobile");
     } catch (err) {
       if (!err.toastShown) toast.error(err.message || "Failed to send OTP");
     } finally {
@@ -211,6 +244,11 @@ export default function PublicApplyEntry() {
       navigate(`/apply/${slug}`, { replace: true });
       return;
     }
+    if (entryBlocked) {
+      toast.error(blockedMessage || "This application is not available");
+      navigate(`/apply/${slug}`, { replace: true });
+      return;
+    }
 
     setProceedLoading(true);
     try {
@@ -236,6 +274,22 @@ export default function PublicApplyEntry() {
         state: { applicationId, jobId },
       });
     } catch (err) {
+      if (err.status === 409) {
+        const duplicate = err.errors?.[0] || {};
+        toast("Application already exists. Please check your status.", {
+          icon: "i",
+        });
+        navigate("/check-status", {
+          replace: true,
+          state: {
+            applicationId: duplicate.applicationId,
+            publicApplicationId: duplicate.publicApplicationId,
+            registrationNumber: duplicate.registrationNumber,
+            status: duplicate.status,
+          },
+        });
+        return;
+      }
       if (!err.toastShown) toast.error(err.message || "Something went wrong");
     } finally {
       setProceedLoading(false);
@@ -246,39 +300,120 @@ export default function PublicApplyEntry() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#f5efe9] flex flex-col items-center justify-center px-4 py-12">
+      <div className="min-h-[calc(100vh-90px)] bg-[#f5efe9]">
+        <div className="bg-[#201d1a] text-white">
+          <div className="mx-auto max-w-[1380px] px-4 py-9 sm:px-6 lg:px-8">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
+              Secure Application Entry
+            </p>
+            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
+              Verify Your Identity
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/70">
+              Verify your email and mobile before starting the application.
+              No candidate account is required.
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md"
+          className="grid items-stretch gap-7 lg:grid-cols-[420px_minmax(0,1fr)]"
         >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
-              <ShieldCheck className="w-7 h-7 text-[#e46a1d]" />
+          <aside className="flex flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-orange-50 text-[#e46a1d]">
+              <ShieldCheck className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-black text-[#1f1d1b]">
-              Verify Your Identity
-            </h1>
-            <p className="mt-2 text-sm text-[#6d6761]">
-              No account needed. Just verify your email and mobile to start your
-              application.
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
+              Application Access
             </p>
-          </div>
+            <h2 className="mt-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
+              One-time verification for a secure application session.
+            </h2>
+            <p className="mt-3 text-sm font-medium leading-6 text-[#6d6761]">
+              Your verified contact details will be attached to the application
+              and used for registration number, status, and admit card access.
+            </p>
 
-          <div className="bg-white border border-[#e0d7cd] rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="mt-6 grid gap-3">
+              {[
+                "Email OTP verification",
+                "Mobile OTP verification",
+                "Public application session",
+                "Registration after payment",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2 text-sm font-semibold text-[#4a4440]">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
+              For testing, the OTP appears in the toast when the backend runs in
+              development mode.
+            </div>
+          </aside>
+
+          <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
+            <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
+              <div>
+                <h2 className="flex items-center gap-2 text-[18px] font-black text-[#1f1d1b]">
+                  <BadgeCheck className="h-5 w-5 text-[#e46a1d]" />
+                  Contact Verification
+                </h2>
+                <p className="mt-1 text-sm font-medium text-[#6d6761]">
+                  Complete both checks to continue.
+                </p>
+              </div>
+              {emailVerified && mobileVerified && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-black text-green-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-5">
+            {isCheckingJob && (
+              <div className="rounded-lg border border-[#f3dfc9] bg-[#fff8ef] px-4 py-3 text-xs font-semibold text-[#8a5a20] flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#e46a1d]" />
+                Checking application window...
+              </div>
+            )}
+
+            {entryBlocked && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{blockedMessage}</span>
+              </div>
+            )}
+
+            {selectedJob && !entryBlocked && (
+              <div className="rounded-[6px] border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="flex items-center gap-2 text-sm font-black text-emerald-800">
+                  <FileText className="h-4 w-4" />
+                  Applying for {selectedJob.title}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-emerald-700/80">
+                  {projectData?.project?.name}
+                </p>
+              </div>
+            )}
+
             {/* Email section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#4a4440] flex items-center gap-1.5">
+            <div className="rounded-[8px] border border-[#efe7de] bg-[#fffdfb] p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
                   <Mail className="w-3.5 h-3.5 text-[#e46a1d]" />
                   Email Address
                 </label>
                 {emailVerified && <VerifiedBadge />}
               </div>
 
-              <div className="flex gap-2">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
                 <Input
                   type="email"
                   placeholder="you@example.com"
@@ -288,12 +423,12 @@ export default function PublicApplyEntry() {
                     setEmailOtpSent(false);
                     setEmailVerified(false);
                   }}
-                  disabled={emailVerified}
+                  disabled={emailVerified || isCheckingJob || entryBlocked}
                 />
                 {!emailVerified && (
                   <PrimaryBtn
                     loading={sendEmailLoading}
-                    disabled={!isEmailValid}
+                    disabled={!isEmailValid || isCheckingJob || entryBlocked}
                     onClick={handleSendEmail}
                     className="shrink-0 whitespace-nowrap"
                   >
@@ -336,19 +471,19 @@ export default function PublicApplyEntry() {
             </div>
 
             {/* Divider */}
-            <div className="border-t border-[#f0e9e1]" />
+            <div className="h-px bg-[#f0e9e1]" />
 
             {/* Mobile section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#4a4440] flex items-center gap-1.5">
+            <div className="rounded-[8px] border border-[#efe7de] bg-[#fffdfb] p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
                   <Phone className="w-3.5 h-3.5 text-[#e46a1d]" />
                   Mobile Number
                 </label>
                 {mobileVerified && <VerifiedBadge />}
               </div>
 
-              <div className="flex gap-2">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
                 <Input
                   type="tel"
                   inputMode="numeric"
@@ -360,12 +495,12 @@ export default function PublicApplyEntry() {
                     setMobileOtpSent(false);
                     setMobileVerified(false);
                   }}
-                  disabled={mobileVerified}
+                  disabled={mobileVerified || isCheckingJob || entryBlocked}
                 />
                 {!mobileVerified && (
                   <PrimaryBtn
                     loading={sendMobileLoading}
-                    disabled={!isMobileValid}
+                    disabled={!isMobileValid || isCheckingJob || entryBlocked}
                     onClick={handleSendMobile}
                     className="shrink-0 whitespace-nowrap"
                   >
@@ -408,7 +543,7 @@ export default function PublicApplyEntry() {
             </div>
 
             {/* Notice */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex gap-2 text-xs text-amber-800">
+            <div className="flex gap-2 rounded-[6px] border border-amber-200 bg-[#fff8e6] px-4 py-3 text-xs font-semibold leading-5 text-amber-800">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
                 Make sure to use your real email and mobile — your Registration
@@ -419,14 +554,14 @@ export default function PublicApplyEntry() {
             {/* Proceed button */}
             <PrimaryBtn
               loading={proceedLoading}
-              disabled={!emailVerified || !mobileVerified}
+              disabled={!emailVerified || !mobileVerified || isCheckingJob || entryBlocked}
               onClick={handleProceed}
-              className="w-full"
+              className="w-full shadow-[0_14px_30px_rgba(228,106,29,0.22)] disabled:shadow-none"
             >
               Start Application
               <ChevronRight className="w-4 h-4" />
             </PrimaryBtn>
-          </div>
+            </div>
 
           <p className="mt-4 text-center text-xs text-[#6d6761]">
             Already applied?{" "}
@@ -437,7 +572,9 @@ export default function PublicApplyEntry() {
               Check your application status
             </button>
           </p>
+          </div>
         </motion.div>
+        </div>
       </div>
     </PublicLayout>
   );

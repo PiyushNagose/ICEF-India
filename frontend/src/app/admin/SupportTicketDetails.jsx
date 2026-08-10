@@ -167,7 +167,13 @@ const SupportTicketDetails = () => {
     );
 
   const replies = ticket.replies || ticket.messages || [];
-  const candidate = ticket.raisedBy || ticket.candidateId || {};
+  const candidate =
+    ticket.raisedBy ||
+    ticket.candidateId || {
+      fullName: ticket.guestContact?.name,
+      email: ticket.guestContact?.email,
+      registeredMobile: ticket.guestContact?.mobile,
+    };
   const linkedApplication = ticket.linkedApplication;
   const linkedPayment = ticket.linkedPayment;
   const action = ticket.resolutionAction || {};
@@ -410,6 +416,50 @@ const SupportTicketDetails = () => {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader>
+                <h3 className="font-semibold text-gray-900">Public Tracking</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Source</p>
+                    <p className="text-sm font-medium text-gray-900 capitalize">
+                      {(ticket.source || "candidate_portal").replace("_", " ")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Contact</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {ticket.guestContact?.mobile ||
+                        candidate.registeredMobile ||
+                        "Not available"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Registration Number</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {ticket.registrationNumber || "Not linked"}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                  <p className="text-xs font-semibold text-orange-800">
+                    First response due
+                  </p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatTime(ticket.sla?.firstResponseDueAt)}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-orange-800">
+                    Resolution due
+                  </p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatTime(ticket.sla?.resolutionDueAt)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Actions */}
             <Card>
               <CardHeader>
@@ -499,6 +549,16 @@ const SupportTicketDetails = () => {
                         {linkedApplication.applicationId}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Registration Number
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {linkedApplication.registrationNumber ||
+                          ticket.registrationNumber ||
+                          "Pending"}
+                      </p>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-xs text-gray-500">Status</p>
@@ -513,6 +573,22 @@ const SupportTicketDetails = () => {
                         </p>
                       </div>
                     </div>
+                    {linkedApplication.appliedPosts?.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500">Applied Posts</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {linkedApplication.appliedPosts.map((post, index) => (
+                            <span
+                              key={`${post.postCode || post.title}-${index}`}
+                              className="rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700"
+                            >
+                              {post.title || post.designation}
+                              {post.postCode ? ` - ${post.postCode}` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {action.type === "application_correction" && (
                       <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
                         <p className="text-xs font-medium text-orange-800">

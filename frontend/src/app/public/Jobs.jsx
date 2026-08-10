@@ -29,6 +29,11 @@ import {
   getRouteForApplicationStep,
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
+import {
+  getApplicationAction,
+  getActionButtonClass,
+  getJobAvailability,
+} from "../../utils/jobAvailability";
 import ShareJobButton from "../../components/ui/ShareJobButton";
 
 // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -75,6 +80,25 @@ const DaysChip = ({ deadline }) => {
   );
 };
 
+const AvailabilityChip = ({ job }) => {
+  const availability = getJobAvailability(job);
+  if (availability.status === "open") return <DaysChip deadline={job.applicationDeadline} />;
+  const tone =
+    availability.status === "not_open"
+      ? "bg-blue-100 text-blue-700"
+      : "bg-gray-100 text-gray-600";
+  return (
+    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tone}`}>
+      {availability.label}
+    </span>
+  );
+};
+
+const getPublicApplyPath = (job) => {
+  const slug = job?.projectId?.publicSlug;
+  return slug ? `/apply/${slug}/start?jobId=${job._id}` : `/jobs/${job._id}`;
+};
+
 // â”€â”€ Job Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const JobCard = ({
@@ -86,15 +110,14 @@ const JobCard = ({
   onApply,
 }) => {
   const navigate = useNavigate();
-  const isClosed =
-    daysLeft(job.applicationDeadline) !== null &&
-    daysLeft(job.applicationDeadline) < 0;
   const isApplying = applyingId === job._id;
   const fee = job.applicationFee?.general || job.applicationFee?.amount || 0;
   const isApplied = !!existingApp;
   const isDraft = existingApp?.status === "draft";
+  const action = getApplicationAction(job, existingApp);
 
   const handleAction = () => {
+    if (!action.canClick) return;
     if (!existingApp) {
       onApply(job._id);
       return;
@@ -111,7 +134,9 @@ const JobCard = ({
         },
       );
     } else {
-      navigate(`/candidate/applications/${existingApp._id}`);
+      navigate("/check-status", {
+        state: { applicationId: existingApp._id },
+      });
     }
   };
 
@@ -120,13 +145,10 @@ const JobCard = ({
       return (
         <button
           onClick={handleAction}
-          className={`flex-1 flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm font-bold transition-all ${
-            isDraft
-              ? "bg-orange-600 hover:bg-orange-700 text-white"
-              : "bg-green-600 hover:bg-green-700 text-white"
-          }`}
+          disabled={!action.canClick}
+          className={getActionButtonClass(action)}
         >
-          {isDraft ? (
+          {isDraft && action.canClick ? (
             <>
               <PlayCircle className="w-4 h-4" />
               Resume
@@ -134,42 +156,43 @@ const JobCard = ({
           ) : (
             <>
               <CheckCircle className="w-4 h-4" />
-              Applied
+              {action.label}
             </>
           )}
         </button>
       );
     }
     if (!isLoggedIn || !isCandidate) {
+      if (!action.canClick) {
+        return (
+          <button disabled className={getActionButtonClass(action)} title={action.reason}>
+            {action.label}
+          </button>
+        );
+      }
       return (
         <Link
-          to="/auth/candidate-login"
-          state={{ jobId: job._id }}
+          to={getPublicApplyPath(job)}
           className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm font-bold bg-[#f97316] hover:bg-orange-600 text-white transition-all"
         >
-          Apply
+          Verify & Apply
         </Link>
       );
     }
     return (
       <button
         onClick={handleAction}
-        disabled={isApplying || isClosed}
-        className={`flex-1 flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm font-bold transition-all ${
-          isClosed
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-[#f97316] hover:bg-orange-600 text-white"
-        }`}
+        disabled={isApplying || !action.canClick}
+        className={getActionButtonClass(action)}
+        title={action.reason}
       >
         {isApplying ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Starting...
           </>
-        ) : isClosed ? (
-          "Closed"
         ) : (
-          "Apply Now"
+          action.label
         )}
       </button>
     );
@@ -196,7 +219,7 @@ const JobCard = ({
           </div>
           {/* Right side: days chip + applied badge + share icon â€” all inline */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <DaysChip deadline={job.applicationDeadline} />
+            <AvailabilityChip job={job} />
             {isApplied && (
               <span
                 className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
@@ -364,7 +387,7 @@ const Jobs = () => {
       setApplyingId(null);
       if (err.status === 409) {
         toast("You have already applied for this job", { icon: "â„¹ï¸" });
-        navigate("/candidate/applications");
+        navigate("/check-status");
       } else {
         toast.error(err.message || "Failed to start application");
       }
@@ -373,7 +396,8 @@ const Jobs = () => {
 
   const handleApply = (jobId) => {
     if (!isLoggedIn || !isCandidate) {
-      navigate("/auth/candidate-login", { state: { jobId } });
+      const job = jobs.find((item) => item._id === jobId);
+      navigate(getPublicApplyPath(job || { _id: jobId }));
       return;
     }
     setApplyingId(jobId);
@@ -400,10 +424,10 @@ const Jobs = () => {
             </div>
             {isLoggedIn && isCandidate && (
               <Link
-                to="/candidate/applications"
+                to="/check-status"
                 className="inline-flex items-center gap-2 text-sm font-semibold text-orange-600 hover:underline"
               >
-                My Applications <ChevronRight className="w-4 h-4" />
+                View Application <ChevronRight className="w-4 h-4" />
               </Link>
             )}
           </div>
@@ -573,27 +597,27 @@ const Jobs = () => {
             </div>
           )}
 
-          {/* Not logged in CTA */}
+          {/* Public services CTA */}
           {!isLoggedIn && (
             <div className="bg-white border border-[#e0d7cd] rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
               <div>
-                <p className="font-bold text-[#1f1d1b]">Ready to apply?</p>
+                <p className="font-bold text-[#1f1d1b]">Applying is public and OTP verified.</p>
                 <p className="text-sm text-[#6d6761] mt-0.5">
-                  Create a free account to start applying for government jobs.
+                  Open any active job, verify your email and mobile, then complete the application.
                 </p>
               </div>
               <div className="flex gap-3 flex-shrink-0">
                 <Link
-                  to="/auth/register"
+                  to="/check-status"
                   className="px-5 py-2.5 border-2 border-[#e46a1d] text-[#e46a1d] hover:bg-[#e46a1d] hover:text-white rounded-lg text-sm font-bold transition-all"
                 >
-                  Register
+                  Check Status
                 </Link>
                 <Link
-                  to="/auth/candidate-login"
+                  to="/admit-cards"
                   className="px-5 py-2.5 bg-[#e46a1d] hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-all"
                 >
-                  Login
+                  Admit Card
                 </Link>
               </div>
             </div>

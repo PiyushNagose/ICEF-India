@@ -152,7 +152,7 @@ export const buildApplicationSteps = (jobOrApplication, application = {}) => {
 
 export const getFirstApplicationRoute = (jobOrApplication) => {
   const steps = buildApplicationSteps(jobOrApplication, jobOrApplication);
-  return steps[0]?.path || "/candidate/applications";
+  return steps[0]?.path || "/check-status";
 };
 
 export const getRouteForApplicationStep = (

@@ -31,6 +31,7 @@ const adminSupportRoutes = require("./src/routes/admin/support.routes");
 const candidateNotificationRoutes = require("./src/routes/candidate/notification.routes");
 const candidateSupportRoutes = require("./src/routes/candidate/support.routes");
 const candidatePaymentRoutes = require("./src/routes/candidate/payment.routes");
+const publicSupportRoutes = require("./src/routes/public/support.routes");
 
 const PORT = parseInt(process.env.COMMUNICATION_SERVICE_PORT, 10) || 5003;
 const parsedOrigins =
@@ -66,6 +67,7 @@ app.use("/api/admin", adminPaymentRoutes); // /payments + /payment-gateways
 app.use("/api/admin/support", adminSupportRoutes);
 app.use("/api/candidate/notifications", candidateNotificationRoutes);
 app.use("/api/candidate/support", candidateSupportRoutes);
+app.use("/api/public/support", publicSupportRoutes);
 
 // ── Health ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {

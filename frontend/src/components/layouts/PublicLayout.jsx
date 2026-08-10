@@ -5,7 +5,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getDashboardPath, useAuth } from "../../hooks/useAuth";
+import { getDashboardPath, isCandidateUser, useAuth } from "../../hooks/useAuth";
 import logo from "../../assets/logo.png";
 
 const PublicLayout = ({ children }) => {
@@ -15,7 +15,8 @@ const PublicLayout = ({ children }) => {
   const [scrollThumb, setScrollThumb] = useState({ height: 0, top: 0 });
   const { user, token } = useAuth();
   const isLoggedIn = !!(user && token);
-  const dashboardPath = getDashboardPath(user);
+  const dashboardPath = isCandidateUser(user) ? "/check-status" : getDashboardPath(user);
+  const dashboardLabel = isCandidateUser(user) ? "Check Status" : "Dashboard";
 
   const location = useLocation();
 
@@ -141,16 +142,16 @@ const PublicLayout = ({ children }) => {
               {!isLoggedIn && (
                 <>
                   <Link
-                    to="/auth/register"
+                    to="/check-status"
                     className="hidden sm:flex h-[42px] px-6 bg-white border-2 border-[#e46a1d] text-[#e46a1d] hover:bg-[#e46a1d] hover:text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all"
                   >
-                    Register
+                    Check Status
                   </Link>
                   <Link
-                    to="/auth/candidate-login"
+                    to="/admit-cards"
                     className="hidden sm:flex h-[42px] px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all shadow-lg shadow-orange-200"
                   >
-                    Login
+                    Admit Card
                   </Link>
                 </>
               )}
@@ -159,7 +160,7 @@ const PublicLayout = ({ children }) => {
                   to={dashboardPath}
                   className="hidden sm:flex h-[42px] px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all shadow-lg shadow-orange-200"
                 >
-                  Dashboard
+                  {dashboardLabel}
                 </Link>
               )}
 
@@ -198,16 +199,16 @@ const PublicLayout = ({ children }) => {
               {!isLoggedIn && (
                 <>
                   <Link
-                    to="/auth/register"
+                    to="/check-status"
                     className="mt-4 flex h-[46px] bg-white border-2 border-[#e46a1d] text-[#e46a1d] rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                   >
-                    Register
+                    Check Status
                   </Link>
                   <Link
-                    to="/auth/candidate-login"
+                    to="/admit-cards"
                     className="mt-2 flex h-[46px] bg-[#e46a1d] text-white rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                   >
-                    Login
+                    Admit Card
                   </Link>
                 </>
               )}
@@ -217,7 +218,7 @@ const PublicLayout = ({ children }) => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-4 flex h-[46px] bg-[#e46a1d] text-white rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                 >
-                  Dashboard
+                  {dashboardLabel}
                 </Link>
               )}
             </div>

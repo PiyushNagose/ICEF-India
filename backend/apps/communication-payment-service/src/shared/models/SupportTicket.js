@@ -35,11 +35,40 @@ const supportTicketSchema = new mongoose.Schema(
       default: "Open",
     },
 
-    // Raised by candidate
+    source: {
+      type: String,
+      enum: ["web", "candidate_portal", "email", "phone", "whatsapp"],
+      default: "candidate_portal",
+      index: true,
+    },
+    sourceMetadata: {
+      ip: String,
+      userAgent: String,
+      channelMessageId: String,
+    },
+    guestContact: {
+      name: { type: String, trim: true },
+      email: { type: String, trim: true, lowercase: true },
+      mobile: { type: String, trim: true },
+    },
+    registrationNumber: { type: String, trim: true, index: true },
+    sla: {
+      firstResponseDueAt: Date,
+      resolutionDueAt: Date,
+      firstRespondedAt: Date,
+      breached: { type: Boolean, default: false },
+    },
+    feedback: {
+      rating: { type: Number, min: 1, max: 5 },
+      comment: String,
+      submittedAt: Date,
+    },
+
+    // Raised by candidate. Public enquiry tickets may not have a logged-in user.
     raisedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
     },
     raisedByEmail: { type: String },
 

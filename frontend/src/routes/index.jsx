@@ -101,26 +101,6 @@ const CmsHome = lazy(() => import("../app/admin/CmsHome"));
 const CmsCreate = lazy(() => import("../app/admin/CmsCreate"));
 const CmsEdit = lazy(() => import("../app/admin/CmsEdit"));
 
-// Candidate Pages (Dashboard only - no sidebar)
-const CandidateDashboard = lazy(() => import("../app/candidate/Dashboard"));
-const Profile = lazy(() => import("../app/candidate/Profile"));
-const CandidateJobs = lazy(() => import("../app/candidate/Jobs"));
-const CandidateApplications = lazy(
-  () => import("../app/candidate/Applications"),
-);
-const ApplicationStatus = lazy(
-  () => import("../app/candidate/ApplicationStatus"),
-);
-const CandidateDocuments = lazy(() => import("../app/candidate/Documents"));
-const Payments = lazy(() => import("../app/candidate/Payments"));
-const AdmitCard = lazy(() => import("../app/candidate/AdmitCard"));
-const CandidateResults = lazy(() => import("../app/candidate/Results"));
-const CandidateSupport = lazy(() => import("../app/candidate/Support"));
-const CandidateSupportTicketDetail = lazy(
-  () => import("../app/candidate/SupportTicketDetail"),
-);
-const Notifications = lazy(() => import("../app/candidate/Notifications"));
-
 const AppRoutes = () => {
   return (
     <Suspense fallback={<GlobalPageLoader />}>
@@ -572,106 +552,58 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Candidate Routes (Dashboard only - no application flow) */}
+        {/* Legacy candidate portal routes now resolve to public services */}
         <Route
           path="/candidate"
-          element={<Navigate to="/candidate/dashboard" replace />}
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/dashboard"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateDashboard />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/profile"
-          element={
-            <ProtectedRoute role="candidate">
-              <Profile />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/jobs"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateJobs />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/jobs" replace />}
         />
         <Route
           path="/candidate/applications"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateApplications />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/applications/:id"
-          element={
-            <ProtectedRoute role="candidate">
-              <ApplicationStatus />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/documents"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateDocuments />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/payments"
-          element={
-            <ProtectedRoute role="candidate">
-              <Payments />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/check-status" replace />}
         />
         <Route
           path="/candidate/admit-card"
-          element={
-            <ProtectedRoute role="candidate">
-              <AdmitCard />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admit-cards" replace />}
         />
         <Route
           path="/candidate/results"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateResults />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/results" replace />}
         />
         <Route
           path="/candidate/support"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateSupport />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/contact" replace />}
         />
         <Route
           path="/candidate/support/:id"
-          element={
-            <ProtectedRoute role="candidate">
-              <CandidateSupportTicketDetail />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/contact" replace />}
         />
         <Route
           path="/candidate/notifications"
-          element={
-            <ProtectedRoute role="candidate">
-              <Notifications />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/notices" replace />}
         />
 
         {/* Fallback Route */}

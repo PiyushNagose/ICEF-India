@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
 import { STORAGE_KEYS } from "../../api/config";
 
 const getPreviewError = async (response) => {
@@ -12,13 +12,28 @@ const getPreviewError = async (response) => {
   return text || "This document is not available yet.";
 };
 
+const isImageSource = (src = "") =>
+  /\.(png|jpe?g|webp|gif|bmp|svg)(\?|#|$)/i.test(src);
+
+const isPdfSource = (src = "") => /\.pdf(\?|#|$)/i.test(src);
+
+const isExternalSource = (src = "") => {
+  try {
+    return new URL(src, window.location.origin).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+};
+
 const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" }) => {
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState("");
 
   useEffect(() => {
     let active = true;
+    let objectUrl = "";
 
     const checkDocument = async () => {
       if (!src) {
@@ -29,6 +44,13 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
 
       setStatus("loading");
       setMessage("");
+      setPreviewUrl("");
+
+      if (isExternalSource(src)) {
+        setPreviewUrl(src);
+        setStatus("ready");
+        return;
+      }
 
       try {
         const token = localStorage.getItem(STORAGE_KEYS.accessToken);
@@ -47,6 +69,13 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
           return;
         }
 
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!active) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setPreviewUrl(objectUrl);
         setStatus("ready");
       } catch {
         if (!active) return;
@@ -59,6 +88,7 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
 
     return () => {
       active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src, reloadKey]);
 
@@ -95,13 +125,55 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
     );
   }
 
+  const displayUrl = previewUrl || src;
+  const sourceSignature = `${src || ""} ${title || ""}`;
+
+  if (isImageSource(sourceSignature)) {
+    return (
+      <div className={`flex h-full w-full items-center justify-center overflow-auto bg-slate-100 p-4 ${className}`}>
+        <img
+          key={`${displayUrl}-${reloadKey}`}
+          src={displayUrl}
+          alt={title}
+          className="max-h-full max-w-full bg-white object-contain shadow-xl ring-1 ring-slate-200"
+        />
+      </div>
+    );
+  }
+
+  if (isPdfSource(sourceSignature)) {
+    return (
+      <iframe
+        key={`${displayUrl}-${reloadKey}`}
+        title={title}
+        src={displayUrl}
+        className={`h-full w-full border-0 bg-white ${className}`}
+      />
+    );
+  }
+
   return (
-    <iframe
-      key={`${src}-${reloadKey}`}
-      title={title}
-      src={src}
-      className={`h-full w-full border-0 ${className}`}
-    />
+    <div className={`flex h-full w-full items-center justify-center bg-white p-6 ${className}`}>
+      <div className="max-w-md rounded-2xl border border-orange-100 bg-orange-50 px-6 py-7 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white text-orange-600 shadow-sm">
+          <FileText className="h-6 w-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Preview not supported</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This file type cannot be displayed inside the browser preview. Open it
+          in a new tab to view or download it.
+        </p>
+        <a
+          href={displayUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open Document
+        </a>
+      </div>
+    </div>
   );
 };
 

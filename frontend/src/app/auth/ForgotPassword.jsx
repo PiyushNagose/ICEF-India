@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { authService } from "../../services/auth.service";
 import heroBg from "../../assets/herobg.jpg";
 import logo from "../../assets/logo.png";
+import { showOtpToast } from "../../utils/otpToast";
 
 const ACCOUNT_TYPES = {
   candidate: {
@@ -91,7 +92,10 @@ const ForgotPassword = ({ accountType: fixedAccountType }) => {
         email: email.trim(),
         accountType,
       });
-      toast.success(result?.message || "Reset OTP sent if the account exists.");
+      showOtpToast(
+        result,
+        result?.message || "Reset OTP sent if the account exists.",
+      );
       setStep("reset");
     } catch (err) {
       setError(err.message || "Could not start password reset.");

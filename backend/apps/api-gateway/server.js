@@ -270,6 +270,7 @@ app.use("/api/public/projects", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/public/otp", proxy(IDENTITY_URL, "Identity"));
 app.use("/api/public/apply", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/public/application", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/public/support", proxy(COMMUNICATION_URL, "Communication"));
 app.use("/api/admin/projects", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/jobs", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/applications", proxy(RECRUITMENT_URL, "Recruitment"));

@@ -2,13 +2,12 @@ import { useState } from "react";
 import Papa from "papaparse";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   FileText,
   Eye,
   CheckCircle,
-  X,
   Search,
   Download,
   ChevronLeft,
@@ -18,13 +17,9 @@ import {
   Clock,
   TrendingUp,
   AlertCircle,
-  Filter,
-  MoreHorizontal,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
-import { Card } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import Badge from "../../components/ui/Badge";
 import { adminService } from "../../services/admin.service";
 
 const STATUS_CONFIG = {
@@ -35,10 +30,10 @@ const STATUS_CONFIG = {
     dot: "bg-gray-400",
   },
   submitted: {
-    label: "Submitted",
-    bg: "bg-blue-100",
-    text: "text-blue-800",
-    dot: "bg-blue-500",
+    label: "Auto Approved",
+    bg: "bg-emerald-100",
+    text: "text-emerald-800",
+    dot: "bg-emerald-500",
   },
   under_review: {
     label: "Under Review",
@@ -47,7 +42,7 @@ const STATUS_CONFIG = {
     dot: "bg-amber-500",
   },
   verified: {
-    label: "Verified",
+    label: "Approved",
     bg: "bg-emerald-100",
     text: "text-emerald-800",
     dot: "bg-emerald-500",
@@ -133,14 +128,10 @@ const CandidateAvatar = ({ name }) => {
 
 const Applications = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState([]);
-  const [bulkAction, setBulkAction] = useState("");
-  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
   const status = activeTab === "all" ? undefined : activeTab;
 
@@ -158,17 +149,6 @@ const Applications = () => {
   const { data: statsData } = useQuery({
     queryKey: ["admin-application-stats"],
     queryFn: adminService.getApplicationStats,
-  });
-
-  const { mutate: updateStatus, isPending: isUpdating } = useMutation({
-    mutationFn: ({ id, status, rejectionReason }) =>
-      adminService.updateApplicationStatus(id, { status, rejectionReason }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-application-stats"] });
-      toast.success("Application status updated");
-    },
-    onError: (err) => toast.error(err.message || "Failed to update"),
   });
 
   const applications = data?.applications || [];
@@ -193,17 +173,11 @@ const Applications = () => {
       change: null,
     },
     {
-      title: "Under Review",
-      value: countByStatus("under_review"),
-      icon: Clock,
-      gradient: "from-amber-500 to-amber-600",
-      bg: "bg-amber-50",
-      iconColor: "text-amber-600",
-      change: null,
-    },
-    {
-      title: "Verified",
-      value: countByStatus("verified") + countByStatus("approved"),
+      title: "Auto Approved",
+      value:
+        countByStatus("submitted") +
+        countByStatus("verified") +
+        countByStatus("approved"),
       icon: CheckCircle,
       gradient: "from-emerald-500 to-emerald-600",
       bg: "bg-emerald-50",
@@ -211,60 +185,36 @@ const Applications = () => {
       change: null,
     },
     {
-      title: "Rejected",
-      value: countByStatus("rejected"),
-      icon: X,
-      gradient: "from-red-500 to-red-600",
-      bg: "bg-red-50",
-      iconColor: "text-red-600",
+      title: "Clarification",
+      value: countByStatus("clarification_required"),
+      icon: AlertCircle,
+      gradient: "from-orange-500 to-orange-600",
+      bg: "bg-orange-50",
+      iconColor: "text-orange-600",
+      change: null,
+    },
+    {
+      title: "Drafts",
+      value: countByStatus("draft"),
+      icon: Clock,
+      gradient: "from-slate-500 to-slate-600",
+      bg: "bg-slate-50",
+      iconColor: "text-slate-600",
       change: null,
     },
   ];
 
   const tabs = [
     { id: "all", label: "All", count: total },
-    { id: "submitted", label: "Submitted", count: countByStatus("submitted") },
-    {
-      id: "under_review",
-      label: "Under Review",
-      count: countByStatus("under_review"),
-    },
-    { id: "verified", label: "Verified", count: countByStatus("verified") },
+    { id: "submitted", label: "Auto Approved", count: countByStatus("submitted") },
+    { id: "approved", label: "Approved", count: countByStatus("approved") },
     {
       id: "clarification_required",
       label: "Clarification",
       count: countByStatus("clarification_required"),
     },
-    { id: "rejected", label: "Rejected", count: countByStatus("rejected") },
+    { id: "draft", label: "Drafts", count: countByStatus("draft") },
   ];
-
-  const allSelected =
-    applications.length > 0 && selected.length === applications.length;
-  const toggleAll = () =>
-    setSelected(allSelected ? [] : applications.map((a) => a._id));
-  const toggleOne = (id) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-
-  const handleBulkApply = async () => {
-    if (!bulkAction || selected.length === 0) return;
-    const newStatus = bulkAction === "approve" ? "verified" : "rejected";
-    let done = 0;
-    for (const id of selected) {
-      await new Promise((resolve) => {
-        updateStatus(
-          { id, status: newStatus, rejectionReason: "" },
-          { onSettled: resolve },
-        );
-      });
-      done++;
-    }
-    toast.success(`${done} application(s) ${newStatus}`);
-    setSelected([]);
-    setBulkAction("");
-    setShowBulkConfirm(false);
-  };
 
   const handleExport = async () => {
     try {
@@ -373,13 +323,11 @@ const Applications = () => {
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     setPage(1);
-    setSelected([]);
   };
 
   const handleSearch = (val) => {
     setSearch(val);
     setPage(1);
-    setSelected([]);
   };
 
   // Helper: get candidate name from aggregation result (backend returns "candidate" not "candidateId")
@@ -488,7 +436,7 @@ const Applications = () => {
             </nav>
           </div>
 
-          {/* Search + Bulk Actions Bar */}
+          {/* Search */}
           <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 flex-wrap bg-gray-50/50">
             <div className="relative flex-1 min-w-[220px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -500,40 +448,6 @@ const Applications = () => {
                 onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
-
-            {selected.length > 0 && (
-              <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                <span className="text-sm font-semibold text-orange-800">
-                  {selected.length} selected
-                </span>
-                <select
-                  className="admin-select text-sm !py-1.5 !px-2 !rounded-md border-orange-300"
-                  value={bulkAction}
-                  onChange={(e) => setBulkAction(e.target.value)}
-                >
-                  <option value="">Bulk Action</option>
-                  <option value="approve">Verify Selected</option>
-                </select>
-                <Button
-                  size="sm"
-                  disabled={!bulkAction || isUpdating}
-                  onClick={() => setShowBulkConfirm(true)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3"
-                >
-                  {isUpdating ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    "Apply"
-                  )}
-                </Button>
-                <button
-                  onClick={() => setSelected([])}
-                  className="text-gray-400 hover:text-gray-600 ml-1 p-0.5 rounded"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Table */}
@@ -541,14 +455,6 @@ const Applications = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-4 w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      className="w-4 h-4 text-orange-600 rounded border-gray-300 cursor-pointer"
-                    />
-                  </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Candidate
                   </th>
@@ -575,7 +481,7 @@ const Applications = () => {
               <tbody className="divide-y divide-gray-100">
                 {isLoading && (
                   <tr>
-                    <td colSpan="8" className="py-16 text-center">
+                    <td colSpan="7" className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-gray-400">
                         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
                         <span className="text-sm">Loading applications...</span>
@@ -585,7 +491,7 @@ const Applications = () => {
                 )}
                 {!isLoading && applications.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="py-16 text-center">
+                    <td colSpan="7" className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-gray-400">
                         <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                           <FileText className="w-7 h-7 text-gray-300" />
@@ -610,24 +516,12 @@ const Applications = () => {
                   const candidateMobile = getCandidateMobile(app);
                   const jobTitle = getJobTitle(app);
                   const jobDept = getJobDept(app);
-                  const isSelected = selected.includes(app._id);
 
                   return (
                     <tr
                       key={app._id}
-                      className={`group transition-colors ${
-                        isSelected ? "bg-orange-50/70" : "hover:bg-gray-50/80"
-                      }`}
+                      className="group transition-colors hover:bg-gray-50/80"
                     >
-                      <td className="py-4 px-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleOne(app._id)}
-                          className="w-4 h-4 text-orange-600 rounded border-gray-300 cursor-pointer"
-                        />
-                      </td>
-
                       {/* Candidate */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
@@ -728,25 +622,6 @@ const Applications = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {["submitted", "under_review", "clarification_required"].includes(
-                            app.status,
-                          ) && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  updateStatus({
-                                    id: app._id,
-                                    status: "verified",
-                                    rejectionReason: "",
-                                  })
-                                }
-                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Verify"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -829,62 +704,6 @@ const Applications = () => {
           )}
         </div>
       </div>
-
-      {/* ── Bulk Confirm Modal ── */}
-      {showBulkConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3 mb-1">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    bulkAction === "approve" ? "bg-emerald-100" : "bg-red-100"
-                  }`}
-                >
-                  {bulkAction === "approve" ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  )}
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Confirm Bulk Action
-                </h3>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="text-gray-600 text-sm">
-                You are about to{" "}
-                <strong className="text-emerald-700">verify</strong>{" "}
-                <strong>{selected.length}</strong> application(s). This action
-                cannot be undone.
-              </p>
-            </div>
-            <div className="px-6 pb-6 flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowBulkConfirm(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleBulkApply}
-                disabled={isUpdating}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {isUpdating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  "Confirm Verification"
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </AdminLayout>
   );
 };

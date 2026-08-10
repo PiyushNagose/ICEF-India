@@ -6,6 +6,58 @@ const ApiError = require("../../shared/utils/ApiError");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const buildAvailability = (jobLike, now = new Date()) => {
+  const job = jobLike?.toObject ? jobLike.toObject() : jobLike || {};
+  const start = job.applicationStartDate
+    ? new Date(job.applicationStartDate)
+    : null;
+  const deadline = job.applicationDeadline
+    ? new Date(job.applicationDeadline)
+    : null;
+
+  if (job.status !== "active") {
+    return {
+      status: "inactive",
+      label: "Inactive",
+      canApply: false,
+      reason: "This recruitment is not accepting applications.",
+      daysLeft: null,
+    };
+  }
+
+  if (start && now < start) {
+    const daysUntilOpen = Math.max(0, Math.ceil((start - now) / MS_PER_DAY));
+    return {
+      status: "not_open",
+      label: "Not Open Yet",
+      canApply: false,
+      reason: "Application window has not opened yet.",
+      daysUntilOpen,
+      daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+    };
+  }
+
+  if (deadline && now > deadline) {
+    return {
+      status: "closed",
+      label: "Closed",
+      canApply: false,
+      reason: "Application deadline has passed.",
+      daysLeft: 0,
+    };
+  }
+
+  return {
+    status: "open",
+    label: "Open",
+    canApply: true,
+    reason: "Applications are open.",
+    daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+  };
+};
+
 /**
  * @desc    Get all active jobs (public)
  * @route   GET /api/jobs
@@ -23,8 +75,18 @@ const getJobs = asyncHandler(async (req, res) => {
     sortOrder = "desc",
   } = req.query;
 
-  // Build filter - only show active jobs
-  const filter = { status: "active" };
+  const now = new Date();
+
+  // Public listings show published active jobs that are either open or upcoming.
+  // Closed jobs remain visible on project pages/direct URLs, but not in active listings.
+  const filter = {
+    status: "active",
+    $or: [
+      { applicationDeadline: { $exists: false } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $gte: now } },
+    ],
+  };
 
   if (department) filter.department = new RegExp(department, "i");
   if (category) filter.category = category;
@@ -45,9 +107,6 @@ const getJobs = asyncHandler(async (req, res) => {
     ];
   }
 
-  // Only show jobs with future application deadlines
-  filter.applicationDeadline = { $gte: new Date() };
-
   // Build sort
   const sort = {};
   sort[sortBy] = sortOrder === "desc" ? -1 : 1;
@@ -55,9 +114,9 @@ const getJobs = asyncHandler(async (req, res) => {
   // Execute query with pagination
   const skip = (page - 1) * limit;
   const jobs = await Job.find(filter)
-    .populate("projectId", "name department state")
+    .populate("projectId", "name department state publicSlug")
     .select(
-      "title postCode department category totalPosts posts salaryRange applicationDeadline examDate workLocation publishedAt applicationFee",
+      "title postCode department category totalPosts posts salaryRange applicationStartDate applicationDeadline examDate workLocation publishedAt applicationFee status",
     )
     .sort(sort)
     .skip(skip)
@@ -76,11 +135,9 @@ const getJobs = asyncHandler(async (req, res) => {
       return {
         ...job.toObject(),
         totalApplicants: applicationCount,
-        daysLeft: job.applicationDeadline
-          ? Math.ceil(
-              (job.applicationDeadline - new Date()) / (1000 * 60 * 60 * 24),
-            )
-          : null,
+        availability: buildAvailability(job, now),
+        daysLeft: buildAvailability(job, now).daysLeft,
+        isApplicationOpen: buildAvailability(job, now).canApply,
       };
     }),
   );
@@ -107,7 +164,7 @@ const getJob = asyncHandler(async (req, res) => {
   const job = await Job.findOne({
     _id: req.params.id,
     status: "active",
-  }).populate("projectId", "name department state description");
+  }).populate("projectId", "name department state description publicSlug");
 
   if (!job) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found or not available");
@@ -147,10 +204,9 @@ const getJob = asyncHandler(async (req, res) => {
     ...job.toObject(),
     totalApplicants,
     categoryWiseApplicants,
-    daysLeft: Math.ceil(
-      (job.applicationDeadline - new Date()) / (1000 * 60 * 60 * 24),
-    ),
-    isApplicationOpen: job.applicationDeadline > new Date(),
+    availability: buildAvailability(job),
+    daysLeft: buildAvailability(job).daysLeft,
+    isApplicationOpen: buildAvailability(job).canApply,
   };
 
   res.status(StatusCodes.OK).json(
@@ -236,7 +292,11 @@ const searchJobs = asyncHandler(async (req, res) => {
 
   const filter = {
     status: "active",
-    applicationDeadline: { $gte: new Date() },
+    $or: [
+      { applicationDeadline: { $exists: false } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $gte: new Date() } },
+    ],
   };
 
   if (q) {
@@ -399,10 +459,10 @@ const searchJobs = asyncHandler(async (req, res) => {
 
   const [jobs, total] = await Promise.all([
     Job.find(filter)
-      .populate("projectId", "name state")
+      .populate("projectId", "name state publicSlug")
       .select(
         "title postCode department category totalPosts applicationDeadline " +
-          "workLocation applicationFee ageLimit education salaryRange publishedAt",
+          "applicationStartDate workLocation applicationFee ageLimit education salaryRange publishedAt status",
       )
       .sort({ applicationDeadline: 1 })
       .skip(skip)
@@ -419,6 +479,8 @@ const searchJobs = asyncHandler(async (req, res) => {
             (1000 * 60 * 60 * 24),
         )
       : null;
+    obj.availability = buildAvailability(obj);
+    obj.isApplicationOpen = obj.availability.canApply;
 
     // Compute applicable fee for the candidate's category
     const fee = obj.applicationFee || {};

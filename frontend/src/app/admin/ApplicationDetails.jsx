@@ -32,9 +32,9 @@ const STATUS_CFG = {
     dot: "bg-gray-400",
   },
   submitted: {
-    label: "Submitted",
-    cls: "bg-blue-100 text-blue-800",
-    dot: "bg-blue-500",
+    label: "Auto Approved",
+    cls: "bg-emerald-100 text-emerald-800",
+    dot: "bg-emerald-500",
   },
   under_review: {
     label: "Under Review",
@@ -42,7 +42,7 @@ const STATUS_CFG = {
     dot: "bg-amber-500",
   },
   verified: {
-    label: "Verified",
+    label: "Approved",
     cls: "bg-emerald-100 text-emerald-800",
     dot: "bg-emerald-500",
   },
@@ -172,11 +172,8 @@ const ApplicationDetails = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("custom");
-  const [rejectReason, setRejectReason] = useState("");
-  const [showRejectModal, setShowRejectModal] = useState(false);
   const [clarificationNote, setClarificationNote] = useState("");
   const [showClarificationModal, setShowClarificationModal] = useState(false);
-  const [reviewNote, setReviewNote] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-application", id],
@@ -204,10 +201,7 @@ const ApplicationDetails = () => {
       );
       queryClient.invalidateQueries({ queryKey: ["admin-application", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
-      setShowRejectModal(false);
       setShowClarificationModal(false);
-      setReviewNote("");
-      setRejectReason("");
       setClarificationNote("");
     },
     onError: (err) => toast.error(err.message || "Failed to update"),
@@ -255,7 +249,7 @@ const ApplicationDetails = () => {
       if (field.name) fieldLabelMap[String(field.name)] = field.label;
     });
   });
-  const canAct = ["submitted", "under_review", "clarification_required"].includes(
+  const canRequestClarification = ["submitted", "approved", "verified"].includes(
     application.status,
   );
 
@@ -395,79 +389,29 @@ const ApplicationDetails = () => {
           </div>
         </div>
 
-        {/* Rejection banner */}
-        {application.rejectionReason && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex items-start gap-3">
-            <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-red-800">
-                Rejection Reason
-              </p>
-              <p className="text-sm text-red-700 mt-0.5">
-                {application.rejectionReason}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Review Actions */}
-        {canAct && (
+        {canRequestClarification && (
           <div className="bg-white rounded-2xl border-l-4 border-l-orange-500 border border-orange-200 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
-              <h3 className="font-semibold text-gray-900">Review Actions</h3>
-            </div>
-            <div className="flex flex-wrap gap-3 items-start">
-              <textarea
-                rows="2"
-                placeholder="Add reviewer notes (optional)..."
-                className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                value={reviewNote}
-                onChange={(e) => setReviewNote(e.target.value)}
-              />
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={() =>
-                    updateStatus({ status: "under_review", notes: reviewNote })
-                  }
-                  disabled={isPending || application.status === "under_review"}
-                  variant="outline"
-                  className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                >
-                  <Clock className="w-4 h-4 mr-1.5" /> Under Review
-                </Button>
-                <Button
-                  onClick={() =>
-                    updateStatus({ status: "verified", notes: reviewNote })
-                  }
-                  disabled={isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-1.5" />
-                      Verify
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowClarificationModal(true)}
-                  disabled={isPending}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  <AlertCircle className="w-4 h-4 mr-1.5" />
-                  Clarification
-                </Button>
-                <Button
-                  onClick={() => setShowRejectModal(true)}
-                  disabled={isPending}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <XCircle className="w-4 h-4 mr-1.5" /> Reject
-                </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    Application Auto Approved
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Paid applications are approved automatically. Request a
+                    correction only if candidate details need clarification.
+                  </p>
+                </div>
               </div>
+              <Button
+                onClick={() => setShowClarificationModal(true)}
+                disabled={isPending}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <AlertCircle className="w-4 h-4 mr-1.5" />
+                Request Clarification
+              </Button>
             </div>
           </div>
         )}
@@ -1009,51 +953,6 @@ const ApplicationDetails = () => {
         </div>
       )}
 
-      {/* Reject Modal */}
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Reject Application
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Provide a reason - this will be visible to the candidate.
-              </p>
-            </div>
-            <div className="p-6">
-              <textarea
-                rows="4"
-                placeholder="Enter rejection reason (required)..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-            </div>
-            <div className="px-6 pb-6 flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowRejectModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() =>
-                  updateStatus({ status: "rejected", notes: rejectReason })
-                }
-                disabled={isPending || !rejectReason.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Confirm Rejection"
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </AdminLayout>
   );
 };

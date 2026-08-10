@@ -31,6 +31,10 @@ import {
   getRouteForApplicationStep,
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
+import {
+  getApplicationAction,
+  getJobAvailability,
+} from "../../utils/jobAvailability";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -47,6 +51,11 @@ const formatDate = (d) =>
         year: "numeric",
       })
     : "Not announced";
+
+const getPublicApplyPath = (job) => {
+  const slug = job?.projectId?.publicSlug;
+  return slug ? `/apply/${slug}/start?jobId=${job._id}` : `/jobs/${job._id}`;
+};
 
 // ── Sub-components ────────────────────────────────────────────
 
@@ -88,19 +97,22 @@ const ApplySidebar = ({
 }) => {
   const navigate = useNavigate();
   const days = daysLeft(job.applicationDeadline);
-  const isClosed = days !== null && days < 0;
+  const availability = getJobAvailability(job);
+  const isClosed = !availability.canApply;
   const fee = job.applicationFee?.general || job.applicationFee?.amount || 0;
 
   // Already applied
   if (existingApp) {
     const isDraft = existingApp.status === "draft";
     const stepProgress = Math.round(((existingApp.currentStep || 1) / 9) * 100);
+    const action = getApplicationAction(job, existingApp);
 
     const handleResume = () => {
       persistApplicationDraft({
         applicationId: existingApp._id,
         jobId: job._id,
       });
+      if (!action.canClick) return;
       if (isDraft) {
         navigate(
           getRouteForApplicationStep(
@@ -112,8 +124,9 @@ const ApplySidebar = ({
           },
         );
       } else {
-        // Go to the dedicated application status page
-        navigate(`/candidate/applications/${existingApp._id}`);
+        navigate("/check-status", {
+          state: { applicationId: existingApp._id },
+        });
       }
     };
 
@@ -145,10 +158,11 @@ const ApplySidebar = ({
               </div>
               <Button
                 onClick={handleResume}
+                disabled={!action.canClick}
                 className="w-full h-[50px] bg-orange-600 hover:bg-orange-700 text-white gap-2"
               >
                 <PlayCircle className="w-5 h-5" />
-                Resume Application
+                {action.canClick ? "Resume Application" : action.label}
               </Button>
             </>
           ) : (
@@ -169,15 +183,15 @@ const ApplySidebar = ({
                 className="w-full h-[50px] bg-green-600 hover:bg-green-700 text-white gap-2"
               >
                 <Eye className="w-5 h-5" />
-                View Application
+                {action.label}
               </Button>
             </>
           )}
           <button
-            onClick={() => navigate("/candidate/applications")}
+            onClick={() => navigate("/check-status")}
             className="w-full text-center text-xs text-gray-500 hover:text-orange-600 transition-colors"
           >
-            Go to My Applications →
+            View Application Status →
           </button>
         </div>
       </div>
@@ -194,15 +208,15 @@ const ApplySidebar = ({
           </h2>
         </div>
         <div className="p-5 space-y-4">
-          {!isClosed ? (
+          {availability.canApply ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-green-700">
               <CheckCircle2 className="w-4 h-4" />
               Applications Open
             </div>
           ) : (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-red-700">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
               <AlertCircle className="w-4 h-4" />
-              Applications Closed
+              {availability.label}
             </div>
           )}
           {fee > 0 && (
@@ -214,24 +228,17 @@ const ApplySidebar = ({
             </div>
           )}
           <Link
-            to="/auth/candidate-login"
-            state={{ jobId: job._id }}
+            to={getPublicApplyPath(job)}
             className={`flex items-center justify-center gap-2 w-full h-[50px] rounded-lg font-bold text-sm transition-all ${
               isClosed
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none"
                 : "bg-[#f97316] hover:bg-orange-600 text-white"
             }`}
           >
-            Login to Apply <ChevronRight className="w-4 h-4" />
+            {availability.canApply ? "Verify & Apply" : availability.label} <ChevronRight className="w-4 h-4" />
           </Link>
           <p className="text-xs text-[#9d918b] text-center">
-            New candidate?{" "}
-            <Link
-              to="/auth/register"
-              className="text-orange-600 hover:underline font-medium"
-            >
-              Register here
-            </Link>
+            Email and mobile OTP verification is required before starting.
           </p>
         </div>
       </div>
@@ -261,7 +268,7 @@ const ApplySidebar = ({
         <h2 className="font-bold text-white text-[15px]">Apply for this Job</h2>
       </div>
       <div className="p-5 space-y-4">
-        {!isClosed ? (
+        {availability.canApply ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-green-700">
             <CheckCircle2 className="w-4 h-4" />
             Applications Open
@@ -272,9 +279,9 @@ const ApplySidebar = ({
             )}
           </div>
         ) : (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-red-700">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
             <AlertCircle className="w-4 h-4" />
-            Applications Closed
+            {availability.label}
           </div>
         )}
         {fee > 0 && (
@@ -288,7 +295,7 @@ const ApplySidebar = ({
         )}
         <Button
           onClick={() => applyMutation.mutate()}
-          disabled={applyMutation.isPending || isClosed}
+          disabled={applyMutation.isPending || !availability.canApply}
           className="w-full h-[50px] bg-[#f97316] hover:bg-orange-600 text-white disabled:bg-gray-200 disabled:text-gray-400"
         >
           {applyMutation.isPending ? (
@@ -296,8 +303,8 @@ const ApplySidebar = ({
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Starting...
             </>
-          ) : isClosed ? (
-            "Applications Closed"
+          ) : !availability.canApply ? (
+            availability.label
           ) : (
             "Apply Now"
           )}
@@ -355,7 +362,7 @@ const JobDetails = () => {
       if (err.status === 409) {
         // Already applied — refresh applications list and show correct state
         toast("You have already applied for this job", { icon: "â„¹ï¸" });
-        navigate("/candidate/applications");
+        navigate("/check-status");
       } else {
         toast.error(err.message || "Failed to start application");
       }

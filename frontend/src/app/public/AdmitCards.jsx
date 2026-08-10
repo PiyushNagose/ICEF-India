@@ -167,7 +167,7 @@ const AdmitCards = () => {
                 </div>
                 {!token && result.admitCardId && (
                   <Link
-                    to="/candidate/admit-card"
+                    to="/admit-cards"
                     className="inline-flex h-10 items-center justify-center rounded bg-[#e46a1d] px-4 text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16]"
                   >
                     Login to Download
@@ -201,7 +201,7 @@ const AdmitCards = () => {
             >
               <JobListCard
                 job={job}
-                meta={`Exam date: ${formatDate(job.examDate)}. Admit card download is available from the candidate dashboard after release.`}
+                meta={`Exam date: ${formatDate(job.examDate)}. Admit card download is available from the public admit card page after release.`}
                 actionLabel="View Job"
               />
             </motion.div>
@@ -216,15 +216,15 @@ const AdmitCards = () => {
                 Already applied?
               </h2>
               <p className="mt-1 text-sm text-[#6d6761]">
-                Login to check application status and released admit cards.
+                Check your application status and released admit cards from the public services pages.
               </p>
             </div>
           </div>
           <Link
-            to="/candidate/admit-card"
+            to="/admit-cards"
             className="inline-flex h-11 items-center justify-center rounded bg-[#e46a1d] px-5 text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16]"
           >
-            Candidate Admit Card
+            Download Admit Card
           </Link>
         </div>
       </section>

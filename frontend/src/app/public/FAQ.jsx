@@ -33,12 +33,12 @@ const baseFaqs = [
   {
     question: "Can I resume a draft application?",
     answer:
-      "Yes. Login as a candidate and open My Applications. Draft applications can be resumed from the saved step.",
+      "Yes. Open the public application status page with your registered details. Draft applications can be resumed from the saved step when allowed.",
   },
   {
     question: "Where do I download admit cards?",
     answer:
-      "Admit card availability depends on the job's exam schedule. Login to your candidate dashboard when the recruitment authority releases it.",
+      "Admit card availability depends on the job's exam schedule. Use the public admit card page after the recruitment authority releases it.",
   },
   {
     question: "How are fees shown?",
@@ -48,7 +48,7 @@ const baseFaqs = [
   {
     question: "How do I track my submitted application?",
     answer:
-      "Login to your candidate dashboard and open My Applications. You can view the current status, payment state, document review updates, and available next steps there.",
+      "Use the public application status page to view the current status, payment state, document review updates, and available next steps.",
   },
   {
     question: "Can I update documents after uploading?",

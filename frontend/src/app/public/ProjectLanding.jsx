@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 import { publicService } from "../../services/public.service";
 import PublicLayout from "../../components/layouts/PublicLayout";
+import { applicationService } from "../../services/application.service";
+import { isCandidateUser, useAuth } from "../../hooks/useAuth";
+import {
+  getApplicationAction,
+  getJobAvailability,
+} from "../../utils/jobAvailability";
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const fmt = (d) =>
@@ -44,16 +50,29 @@ const fee = (job, cat = "general") => {
 };
 
 /* ── status badge ───────────────────────────────────────────── */
-const StatusBadge = ({ open }) =>
-  open ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200">
-      <CheckCircle2 className="w-3.5 h-3.5" /> Open
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-600 border border-red-200">
-      <XCircle className="w-3.5 h-3.5" /> Closed
+const StatusBadge = ({ job }) => {
+  const availability = getJobAvailability(job);
+  const isOpen = availability.status === "open";
+  const isUpcoming = availability.status === "not_open";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+        isOpen
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : isUpcoming
+            ? "bg-blue-50 text-blue-700 border-blue-200"
+            : "bg-gray-50 text-gray-600 border-gray-200"
+      }`}
+    >
+      {isOpen ? (
+        <CheckCircle2 className="w-3.5 h-3.5" />
+      ) : (
+        <XCircle className="w-3.5 h-3.5" />
+      )}
+      {availability.label}
     </span>
   );
+};
 
 /* ── date row ───────────────────────────────────────────────── */
 const DateRow = ({ label, value, highlight }) => (
@@ -68,8 +87,10 @@ const DateRow = ({ label, value, highlight }) => (
 );
 
 /* ── job card ───────────────────────────────────────────────── */
-const JobCard = ({ job, onApply }) => {
-  const dl = daysLeft(job.applicationDeadline);
+const JobCard = ({ job, existingApp, onApply, onStatus }) => {
+  const availability = getJobAvailability(job);
+  const action = getApplicationAction(job, existingApp);
+  const dl = availability.daysLeft ?? daysLeft(job.applicationDeadline);
   const generalFee = fee(job, "general");
   const scstFee = fee(job, "sc");
 
@@ -79,7 +100,7 @@ const JobCard = ({ job, onApply }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.4 }}
-      className="bg-white border border-[#e0d7cd] rounded-xl p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+      className="bg-white border border-[#e0d7cd] rounded-[8px] p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
     >
       {/* top row */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -87,15 +108,15 @@ const JobCard = ({ job, onApply }) => {
           <p className="text-[10px] uppercase tracking-widest font-black text-orange-600">
             {job.department} {job.postCode && `· #${job.postCode}`}
           </p>
-          <h3 className="mt-1 text-xl font-black text-[#1f1d1b] leading-tight">
+          <h3 className="mt-1 text-[20px] font-black text-[#1f1d1b] leading-tight">
             {job.title}
           </h3>
         </div>
-        <StatusBadge open={job.isApplicationOpen} />
+        <StatusBadge job={job} />
       </div>
 
       {/* stats */}
-      <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-widest text-[#9a8f86] font-black">
             Posts
@@ -139,7 +160,7 @@ const JobCard = ({ job, onApply }) => {
       </div>
 
       {/* days-left banner */}
-      {dl !== null && dl <= 7 && dl > 0 && (
+      {availability.status === "open" && dl !== null && dl <= 7 && dl > 0 && (
         <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-red-700 text-sm font-semibold flex items-center gap-2">
           <Clock className="w-4 h-4" />
           Only {dl} day{dl !== 1 ? "s" : ""} left to apply!
@@ -147,7 +168,7 @@ const JobCard = ({ job, onApply }) => {
       )}
 
       {/* important dates */}
-      <div className="mt-5 bg-[#faf7f2] rounded-lg p-4">
+      <div className="mt-4 bg-[#faf7f2] rounded-[8px] p-4">
         <p className="text-[10px] uppercase tracking-widest font-black text-[#7a716a] mb-3">
           Important Dates
         </p>
@@ -172,14 +193,18 @@ const JobCard = ({ job, onApply }) => {
       </div>
 
       {/* apply */}
-      {job.isApplicationOpen && (
+      {action.canClick ? (
         <button
-          onClick={() => onApply(job)}
-          className="mt-6 w-full h-12 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-lg text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
+          onClick={() => (existingApp ? onStatus(existingApp) : onApply(job))}
+          className="mt-5 w-full h-11 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[6px] text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
         >
-          Apply Now — {job.title}
+          {existingApp ? action.label : `Apply Now - ${job.title}`}
           <ArrowRight className="w-4 h-4" />
         </button>
+      ) : (
+        <div className="mt-5 flex h-11 w-full items-center justify-center rounded-[6px] border border-[#ded4c8] bg-[#faf7f2] px-4 text-center text-xs font-black uppercase tracking-widest text-[#7a716a]">
+          {action.label}
+        </div>
       )}
     </motion.div>
   );
@@ -189,17 +214,34 @@ const JobCard = ({ job, onApply }) => {
 export default function ProjectLanding() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { token, user } = useAuth();
+  const isCandidate = !!token && isCandidateUser(user);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["public-project", slug],
     queryFn: () => publicService.getProjectBySlug(slug),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15 * 1000,
     retry: 1,
   });
 
   const project = data?.project;
   const jobs = data?.jobs || [];
-  const openJobs = jobs.filter((j) => j.isApplicationOpen);
+  const openJobs = jobs.filter((j) => getJobAvailability(j).canApply);
+
+  const { data: myAppsData } = useQuery({
+    queryKey: ["public-project-applications", slug, user?._id],
+    queryFn: () => applicationService.getMyApplications(),
+    enabled: isCandidate,
+    staleTime: 30 * 1000,
+  });
+
+  const myApps = Array.isArray(myAppsData)
+    ? myAppsData
+    : myAppsData?.applications || myAppsData?.data || [];
+  const appliedMap = myApps.reduce((map, application) => {
+    map[application.jobId?._id || application.jobId] = application;
+    return map;
+  }, {});
 
   const handleApply = (job) => {
     // Store the selected job and project in session storage for the application flow
@@ -214,6 +256,16 @@ export default function ProjectLanding() {
       }),
     );
     navigate(`/apply/${slug}/start?jobId=${job._id}`);
+  };
+
+  const handleStatus = (application) => {
+    navigate("/check-status", {
+      state: {
+        applicationId: application?._id,
+        publicApplicationId: application?.applicationId,
+        registrationNumber: application?.registrationNumber,
+      },
+    });
   };
 
   /* loading */
@@ -262,9 +314,9 @@ export default function ProjectLanding() {
 
         {/* ── HERO ─────────────────────────────────────────────── */}
         <section className="bg-[#201d1a] text-white">
-          <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
+          <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-7 lg:py-8">
             {/* breadcrumb */}
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-black text-white/40 mb-6">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-black text-white/40 mb-4">
               <button onClick={() => navigate("/")} className="hover:text-white/70 transition-colors">
                 Home
               </button>
@@ -272,13 +324,13 @@ export default function ProjectLanding() {
               <span className="text-orange-400">{project.department}</span>
             </div>
 
-            <div className="grid lg:grid-cols-[1fr_300px] gap-8 items-start">
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-center">
               {/* left */}
               <div>
                 <p className="text-[11px] uppercase tracking-[0.16em] font-black text-orange-400">
                   Official Recruitment Notification
                 </p>
-                <h1 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
+                <h1 className="mt-3 max-w-4xl text-3xl sm:text-4xl lg:text-[42px] font-black leading-[1.08] tracking-tight">
                   {project.name}
                 </h1>
                 {project.description && (
@@ -286,7 +338,7 @@ export default function ProjectLanding() {
                     {project.description}
                   </p>
                 )}
-                <div className="mt-6 flex flex-wrap gap-4 text-sm text-white/60">
+                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/60">
                   <span className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-orange-400" />
                     {project.state} — {project.department}
@@ -312,12 +364,12 @@ export default function ProjectLanding() {
                 ].map((s) => (
                   <div
                     key={s.label}
-                    className="bg-white/10 border border-white/15 rounded-lg px-4 py-4"
+                    className="flex min-h-[92px] flex-col justify-between rounded-[8px] border border-white/15 bg-white/10 px-4 py-3.5"
                   >
                     <p className="text-[10px] uppercase tracking-widest font-black text-white/50">
                       {s.label}
                     </p>
-                    <p className="mt-2 text-xl font-black text-white">{s.value}</p>
+                    <p className="mt-2 text-xl font-black leading-tight text-white">{s.value}</p>
                   </div>
                 ))}
               </div>
@@ -325,21 +377,21 @@ export default function ProjectLanding() {
 
             {/* apply CTA */}
             {openJobs.length > 0 && (
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-6 flex flex-wrap gap-4">
                 <button
                   onClick={() => {
                     document
                       .getElementById("job-listings")
                       ?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="inline-flex items-center gap-2 h-12 px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-lg text-sm font-black uppercase tracking-widest transition-colors"
+                  className="inline-flex items-center gap-2 h-11 px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[6px] text-sm font-black uppercase tracking-widest transition-colors"
                 >
                   View All Posts & Apply
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => navigate("/admit-cards")}
-                  className="inline-flex items-center gap-2 h-12 px-6 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-black uppercase tracking-widest transition-colors border border-white/20"
+                  className="inline-flex items-center gap-2 h-11 px-6 bg-white/10 hover:bg-white/20 text-white rounded-[6px] text-sm font-black uppercase tracking-widest transition-colors border border-white/20"
                 >
                   <Download className="w-4 h-4" />
                   Download Admit Card
@@ -361,13 +413,13 @@ export default function ProjectLanding() {
           </div>
         </div>
 
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
-          <div className="grid lg:grid-cols-[1fr_320px] gap-8">
+        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 lg:pt-10 lg:pb-6">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-7">
 
             {/* ── MAIN — job listings ───────────────────────────── */}
-            <div id="job-listings" className="space-y-6">
+            <div id="job-listings" className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-black text-[#1f1d1b]">
+                <h2 className="text-[24px] font-black text-[#1f1d1b]">
                   Available Posts
                 </h2>
                 <span className="text-sm text-[#6d6761]">
@@ -387,23 +439,77 @@ export default function ProjectLanding() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {jobs.map((job) => (
-                    <JobCard key={job._id} job={job} onApply={handleApply} />
+                    <JobCard
+                      key={job._id}
+                      job={job}
+                      existingApp={appliedMap[job._id]}
+                      onApply={handleApply}
+                      onStatus={handleStatus}
+                    />
                   ))}
                 </div>
               )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex min-h-[292px] flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
+                    Application Checklist
+                  </p>
+                  <div className="mt-4 grid gap-3 text-sm text-[#4a4540]">
+                    {[
+                      "Verify email and mobile before starting.",
+                      "Keep category and qualification details ready.",
+                      "Upload clear documents in the allowed format.",
+                      "Review every section before final payment.",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
+                    Your application is considered submitted only after the
+                    payment confirmation is received.
+                  </div>
+                </div>
+
+                <div className="flex min-h-[292px] flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
+                    After Submission
+                  </p>
+                  <div className="mt-4 grid gap-3 text-sm text-[#4a4540]">
+                    {[
+                      "Registration number is issued after payment.",
+                      "Track status from the public services section.",
+                      "Admit card is available after the release date.",
+                      "Use correction window only when enabled.",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
+                    Keep your registration number safe for admit card,
+                    correction, result, and support requests.
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ── SIDEBAR ──────────────────────────────────────── */}
-            <aside className="space-y-5 lg:sticky lg:top-6 self-start">
+            <aside className="space-y-4 pt-[58px] lg:sticky lg:top-6 self-start">
 
               {/* how to apply */}
-              <div className="bg-white border border-[#e0d7cd] rounded-xl p-6">
+              <div className="bg-white border border-[#e0d7cd] rounded-[8px] p-5">
                 <h3 className="text-base font-black text-[#1f1d1b] mb-4">
                   How to Apply
                 </h3>
-                <ol className="space-y-3">
+                <ol className="space-y-2.5">
                   {[
                     'Click "Apply Now" on any open post',
                     "Fill the multi-step application form",
@@ -422,7 +528,7 @@ export default function ProjectLanding() {
               </div>
 
               {/* public services */}
-              <div className="bg-white border border-[#e0d7cd] rounded-xl p-6 space-y-3">
+              <div className="bg-white border border-[#e0d7cd] rounded-[8px] p-5 space-y-3">
                 <h3 className="text-base font-black text-[#1f1d1b]">
                   Public Services
                 </h3>
@@ -451,7 +557,7 @@ export default function ProjectLanding() {
                   <button
                     key={item.label}
                     onClick={() => navigate(item.to)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[#e0d7cd] hover:border-orange-300 hover:bg-orange-50 transition-all"
+                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-[6px] border border-[#e0d7cd] hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <span className="flex items-center gap-3 text-sm font-semibold text-[#1f1d1b]">
                       <item.icon className="w-4 h-4 text-orange-500" />
@@ -463,13 +569,15 @@ export default function ProjectLanding() {
               </div>
 
               {/* help */}
-              <div className="bg-[#e46a1d] text-white rounded-xl p-6">
-                <Phone className="w-6 h-6 mb-3" />
-                <h3 className="font-black text-lg">Need Help?</h3>
-                <p className="mt-1 text-orange-100 text-sm">
+              <div className="bg-[#e46a1d] text-white rounded-[8px] p-4">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-6 w-6 shrink-0" />
+                  <h3 className="font-black text-base">Need Help?</h3>
+                </div>
+                <p className="mt-1 text-orange-100 text-xs">
                   Mon–Fri, 9 AM – 6 PM
                 </p>
-                <p className="mt-3 text-2xl font-black">1800-123-4567</p>
+                <p className="mt-2 text-xl font-black">1800-123-4567</p>
                 <p className="mt-1 text-orange-200 text-xs">Toll-free helpline</p>
               </div>
             </aside>

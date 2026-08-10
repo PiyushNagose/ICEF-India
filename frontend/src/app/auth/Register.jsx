@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, CheckCircle, Info, Landmark, LockKeyhole, ShieldCheck } from "lucide-react";
-import toast from "react-hot-toast";
 import { authService } from "../../services/auth.service";
 import { getDashboardPath, useAuth } from "../../hooks/useAuth";
 import heroBg from "../../assets/herobg.jpg";
 import logo from "../../assets/logo.png";
 import CustomSelect from "../../components/ui/CustomSelect";
+import { showOtpToast } from "../../utils/otpToast";
 
 const STATES = [
   "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
@@ -74,8 +74,8 @@ const Register = () => {
     if (!formData.gender)         { setError("Gender is required"); return; }
     setIsLoading(true);
     try {
-      await authService.register(formData);
-      toast.success("Registration successful. Please verify OTP.");
+      const response = await authService.register(formData);
+      showOtpToast(response, "Registration successful. Please verify OTP");
       navigate("/auth/verify-otp", {
         state: { email: formData.email, registeredMobile: formData.registeredMobile },
         replace: true,
