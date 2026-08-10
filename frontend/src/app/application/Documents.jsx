@@ -21,6 +21,7 @@ import {
   getJobDocumentRequirements,
 } from "../../utils/applicationFlow";
 import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
+import { API_BASE_URL } from "../../api/config";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -37,6 +38,17 @@ const slugify = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+
+const resolveDocumentUrl = (url = "") => {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url) || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  if (url.startsWith("/api/")) {
+    return `${API_BASE_URL.replace(/\/+$/, "")}${url.slice(4)}`;
+  }
+  return url;
+};
 
 const acceptFromFormats = (formats = []) => {
   const map = {
@@ -442,7 +454,11 @@ const Documents = () => {
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    window.open(previewDoc.url, "_blank", "noopener,noreferrer")
+                    window.open(
+                      resolveDocumentUrl(previewDoc.url),
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
                   }
                   className="gap-1.5 border-emerald-300 px-4 text-emerald-700 hover:bg-emerald-50"
                 >

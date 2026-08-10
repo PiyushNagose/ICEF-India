@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
-import { STORAGE_KEYS } from "../../api/config";
+import { API_BASE_URL, STORAGE_KEYS } from "../../api/config";
 
 const getPreviewError = async (response) => {
   const contentType = response.headers.get("content-type") || "";
@@ -25,6 +25,17 @@ const isExternalSource = (src = "") => {
   }
 };
 
+const resolvePreviewSource = (src = "") => {
+  if (!src) return "";
+  if (/^https?:\/\//i.test(src) || src.startsWith("blob:") || src.startsWith("data:")) {
+    return src;
+  }
+  if (src.startsWith("/api/")) {
+    return `${API_BASE_URL.replace(/\/+$/, "")}${src.slice(4)}`;
+  }
+  return src;
+};
+
 const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" }) => {
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
@@ -34,9 +45,10 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
   useEffect(() => {
     let active = true;
     let objectUrl = "";
+    const resolvedSrc = resolvePreviewSource(src);
 
     const checkDocument = async () => {
-      if (!src) {
+      if (!resolvedSrc) {
         setStatus("error");
         setMessage("Document link is missing.");
         return;
@@ -46,15 +58,15 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
       setMessage("");
       setPreviewUrl("");
 
-      if (isExternalSource(src)) {
-        setPreviewUrl(src);
+      if (isExternalSource(resolvedSrc) && !resolvedSrc.includes("/api/")) {
+        setPreviewUrl(resolvedSrc);
         setStatus("ready");
         return;
       }
 
       try {
         const token = localStorage.getItem(STORAGE_KEYS.accessToken);
-        const response = await fetch(src, {
+        const response = await fetch(resolvedSrc, {
           method: "GET",
           credentials: "include",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -125,8 +137,8 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
     );
   }
 
-  const displayUrl = previewUrl || src;
-  const sourceSignature = `${src || ""} ${title || ""}`;
+  const displayUrl = previewUrl || resolvePreviewSource(src);
+  const sourceSignature = `${displayUrl || ""} ${src || ""} ${title || ""}`;
 
   if (isImageSource(sourceSignature)) {
     return (
