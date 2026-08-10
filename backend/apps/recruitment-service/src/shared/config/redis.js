@@ -5,8 +5,18 @@ const logger = require("../utils/logger");
 let redisClient = null;
 
 const connectRedis = () => {
+  const redisUrl = env.REDIS_URL;
+  const isLocalRedis =
+    !redisUrl || redisUrl.includes("localhost") || redisUrl.includes("127.0.0.1");
+
+  if (env.isProduction && isLocalRedis) {
+    logger.warn("Redis URL not configured for production. Continuing without Redis.");
+    redisClient = null;
+    return null;
+  }
+
   try {
-    redisClient = new Redis(env.REDIS_URL, {
+    redisClient = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
         if (times > 3) {
@@ -34,6 +44,7 @@ const connectRedis = () => {
 
     redisClient.on("close", () => {
       logger.warn("Redis connection closed");
+      redisClient = null;
     });
 
     return redisClient;
@@ -45,7 +56,7 @@ const connectRedis = () => {
 };
 
 const getRedis = () => {
-  if (!redisClient) {
+  if (!redisClient || redisClient.status !== "ready") {
     logger.warn("Redis not available. Operation skipped.");
     return null;
   }

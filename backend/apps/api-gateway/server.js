@@ -26,6 +26,7 @@ const parsedOrigins = process.env.CLIENT_URL?.split(",")
 const requestTimeoutMs = 15000;
 
 // ── Middleware ────────────────────────────────────────────────
+app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({

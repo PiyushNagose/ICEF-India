@@ -50,6 +50,7 @@ const parsedOrigins = env.CLIENT_URL?.split(",")
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────
+app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
