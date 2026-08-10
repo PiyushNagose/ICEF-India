@@ -1,6 +1,9 @@
 const { getRedis } = require("../config/redis");
 const crypto = require("crypto");
 
+const memoryOtpStore = new Map();
+const memoryVerifiedStore = new Map();
+
 const normalizeIdentifier = (identifier, type = "email") => {
   const value = String(identifier || "").trim();
   if (type === "email") return value.toLowerCase();
@@ -9,6 +12,22 @@ const normalizeIdentifier = (identifier, type = "email") => {
     return digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
   }
   return value;
+};
+
+const now = () => Date.now();
+
+const getMemoryValue = (store, key) => {
+  const record = store.get(key);
+  if (!record) return null;
+  if (record.expiresAt <= now()) {
+    store.delete(key);
+    return null;
+  }
+  return record.value;
+};
+
+const setMemoryValue = (store, key, value, ttlSeconds) => {
+  store.set(key, { value, expiresAt: now() + ttlSeconds * 1000 });
 };
 
 class OTPService {
@@ -34,8 +53,9 @@ class OTPService {
       const otp = this.generateOTP();
 
       if (!redis) {
-        // If Redis not available, store in memory (NOT RECOMMENDED FOR PRODUCTION)
-        console.warn("Redis not available. OTP will not persist.");
+        const redisKey = `otp:${type}:${identifier}`;
+        setMemoryValue(memoryOtpStore, redisKey, otp, 5 * 60);
+        console.warn("Redis not available. OTP stored in memory for demo mode.");
         return otp;
       }
 
@@ -71,8 +91,14 @@ class OTPService {
 
     try {
       if (!redis) {
-        console.warn("Redis not available. Cannot verify OTP.");
-        return false;
+        const redisKey = `otp:${type}:${identifier}`;
+        const storedOTP = getMemoryValue(memoryOtpStore, redisKey);
+        if (!storedOTP || storedOTP !== String(otp || "").trim()) return false;
+
+        memoryOtpStore.delete(redisKey);
+        setMemoryValue(memoryVerifiedStore, `otp_verified:${type}:${identifier}`, "1", 30 * 60);
+        console.warn("Redis not available. OTP verified from memory demo store.");
+        return true;
       }
 
       const redisKey = `otp:${type}:${identifier}`;
@@ -114,7 +140,9 @@ class OTPService {
     const redis = getRedis();
 
     try {
-      if (!redis) return false;
+      if (!redis) {
+        return getMemoryValue(memoryVerifiedStore, `otp_verified:${type}:${identifier}`) === "1";
+      }
 
       const verifiedKey = `otp_verified:${type}:${identifier}`;
       const verified = await redis.get(verifiedKey);
@@ -170,7 +198,13 @@ class OTPService {
     const redis = getRedis();
 
     try {
-      if (!redis) return -1;
+      if (!redis) {
+        const key = `otp:${type}:${identifier}`;
+        const record = memoryOtpStore.get(key);
+        if (!record) return -1;
+        const remaining = Math.ceil((record.expiresAt - now()) / 1000);
+        return remaining > 0 ? remaining : -1;
+      }
 
       const redisKey = `otp:${type}:${identifier}`;
       const ttl = await redis.ttl(redisKey);
@@ -191,7 +225,11 @@ class OTPService {
     const redis = getRedis();
 
     try {
-      if (!redis) return;
+      if (!redis) {
+        memoryOtpStore.delete(`otp:${type}:${identifier}`);
+        memoryVerifiedStore.delete(`otp_verified:${type}:${identifier}`);
+        return;
+      }
 
       const redisKey = `otp:${type}:${identifier}`;
       const attemptsKey = `otp_attempts:${type}:${identifier}`;

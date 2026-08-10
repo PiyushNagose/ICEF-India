@@ -1,6 +1,10 @@
 const otpService = require("../shared/services/otp.service");
 const { StatusCodes } = require("http-status-codes");
 
+const shouldExposeOtp = () =>
+  process.env.NODE_ENV === "development" ||
+  process.env.PUBLIC_OTP_EXPOSE_IN_RESPONSE === "true";
+
 /**
  * Send OTP to email or mobile
  * POST /api/public/otp/send
@@ -50,8 +54,7 @@ exports.sendOTP = async (req, res) => {
       success: true,
       message: `OTP sent successfully to ${type}`,
       expiresIn: 300, // 5 minutes
-      // REMOVE IN PRODUCTION: otp: otp,
-      ...(process.env.NODE_ENV === "development" && { otp }), // Only in development
+      ...(shouldExposeOtp() && { otp }),
     });
   } catch (error) {
     console.error("Error sending OTP:", error);
