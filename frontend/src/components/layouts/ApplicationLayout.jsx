@@ -89,6 +89,10 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
       if (!query) return true;
       return query === location.search.replace(/^\?/, "");
     })?.id || Math.min(currentStep, steps.length);
+  const currentProgressStep = Math.max(
+    Number(app?.currentStep || 0),
+    Number(activeStep || currentStep || 1),
+  );
 
   // In correction mode, ALL non-payment steps are freely accessible
   // Otherwise, a step is accessible only if currentStep >= step.id
@@ -100,7 +104,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
       // All other steps are freely accessible in correction mode
       return true;
     }
-    return stepId <= (app?.currentStep || activeStep);
+    return stepId <= currentProgressStep;
   };
 
   const handleStepClick = (step) => {
@@ -232,7 +236,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
                 const accessible = canAccess(step.id);
                 const isCompleted = correctionMode
                   ? step.id < activeStep && accessible
-                  : step.id < (app?.currentStep || activeStep);
+                  : step.id < activeStep;
                 const isLocked = !accessible;
 
                 return (
