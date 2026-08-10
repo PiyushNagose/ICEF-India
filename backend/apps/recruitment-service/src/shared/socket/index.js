@@ -10,8 +10,9 @@ const NORMAL_DISCONNECT_REASONS = new Set([
   "transport close",
 ]);
 
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins = env.CLIENT_URL?.split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
 
 /**

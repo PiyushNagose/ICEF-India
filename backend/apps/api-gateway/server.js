@@ -19,8 +19,9 @@ const RECRUITMENT_URL =
   process.env.RECRUITMENT_SERVICE_URL || `http://localhost:${RC_PORT}`;
 const COMMUNICATION_URL =
   process.env.COMMUNICATION_SERVICE_URL || `http://localhost:${CM_PORT}`;
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins = process.env.CLIENT_URL?.split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
 const requestTimeoutMs = 15000;
 

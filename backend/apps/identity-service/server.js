@@ -32,8 +32,9 @@ const adminNotificationRoutes = require("./src/routes/adminNotification.routes")
 const publicOtpRoutes = require("./src/routes/publicOtp.routes");
 
 const PORT = parseInt(process.env.IDENTITY_SERVICE_PORT, 10) || 5001;
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins = env.CLIENT_URL?.split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
 
 const app = express();

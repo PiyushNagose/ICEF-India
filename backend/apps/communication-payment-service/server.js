@@ -34,9 +34,10 @@ const candidatePaymentRoutes = require("./src/routes/candidate/payment.routes");
 const publicSupportRoutes = require("./src/routes/public/support.routes");
 
 const PORT = parseInt(process.env.COMMUNICATION_SERVICE_PORT, 10) || 5003;
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins =
   env.CLIENT_URL?.split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean) || ["http://localhost:5173"];
 
 const app = express();
