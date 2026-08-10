@@ -214,11 +214,20 @@ const Employees = () => {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="admin-data-scroll hover-scroll overflow-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1080px] table-fixed">
+              <colgroup>
+                <col className="w-[24%]" />
+                <col className="w-[13%]" />
+                <col className="w-[18%]" />
+                <col className="w-[17%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Employee Name','ID','Department','Role','Status','Date Joined','Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
+                    <th key={h} className={`py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal ${['Status','Date Joined','Actions'].includes(h) ? 'text-center' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -253,19 +262,19 @@ const Employees = () => {
                       <td className="py-4 px-5">
                         <span className="text-sm text-gray-700">{emp.systemRole?.roleName || emp.roleDesignation || '-'}</span>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${scfg.bg} ${scfg.text}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${scfg.dot}`} />
                           {emp.status || 'Inactive'}
                         </span>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <span className="text-sm text-gray-700">
                           {emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </span>
                       </td>
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-1">
+                      <td className="py-4 px-5 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           {canEdit && (
                             <button onClick={() => navigate(`/admin/employees/${emp._id}/edit`)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">

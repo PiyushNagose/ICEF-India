@@ -28,7 +28,7 @@ const ProtectedRoute = ({ children, role, permission }) => {
   }
 
   if (!token || !user) {
-    return <Navigate to={role === 'admin' ? getInternalLoginPath(user) : '/auth/candidate-login'} state={{ from: location }} replace />
+    return <Navigate to={role === 'admin' ? getInternalLoginPath(user) : '/check-status'} state={{ from: location }} replace />
   }
 
   if (role === 'admin' && !isAdminUser(user)) {

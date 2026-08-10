@@ -1,4 +1,5 @@
 import { apiClient, unwrapData } from "../api/client";
+import { API_BASE_URL } from "../api/config";
 
 export const candidateService = {
   // ── Applications ──────────────────────────────────────────
@@ -191,9 +192,9 @@ export const candidateService = {
     return unwrapData(response);
   },
   getAdmitCardHtmlUrl(id) {
-    return `/api/candidate/admit-cards/${id}/html`;
+    return `${API_BASE_URL}/candidate/admit-cards/${id}/html`;
   },
   getAdmitCardPdfUrl(id) {
-    return `/api/candidate/admit-cards/${id}/pdf`;
+    return `${API_BASE_URL}/candidate/admit-cards/${id}/pdf`;
   },
 };

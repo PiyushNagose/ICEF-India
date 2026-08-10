@@ -68,6 +68,29 @@ const fmt = (d) =>
       })
     : "-";
 
+const getRequestStatusLabel = (status) => {
+  if (status === "approved") return "Accepted by Admin";
+  if (status === "rejected") return "Rejected";
+  if (status === "more_info_needed") return "More Info Needed";
+  return "Pending Review";
+};
+
+const adminIssuesToCorrections = (issues = []) =>
+  issues
+    .filter((issue) => issue.status !== "resolved")
+    .map((issue) => ({
+      field: issue.fieldKey || "",
+      fieldLabel: issue.fieldLabel || issue.fieldKey || "Application field",
+      adminIssueId: issue.id,
+      oldValue: issue.currentValue || "",
+      newValue: "",
+      reason: "",
+      adminRemark: issue.remark || "",
+      issueType: issue.issueType || "Clarification needed",
+      section: issue.section || "Application",
+      locked: true,
+    }));
+
 export default function CorrectionRequest() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -142,6 +165,16 @@ export default function CorrectionRequest() {
         mobile,
       });
       setSelectedApplication(application);
+      const guidedCorrections = adminIssuesToCorrections(
+        application.correction?.issues,
+      );
+      if (guidedCorrections.length > 0) {
+        setCorrections(guidedCorrections);
+        setOverallReason("");
+      } else {
+        setCorrections([{ field: "", oldValue: "", newValue: "", reason: "" }]);
+        setOverallReason("");
+      }
       toast.success("Application verified");
     } catch (err) {
       setOtpVerified(false);
@@ -171,7 +204,17 @@ export default function CorrectionRequest() {
       toast.error("Confirm the linked application before submitting");
       return;
     }
-    if (corrections.some((c) => !c.field || !c.newValue || !c.reason)) {
+    const hasAdminMarkedIssues = corrections.some((item) => item.locked);
+    if (selectedApplication?.hasExistingCorrection && !hasAdminMarkedIssues) {
+      toast.error(
+        "A correction request already exists for this application. Check status for updates.",
+      );
+      return;
+    }
+    const hasInvalidCorrection = corrections.some((c) =>
+      c.locked ? !c.field || !c.newValue : !c.field || !c.newValue || !c.reason,
+    );
+    if (hasInvalidCorrection) {
       toast.error("Fill in all correction fields");
       return;
     }
@@ -185,12 +228,33 @@ export default function CorrectionRequest() {
       const data = await publicService.requestCorrection({
         registrationNumber: regNumber.trim().toUpperCase(),
         mobile,
-        corrections,
+        corrections: corrections.map((c) => ({
+          ...c,
+          reason:
+            c.reason?.trim() ||
+            c.adminRemark ||
+            "Submitted corrected value for admin-marked issue",
+        })),
         overallReason,
       });
       setSubmitted(data);
       toast.success("Correction request submitted!");
     } catch (err) {
+      const hasAdminMarkedIssues = corrections.some((item) => item.locked);
+      if (/already exists/i.test(err.message || "") && !hasAdminMarkedIssues) {
+        setSelectedApplication((current) =>
+          current
+            ? {
+                ...current,
+                hasExistingCorrection: true,
+                activeCorrectionRequest: {
+                  ...(current.activeCorrectionRequest || {}),
+                  status: "pending",
+                },
+              }
+            : current,
+        );
+      }
       if (!err.toastShown) toast.error(err.message || "Submission failed");
     } finally {
       setSubmitLoading(false);
@@ -260,6 +324,13 @@ export default function CorrectionRequest() {
     );
   }
 
+  const hasAdminMarkedIssues = corrections.some((item) => item.locked);
+  const activeCorrectionRequest = selectedApplication?.activeCorrectionRequest;
+  const hasExistingPublicCorrection = Boolean(
+    !hasAdminMarkedIssues &&
+      (selectedApplication?.hasExistingCorrection || activeCorrectionRequest),
+  );
+
   return (
     <PublicLayout>
       <div className="min-h-screen bg-[#f5efe9]">
@@ -281,9 +352,10 @@ export default function CorrectionRequest() {
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <div className="grid items-stretch gap-7 lg:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="space-y-5">
+            <div className="grid gap-5">
           {/* Identity */}
-          <div className={`${panelClass} space-y-5`}>
+          <div className={`${panelClass} flex min-h-[462px] flex-col justify-between gap-5`}>
+            <div className="space-y-5">
             <div className="border-b border-[#f0e8e0] pb-5">
               <h2 className="text-[20px] font-black text-[#1f1d1b]">
                 Verify Your Identity
@@ -384,6 +456,7 @@ export default function CorrectionRequest() {
                   </button>
                 </div>
               )}
+            </div>
             </div>
           </div>
 
@@ -488,8 +561,91 @@ export default function CorrectionRequest() {
             </motion.div>
           )}
 
+          {otpVerified && selectedApplication && hasExistingPublicCorrection && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="overflow-hidden rounded-[8px] border border-orange-200 bg-white shadow-sm"
+            >
+              <div className="flex flex-col gap-3 border-b border-orange-100 bg-orange-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#e46a1d]">
+                    Correction Already Submitted
+                  </p>
+                  <h3 className="mt-1 text-lg font-black text-[#1f1d1b]">
+                    This application already has a correction request
+                  </h3>
+                </div>
+                <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#c8510d]">
+                  {getRequestStatusLabel(activeCorrectionRequest?.status)}
+                </span>
+              </div>
+              <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium leading-6 text-[#5c5149]">
+                    A second correction request is not allowed for the same
+                    application. Track the existing request from public
+                    application status.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                        Request ID
+                      </p>
+                      <p className="mt-1 break-all font-mono text-xs font-black text-[#1f1d1b]">
+                        {activeCorrectionRequest?.requestId || "Already raised"}
+                      </p>
+                    </div>
+                    <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                        Requested On
+                      </p>
+                      <p className="mt-1 text-sm font-black text-[#1f1d1b]">
+                        {fmt(activeCorrectionRequest?.requestedAt)}
+                      </p>
+                    </div>
+                    <div className="rounded-[6px] border border-[#eadfd2] bg-[#fbf7f1] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
+                        Application
+                      </p>
+                      <p className="mt-1 break-all font-mono text-xs font-black text-[#1f1d1b]">
+                        {selectedApplication.applicationId}
+                      </p>
+                    </div>
+                  </div>
+                  {activeCorrectionRequest?.reason && (
+                    <div className="rounded-[6px] border border-orange-100 bg-orange-50/60 px-4 py-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#c8510d]">
+                        Submitted Note
+                      </p>
+                      <p className="mt-1 text-sm font-medium leading-6 text-[#5c5149]">
+                        {activeCorrectionRequest.reason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    navigate("/check-status", {
+                      state: {
+                        lookup: {
+                          registrationNumber:
+                            selectedApplication.registrationNumber,
+                          mobile,
+                        },
+                      },
+                    })
+                  }
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.18)] transition hover:bg-[#cb5d16]"
+                >
+                  Check Status <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {/* Corrections form */}
-          {otpVerified && selectedApplication && (
+          {otpVerified && selectedApplication && !hasExistingPublicCorrection && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -497,15 +653,26 @@ export default function CorrectionRequest() {
             >
               <div className={`${panelClass} space-y-5`}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-[20px] font-black text-[#1f1d1b]">
-                    Correction Details
-                  </h2>
-                  <button
-                    onClick={addCorrection}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-[6px] border border-orange-200 px-3 text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] transition hover:bg-orange-50 hover:text-[#cb5d16]"
-                  >
-                    <Plus className="w-4 h-4" /> Add Field
-                  </button>
+                  <div>
+                    <h2 className="text-[20px] font-black text-[#1f1d1b]">
+                      {hasAdminMarkedIssues
+                        ? "Admin Marked Correction Issues"
+                        : "Correction Details"}
+                    </h2>
+                    <p className="mt-1 text-sm font-medium leading-6 text-[#6d6761]">
+                      {hasAdminMarkedIssues
+                        ? "Update the exact fields requested by the verification team."
+                        : "Select the field that needs correction for this application."}
+                    </p>
+                  </div>
+                  {!hasAdminMarkedIssues && (
+                    <button
+                      onClick={addCorrection}
+                      className="inline-flex h-10 items-center gap-1.5 rounded-[6px] border border-orange-200 px-3 text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] transition hover:bg-orange-50 hover:text-[#cb5d16]"
+                    >
+                      <Plus className="w-4 h-4" /> Add Field
+                    </button>
+                  )}
                 </div>
 
                 {corrections.map((c, i) => (
@@ -514,10 +681,19 @@ export default function CorrectionRequest() {
                     className="space-y-3 rounded-[8px] border border-[#f0e9e1] bg-[#fffdfb] p-4"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-black text-[#1f1d1b]">
-                        Correction #{i + 1}
-                      </p>
-                      {corrections.length > 1 && (
+                      <div>
+                        <p className="text-sm font-black text-[#1f1d1b]">
+                          {c.locked
+                            ? `${c.fieldLabel} correction`
+                            : `Correction #${i + 1}`}
+                        </p>
+                        {c.locked && (
+                          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#e46a1d]">
+                            {c.section} · {c.issueType}
+                          </p>
+                        )}
+                      </div>
+                      {corrections.length > 1 && !c.locked && (
                         <button
                           onClick={() => removeCorrection(i)}
                           className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -531,20 +707,31 @@ export default function CorrectionRequest() {
                       <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
                         Field to Correct *
                       </label>
-                      <select
-                        value={c.field}
-                        onChange={(e) =>
-                          updateCorrection(i, "field", e.target.value)
-                        }
-                        className="h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
-                      >
-                        <option value="">Select field</option>
-                        {CORRECTABLE_FIELDS.map((f) => (
-                          <option key={f.value} value={f.value}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
+                      {c.locked ? (
+                        <div className="rounded-[6px] border border-orange-100 bg-orange-50/70 px-4 py-3">
+                          <p className="text-sm font-black text-[#1f1d1b]">
+                            {c.fieldLabel}
+                          </p>
+                          <p className="mt-1 break-all font-mono text-xs font-semibold text-[#7a7168]">
+                            {c.field}
+                          </p>
+                        </div>
+                      ) : (
+                        <select
+                          value={c.field}
+                          onChange={(e) =>
+                            updateCorrection(i, "field", e.target.value)
+                          }
+                          className="h-12 w-full rounded-[6px] border border-[#e0d7cd] bg-white px-4 text-sm text-[#1f1d1b] outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                        >
+                          <option value="">Select field</option>
+                          {CORRECTABLE_FIELDS.map((f) => (
+                            <option key={f.value} value={f.value}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -558,6 +745,7 @@ export default function CorrectionRequest() {
                           onChange={(e) =>
                             updateCorrection(i, "oldValue", e.target.value)
                           }
+                          disabled={c.locked}
                         />
                       </div>
                       <div>
@@ -576,16 +764,33 @@ export default function CorrectionRequest() {
 
                     <div>
                       <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
-                        Reason for this Correction *
+                        {c.locked
+                          ? "Candidate Note"
+                          : "Reason for this Correction *"}
                       </label>
                       <Input
-                        placeholder="e.g. Typo in name, wrong date entered"
+                        placeholder={
+                          c.locked
+                            ? "Optional note for the reviewer"
+                            : "e.g. Typo in name, wrong date entered"
+                        }
                         value={c.reason}
                         onChange={(e) =>
                           updateCorrection(i, "reason", e.target.value)
                         }
                       />
                     </div>
+
+                    {c.locked && c.adminRemark && (
+                      <div className="rounded-[6px] border border-orange-100 bg-white px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e46a1d]">
+                          Reviewer Remark
+                        </p>
+                        <p className="mt-1 text-sm font-medium leading-6 text-[#5c5149]">
+                          {c.adminRemark}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -633,7 +838,7 @@ export default function CorrectionRequest() {
           )}
             </div>
 
-            <aside className="space-y-5">
+            <aside className="grid min-h-[462px] grid-rows-[auto_1fr] gap-5">
               <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-6">
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />

@@ -120,7 +120,14 @@ const CreateRole = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="admin-compact-scroll hover-scroll overflow-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-[720px] table-fixed">
+                    <colgroup>
+                      <col className="w-[32%]" />
+                      {ACTIONS.map(a => (
+                        <col key={a} className="w-[12%]" />
+                      ))}
+                      <col className="w-[8%]" />
+                    </colgroup>
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">Module</th>

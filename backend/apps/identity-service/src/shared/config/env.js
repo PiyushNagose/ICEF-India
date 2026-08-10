@@ -62,6 +62,16 @@ const env = {
   RATE_LIMIT_MAX:
     parseInt(process.env.RATE_LIMIT_MAX, 10) ||
     (envName === "production" ? 100 : 1000),
+  PUBLIC_OTP_IP_WINDOW_MS:
+    parseInt(process.env.PUBLIC_OTP_IP_WINDOW_MS, 10) || 15 * 60 * 1000,
+  PUBLIC_OTP_IP_MAX:
+    parseInt(process.env.PUBLIC_OTP_IP_MAX, 10) ||
+    (envName === "production" ? 60 : 300),
+  PUBLIC_OTP_IDENTIFIER_MAX:
+    parseInt(process.env.PUBLIC_OTP_IDENTIFIER_MAX, 10) ||
+    (envName === "production" ? 10 : 100),
+  PUBLIC_OTP_ATTEMPT_WINDOW_SECONDS:
+    parseInt(process.env.PUBLIC_OTP_ATTEMPT_WINDOW_SECONDS, 10) || 15 * 60,
 
   // Encryption
   ENCRYPTION_KEY: requireProductionValue(

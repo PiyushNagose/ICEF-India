@@ -45,7 +45,7 @@ const redirectToLogin = () => {
   if (!window.location.pathname.startsWith("/auth")) {
     window.location.href = window.location.pathname.startsWith("/admin")
       ? getInternalLoginPath()
-      : "/auth/candidate-login";
+      : "/check-status";
   }
 };
 

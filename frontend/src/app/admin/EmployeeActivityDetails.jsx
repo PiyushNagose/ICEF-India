@@ -230,11 +230,18 @@ const EmployeeActivityDetails = () => {
           </div>
 
           <div className="admin-data-scroll hover-scroll overflow-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[960px] table-fixed">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[12%]" />
+                <col className="w-[32%]" />
+                <col className="w-[14%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Module / Project','Action','Details','IP Address','Date & Time'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
+                    <th key={h} className={`py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal ${['Action','IP Address','Date & Time'].includes(h) ? 'text-center' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -262,7 +269,7 @@ const EmployeeActivityDetails = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '-'}
                         </span>
@@ -272,10 +279,10 @@ const EmployeeActivityDetails = () => {
                           {log.details || '-'}
                         </p>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <span className="text-xs font-mono text-gray-500">{log.ipAddress || '-'}</span>
                       </td>
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <p className="text-sm font-medium text-gray-900">
                           {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </p>

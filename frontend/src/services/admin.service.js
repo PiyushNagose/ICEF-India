@@ -85,6 +85,13 @@ export const adminService = {
     );
     return unwrapData(response);
   },
+  async reviewApplicationCorrection(id, data) {
+    const response = await apiClient.put(
+      `/admin/applications/${id}/correction-review`,
+      data,
+    );
+    return unwrapData(response);
+  },
   async verifyDocument(applicationId, documentId) {
     const response = await apiClient.put(
       `/admin/applications/${applicationId}/documents/${documentId}/verify`,

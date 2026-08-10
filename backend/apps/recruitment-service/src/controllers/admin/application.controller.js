@@ -28,6 +28,57 @@ const REVIEW_STATUSES = new Set([
   "clarification_required",
 ]);
 
+const sanitizeCorrectionIssues = (issues = []) =>
+  (Array.isArray(issues) ? issues : [])
+    .map((issue) => ({
+      section: String(issue.section || "").trim(),
+      fieldKey: String(issue.fieldKey || "").trim(),
+      fieldLabel: String(issue.fieldLabel || "").trim(),
+      issueType: String(issue.issueType || "").trim(),
+      currentValue:
+        issue.currentValue === undefined || issue.currentValue === null
+          ? ""
+          : String(issue.currentValue).trim(),
+      remark: String(issue.remark || "").trim(),
+      status: "pending",
+      requestedAt: new Date(),
+    }))
+    .filter(
+      (issue) =>
+        issue.section &&
+        issue.fieldKey &&
+        issue.fieldLabel &&
+        issue.issueType &&
+        issue.remark,
+    );
+
+const setCorrectedApplicationValue = (application, field, value) => {
+  const allowedPrefixes = [
+    "personalDetails.",
+    "education.",
+    "additionalInfo.",
+    "address.",
+    "formResponses.",
+  ];
+
+  if (!allowedPrefixes.some((prefix) => field.startsWith(prefix))) {
+    return false;
+  }
+
+  const keys = field.split(".").filter(Boolean);
+  if (keys.length < 2) return false;
+
+  let target = application;
+  keys.slice(0, -1).forEach((key) => {
+    if (!target[key] || typeof target[key] !== "object") {
+      target[key] = {};
+    }
+    target = target[key];
+  });
+  target[keys[keys.length - 1]] = value;
+  return true;
+};
+
 const getRequiredDocumentIssues = (application) => {
   const requiredDocuments = Array.isArray(application.jobId?.documentRequirements)
     ? application.jobId.documentRequirements.filter((doc) => doc.required !== false)
@@ -66,7 +117,7 @@ const getRequiredDocumentIssues = (application) => {
   });
 };
 
-const assertReviewTransitionAllowed = (application, status, reason) => {
+const assertReviewTransitionAllowed = (application, status, reason, issues = []) => {
   if (!REVIEW_STATUSES.has(status)) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid application status");
   }
@@ -75,6 +126,13 @@ const assertReviewTransitionAllowed = (application, status, reason) => {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Clarification note is required",
+    );
+  }
+
+  if (status === "clarification_required" && issues.length === 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Select at least one field or document issue for correction",
     );
   }
 };
@@ -241,6 +299,7 @@ const getApplication = asyncHandler(async (req, res) => {
 const updateApplicationStatus = asyncHandler(async (req, res) => {
   const { status, rejectionReason, notes } = req.body;
   const reviewReason = rejectionReason || notes || "";
+  const correctionIssues = sanitizeCorrectionIssues(req.body.correctionIssues);
   const applicationId = req.params.id;
 
   const application = await Application.findById(applicationId)
@@ -251,7 +310,7 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
   }
 
-  assertReviewTransitionAllowed(application, status, reviewReason);
+  assertReviewTransitionAllowed(application, status, reviewReason, correctionIssues);
 
   const oldStatus = application.status;
   application.status = status;
@@ -269,11 +328,13 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     application.correction.requestedBy = req.user.id;
     application.correction.requestedAt = new Date();
     application.correction.note = reviewReason;
+    application.correction.issues = correctionIssues;
   }
 
   if (["verified", "approved"].includes(status)) {
     application.correction.status = "none";
     application.correction.note = undefined;
+    application.correction.issues = [];
   }
 
   await application.save();
@@ -367,6 +428,106 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
         rejectionReason: application.rejectionReason,
         correction: application.correction,
       },
+    }),
+  );
+});
+
+const reviewCorrection = asyncHandler(async (req, res) => {
+  const { action, notes = "" } = req.body;
+  const application = await Application.findById(req.params.id)
+    .populate("candidateId", "fullName email")
+    .populate("jobId", "title");
+
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+  }
+
+  const correction = [...(application.corrections || [])]
+    .reverse()
+    .find((item) => item.status === "pending");
+
+  if (!correction) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "No submitted correction request is pending review",
+    );
+  }
+
+  const now = new Date();
+
+  if (action === "approve") {
+    const appliedFields = [];
+
+    (correction.requestedFields || []).forEach((fieldCorrection) => {
+      const applied = setCorrectedApplicationValue(
+        application,
+        fieldCorrection.field,
+        fieldCorrection.newValue,
+      );
+      if (applied) {
+        appliedFields.push(fieldCorrection.field);
+      }
+    });
+
+    correction.status = "approved";
+    correction.reviewedBy = req.user.id;
+    correction.reviewedAt = now;
+    correction.reviewComments =
+      notes ||
+      `Correction accepted. Applied ${appliedFields.length} field update(s).`;
+
+    application.status = "approved";
+    application.reviewedBy = req.user.id;
+    application.reviewedAt = now;
+    application.rejectionReason = undefined;
+    application.correction.status = "resolved";
+    application.correction.note =
+      notes || "Candidate correction accepted by reviewer.";
+    application.correction.submittedAt = application.correction.submittedAt || now;
+    application.correction.issues = (application.correction.issues || []).map(
+      (issue) => {
+        issue.status = "resolved";
+        issue.resolvedAt = issue.resolvedAt || now;
+        return issue;
+      },
+    );
+  } else {
+    correction.status = "rejected";
+    correction.reviewedBy = req.user.id;
+    correction.reviewedAt = now;
+    correction.reviewComments =
+      notes || "Correction details are still not acceptable. Please resubmit.";
+
+    application.status = "clarification_required";
+    application.reviewedBy = req.user.id;
+    application.reviewedAt = now;
+    application.correction.status = "requested";
+    application.correction.requestedBy = req.user.id;
+    application.correction.requestedAt = now;
+    application.correction.note = correction.reviewComments;
+    application.correction.issues = (application.correction.issues || []).map(
+      (issue) => {
+        issue.status = "pending";
+        issue.resolvedAt = undefined;
+        return issue;
+      },
+    );
+  }
+
+  await application.save();
+
+  await saveAuditLog(req, {
+    action:
+      action === "approve" ? "APPROVE_CORRECTION" : "REQUEST_CORRECTION_AGAIN",
+    applicationId: application.applicationId,
+    registrationNumber: application.registrationNumber,
+    correctionRequestId: correction.requestId,
+    notes,
+  });
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Correction review saved successfully", {
+      application,
     }),
   );
 });
@@ -739,6 +900,7 @@ module.exports = {
   getApplications,
   getApplication,
   updateApplicationStatus,
+  reviewCorrection,
   bulkUpdateApplications,
   verifyDocument,
   rejectDocument,

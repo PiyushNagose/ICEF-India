@@ -61,6 +61,34 @@ const emptySchedule = {
   instructions: [{ ...emptyInstruction }],
 }
 
+const toTimeInputValue = (value) => {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const twentyFourHour = text.match(/^(\d{1,2}):(\d{2})$/)
+  if (twentyFourHour) {
+    const hours = Math.min(23, Math.max(0, Number(twentyFourHour[1]) || 0))
+    const minutes = Math.min(59, Math.max(0, Number(twentyFourHour[2]) || 0))
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  }
+  const twelveHour = text.toUpperCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/)
+  if (!twelveHour) return ''
+  let hours = Number(twelveHour[1])
+  const minutes = Number(twelveHour[2] || 0)
+  if (twelveHour[3] === 'PM' && hours < 12) hours += 12
+  if (twelveHour[3] === 'AM' && hours === 12) hours = 0
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+const formatTimeForDisplay = (value) => {
+  const inputValue = toTimeInputValue(value)
+  if (!inputValue) return ''
+  const [hoursText, minutes] = inputValue.split(':')
+  const hours = Number(hoursText)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours % 12 || 12
+  return `${String(displayHours).padStart(2, '0')}:${minutes} ${period}`
+}
+
 const statusTone = {
   draft: 'bg-gray-100 text-gray-700',
   allocated: 'bg-blue-50 text-blue-700',
@@ -285,11 +313,11 @@ const AdmitCards = () => {
       ? 'bg-green-500'
       : 'bg-orange-600'
   const allocationSteps = [
-    { type: 'preview', label: 'Preview', helper: 'Check eligible candidates and capacity.', icon: Search },
-    { type: 'allocate', label: 'Allocate', helper: 'Assign roll numbers, centers, and rooms.', icon: Play },
-    { type: 'lock', label: 'Lock', helper: 'Freeze allocation before card generation.', icon: Lock },
-    { type: 'generate', label: 'Generate', helper: 'Create admit cards from locked allocation.', icon: FileBadge },
-    { type: 'publish', label: 'Publish', helper: 'Release admit cards to candidates.', icon: Send, primary: true },
+    { type: 'preview', label: 'Preview Capacity', helper: 'Check eligible candidates and available seats.', icon: Search },
+    { type: 'allocate', label: 'Bulk Allocate', helper: 'Optional: allocate all eligible candidates manually.', icon: Play },
+    { type: 'lock', label: 'Lock Bulk List', helper: 'Optional: freeze a bulk allocation list.', icon: Lock },
+    { type: 'generate', label: 'Bulk Generate', helper: 'Optional: create cards for a locked bulk list.', icon: FileBadge },
+    { type: 'publish', label: 'Publish Window', helper: 'Candidates can now generate cards on demand.', icon: Send, primary: true },
   ]
 
   const toggleScheduleCenter = (centerId) => {
@@ -369,8 +397,10 @@ const AdmitCards = () => {
     createSchedule.mutate({
       ...scheduleForm,
       examDate: new Date(scheduleForm.examDate).toISOString(),
-      gateClosingTime: scheduleForm.gateClosingTime || undefined,
-      examEndTime: scheduleForm.examEndTime || undefined,
+      reportingTime: formatTimeForDisplay(scheduleForm.reportingTime),
+      gateClosingTime: formatTimeForDisplay(scheduleForm.gateClosingTime) || undefined,
+      examStartTime: formatTimeForDisplay(scheduleForm.examStartTime),
+      examEndTime: formatTimeForDisplay(scheduleForm.examEndTime) || undefined,
       provisionalNote: scheduleForm.provisionalNote.trim() || undefined,
       selectedCenterIds: scheduleForm.selectedCenterIds,
       papers,
@@ -380,6 +410,10 @@ const AdmitCards = () => {
 
   const runAction = (type) => {
     if (!activeScheduleId) return toast.error('Select an exam schedule first')
+    if (type === 'publish' && selectedSchedule?.status === 'published') {
+      toast('Admit card window is already published')
+      return
+    }
     if (type === 'unpublish' && !window.confirm('Unpublish released admit cards for this schedule?')) return
     if (type === 'regenerate' && !window.confirm('Regenerate admit cards for this schedule? Published cards will be unpublished first.')) return
     actionMutation.mutate({ type, id: activeScheduleId })
@@ -692,19 +726,19 @@ const AdmitCards = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Reporting Time</span>
-                      <input value={scheduleForm.reportingTime} onChange={(e) => setScheduleForm({ ...scheduleForm, reportingTime: e.target.value })} placeholder="e.g. 07:00 AM" className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <input type="time" value={toTimeInputValue(scheduleForm.reportingTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, reportingTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Gate Closing Time</span>
-                      <input value={scheduleForm.gateClosingTime} onChange={(e) => setScheduleForm({ ...scheduleForm, gateClosingTime: e.target.value })} placeholder="e.g. 08:30 AM" className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <input type="time" value={toTimeInputValue(scheduleForm.gateClosingTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, gateClosingTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Exam Start Time</span>
-                      <input value={scheduleForm.examStartTime} onChange={(e) => setScheduleForm({ ...scheduleForm, examStartTime: e.target.value })} placeholder="e.g. 09:00 AM" className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <input type="time" value={toTimeInputValue(scheduleForm.examStartTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, examStartTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Exam End Time</span>
-                      <input value={scheduleForm.examEndTime} onChange={(e) => setScheduleForm({ ...scheduleForm, examEndTime: e.target.value })} placeholder="e.g. 12:00 PM" className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input type="time" value={toTimeInputValue(scheduleForm.examEndTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, examEndTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                   </div>
 
@@ -867,7 +901,7 @@ const AdmitCards = () => {
                     <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Date & Time</p>
                       <p className="mt-1 font-bold text-gray-900">{new Date(selectedSchedule.examDate).toLocaleDateString('en-IN')}</p>
-                      <p className="text-xs text-gray-500">{selectedSchedule.examStartTime} to {selectedSchedule.examEndTime || 'end not set'}</p>
+                      <p className="text-xs text-gray-500">{formatTimeForDisplay(selectedSchedule.examStartTime)} to {formatTimeForDisplay(selectedSchedule.examEndTime) || 'end not set'}</p>
                     </div>
                     <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Selected Centers</p>
@@ -878,10 +912,10 @@ const AdmitCards = () => {
                       <p className="text-xs font-semibold uppercase text-gray-500">Current Phase</p>
                       <p className="mt-1 font-bold capitalize text-gray-900">{selectedSchedule.status}</p>
                       <p className="text-xs text-gray-500">
-                        {selectedSchedule.status === 'draft' && 'Preview and allocate next'}
-                        {selectedSchedule.status === 'allocated' && 'Lock allocation next'}
-                        {selectedSchedule.status === 'locked' && 'Generate and publish next'}
-                        {selectedSchedule.status === 'published' && 'Visible after release date'}
+                        {selectedSchedule.status === 'draft' && 'Publish the admit-card window after centers and rooms are ready'}
+                        {selectedSchedule.status === 'allocated' && 'Bulk allocation exists; publish when ready'}
+                        {selectedSchedule.status === 'locked' && 'Bulk list locked; publish window when ready'}
+                        {selectedSchedule.status === 'published' && 'Public on-demand admit-card window is open now'}
                         {selectedSchedule.status === 'cancelled' && 'No candidate action'}
                       </p>
                     </div>
@@ -911,8 +945,8 @@ const AdmitCards = () => {
                     <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500">
                       <tr>
                         <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-normal">Exam</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-normal">Date</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-normal">Status</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-normal">Date</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-normal">Status</th>
                         <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-normal">Select</th>
                       </tr>
                     </thead>
@@ -923,8 +957,8 @@ const AdmitCards = () => {
                             <p className="truncate font-semibold text-gray-900" title={schedule.examName}>{schedule.examName}</p>
                             <p className="truncate text-xs text-gray-500" title={schedule.examCode}>{schedule.examCode}</p>
                           </td>
-                          <td className="whitespace-nowrap px-3 py-3 align-middle">{new Date(schedule.examDate).toLocaleDateString('en-IN')}</td>
-                          <td className="px-3 py-3 align-middle">
+                          <td className="whitespace-nowrap px-3 py-3 text-center align-middle">{new Date(schedule.examDate).toLocaleDateString('en-IN')}</td>
+                          <td className="px-3 py-3 text-center align-middle">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusTone[schedule.status] || statusTone.draft}`}>
                               {schedule.status}
                             </span>
@@ -974,26 +1008,42 @@ const AdmitCards = () => {
                       <button
                         key={step.type}
                         type="button"
-                        disabled={!activeScheduleId || actionMutation.isPending}
+                        disabled={!activeScheduleId || actionMutation.isPending || (step.type === 'publish' && selectedSchedule?.status === 'published')}
                         onClick={() => runAction(step.type)}
                         className={`group flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition ${
                           step.primary
-                            ? 'border-orange-600 bg-orange-600 text-white shadow-lg shadow-orange-100 hover:bg-orange-700'
+                            ? selectedSchedule?.status === 'published'
+                              ? 'border-green-200 bg-green-50 text-green-700'
+                              : 'border-orange-600 bg-orange-600 text-white shadow-lg shadow-orange-100 hover:bg-orange-700'
                             : 'border-gray-200 bg-white text-gray-900 hover:border-orange-300 hover:bg-orange-50'
                         } disabled:cursor-not-allowed disabled:opacity-60`}
                       >
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                          step.primary ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-700'
+                          step.primary
+                            ? selectedSchedule?.status === 'published'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-white/20 text-white'
+                            : 'bg-orange-50 text-orange-700'
                         }`}>
                           {index + 1}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-2 text-sm font-semibold">
                             <Icon className="h-4 w-4" />
-                            {step.label}
+                            {step.type === 'publish' && selectedSchedule?.status === 'published'
+                              ? 'Window Published'
+                              : step.label}
                           </span>
-                          <span className={`mt-1 block text-xs ${step.primary ? 'text-orange-50' : 'text-gray-500'}`}>
-                            {step.helper}
+                          <span className={`mt-1 block text-xs ${
+                            step.primary
+                              ? selectedSchedule?.status === 'published'
+                                ? 'text-green-700'
+                                : 'text-orange-50'
+                              : 'text-gray-500'
+                          }`}>
+                            {step.type === 'publish' && selectedSchedule?.status === 'published'
+                              ? 'Candidates can generate admit cards on demand now.'
+                              : step.helper}
                           </span>
                         </span>
                       </button>
@@ -1181,16 +1231,16 @@ const AdmitCards = () => {
                     <tbody>
                       {admitCards.map((card) => (
                         <tr key={card._id} className="border-t border-gray-100">
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-3 align-middle">
                             <p className="font-semibold text-gray-900">{card.rollNumber}</p>
                             <p className="truncate text-xs text-gray-500">{card.applicationId?.applicationId}</p>
                           </td>
-                          <td className="w-[120px] px-3 py-3">
+                          <td className="w-[120px] px-3 py-3 text-center align-middle">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${card.status === 'published' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                               {card.status}
                             </span>
                           </td>
-                          <td className="w-[230px] px-3 py-3 text-right">
+                          <td className="w-[230px] px-3 py-3 text-right align-middle">
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"

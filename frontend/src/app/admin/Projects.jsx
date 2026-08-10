@@ -207,7 +207,16 @@ const Projects = () => {
 
           <div className="admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto">
 
-            <table className="w-full">
+            <table className="w-full min-w-[1040px] table-fixed">
+              <colgroup>
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-[20%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+              </colgroup>
 
               <thead className="bg-gray-50 border-b border-gray-100">
 
@@ -223,14 +232,15 @@ const Projects = () => {
                   ].map((head) => (
                     <th
                       key={head}
-                      className="
-                        text-left px-5 py-4
+                      className={`
+                        px-5 py-4
                         text-xs
                         font-semibold
                         tracking-normal
                         text-gray-500
                         uppercase
-                      "
+                        ${['State', 'Status', 'Start', 'End', 'Actions'].includes(head) ? 'text-center' : 'text-left'}
+                      `}
                     >
                       {head}
                     </th>
@@ -284,17 +294,17 @@ const Projects = () => {
                       </div>
                     </td>
 
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-5 text-center">
                       <Badge className="bg-gray-100 text-gray-700">
                         {project.state}
                       </Badge>
                     </td>
 
-                    <td className="px-5 py-5 text-sm text-gray-600">
+                    <td className="px-5 py-5 text-sm text-gray-600 leading-snug">
                       {project.department}
                     </td>
 
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-5 text-center">
 
                       <Badge
                         className={
@@ -305,7 +315,7 @@ const Projects = () => {
                       </Badge>
                     </td>
 
-                    <td className="px-5 py-5 text-sm text-gray-500">
+                    <td className="px-5 py-5 text-center text-sm text-gray-500">
                       {project.startDate
                         ? new Date(
                             project.startDate
@@ -313,7 +323,7 @@ const Projects = () => {
                         : '—'}
                     </td>
 
-                    <td className="px-5 py-5 text-sm text-gray-500">
+                    <td className="px-5 py-5 text-center text-sm text-gray-500">
                       {project.endDate
                         ? new Date(
                             project.endDate
@@ -321,9 +331,9 @@ const Projects = () => {
                         : '—'}
                     </td>
 
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-5 text-center">
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
 
                         <button
                           onClick={() =>

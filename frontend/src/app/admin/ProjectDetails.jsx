@@ -14,6 +14,8 @@ import {
   IndianRupee,
   CheckCircle2,
   ArrowRight,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 
 import AdminLayout from "../../components/layouts/AdminLayout";
@@ -222,11 +224,11 @@ const ProjectDetails = () => {
 
               {/* Public URL */}
               {project.publicSlug && (
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-500 font-medium">
+                <div className="mt-4 flex w-fit max-w-full flex-wrap items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50/60 px-3 py-2 shadow-[0_8px_24px_rgba(234,88,12,0.06)]">
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">
                     Public URL:
                   </span>
-                  <code className="text-xs bg-orange-50 border border-orange-200 text-orange-700 px-3 py-1 rounded-full font-mono">
+                  <code className="max-w-[360px] truncate rounded-full border border-orange-200 bg-white px-3 py-1.5 font-mono text-xs font-semibold text-orange-700">
                     /apply/{project.publicSlug}
                   </code>
                   <button
@@ -234,16 +236,18 @@ const ProjectDetails = () => {
                       const url = `${window.location.origin}/apply/${project.publicSlug}`;
                       navigator.clipboard.writeText(url);
                     }}
-                    className="text-xs text-orange-600 hover:text-orange-800 font-semibold underline"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-orange-600 transition-colors hover:bg-white hover:text-orange-700"
                   >
+                    <Copy className="h-3.5 w-3.5" />
                     Copy Link
                   </button>
                   <a
                     href={`/apply/${project.publicSlug}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-white hover:text-orange-700"
                   >
+                    <ExternalLink className="h-3.5 w-3.5" />
                     Preview
                   </a>
                 </div>

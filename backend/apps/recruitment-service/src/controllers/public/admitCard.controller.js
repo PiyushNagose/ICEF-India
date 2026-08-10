@@ -21,7 +21,8 @@ const verifyAdmitCard = asyncHandler(async (req, res) => {
 const renderPublicAdmitCardHtml = asyncHandler(async (req, res) => {
   const { htmlToPdfBuffer } = require("../../shared/services/pdf.service");
   const html = await examService.renderAdmitCardHtml(req.params.id, {
-    trackDownload: true,
+    publicAccess: true,
+    trackDownload: req.query.embed !== "1",
     embed: req.query.embed === "1",
   });
   if (req.query.pdf === "1") {
@@ -41,4 +42,5 @@ const renderPublicAdmitCardHtml = asyncHandler(async (req, res) => {
 module.exports = {
   lookupAdmitCard,
   verifyAdmitCard,
+  renderPublicAdmitCardHtml,
 };

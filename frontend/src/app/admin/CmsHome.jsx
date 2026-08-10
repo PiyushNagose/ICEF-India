@@ -201,11 +201,19 @@ const CmsHome = () => {
 
           {!isLoading && filtered.length > 0 && (
             <div className="admin-data-scroll hover-scroll overflow-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[920px] table-fixed">
+                <colgroup>
+                  <col className="w-[24%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     {['State', 'Status', 'Featured Projects', 'Last Updated', 'Updated By', 'Actions'].map((h) => (
-                      <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                      <th key={h} className={`py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal ${['Status', 'Featured Projects', 'Last Updated', 'Updated By', 'Actions'].includes(h) ? 'text-center' : 'text-left'}`}>
                         {h}
                       </th>
                     ))}
@@ -222,23 +230,23 @@ const CmsHome = () => {
                             <span className="font-semibold text-gray-900 text-sm">{page.state}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-5">
+                        <td className="py-4 px-5 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                             {cfg.label}
                           </span>
                         </td>
-                        <td className="py-4 px-5 text-sm text-gray-600">
+                        <td className="py-4 px-5 text-center text-sm text-gray-600">
                           {page.featuredJobs?.length ?? 0} Projects
                         </td>
-                        <td className="py-4 px-5 text-sm text-gray-600">
+                        <td className="py-4 px-5 text-center text-sm text-gray-600">
                           {formatDate(page.updatedAt)}
                         </td>
-                        <td className="py-4 px-5 text-sm text-gray-500">
+                        <td className="py-4 px-5 text-center text-sm text-gray-500">
                           Admin
                         </td>
-                        <td className="py-4 px-5">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <td className="py-4 px-5 text-center">
+                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => navigate(`/admin/cms/edit/${encodeURIComponent(page.state)}`)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"

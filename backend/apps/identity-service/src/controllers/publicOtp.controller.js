@@ -1,5 +1,6 @@
 const otpService = require("../shared/services/otp.service");
 const { StatusCodes } = require("http-status-codes");
+const env = require("../shared/config/env");
 
 const shouldExposeOtp = () =>
   process.env.NODE_ENV === "development" ||
@@ -28,12 +29,15 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // Check rate limiting (max 3 requests per 15 minutes)
-    const isRateLimited = await otpService.isRateLimited(identifier, type, 3);
+    const isRateLimited = await otpService.isRateLimited(
+      identifier,
+      type,
+      env.PUBLIC_OTP_IDENTIFIER_MAX,
+    );
     if (isRateLimited) {
       return res.status(StatusCodes.TOO_MANY_REQUESTS).json({
         success: false,
-        message: "Too many OTP requests. Please try again after 15 minutes.",
+        message: "Too many OTP requests for this number/email. Please try again later.",
       });
     }
 

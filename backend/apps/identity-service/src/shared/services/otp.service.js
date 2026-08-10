@@ -1,5 +1,6 @@
 const { getRedis } = require("../config/redis");
 const crypto = require("crypto");
+const env = require("../config/env");
 
 const memoryOtpStore = new Map();
 const memoryVerifiedStore = new Map();
@@ -67,7 +68,7 @@ class OTPService {
       // Track attempts
       const attemptsKey = `otp_attempts:${type}:${identifier}`;
       await redis.incr(attemptsKey);
-      await redis.expire(attemptsKey, 15 * 60); // 15 minutes expiry for attempts
+      await redis.expire(attemptsKey, env.PUBLIC_OTP_ATTEMPT_WINDOW_SECONDS);
 
       console.log(`OTP generated for ${identifier} (expires in 5 min)`);
 

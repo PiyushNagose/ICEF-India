@@ -67,11 +67,6 @@ export const authService = {
     });
   },
 
-  async candidateLogin(payload) {
-    const response = await apiClient.post("/auth/login", payload);
-    return saveSession(unwrapData(response));
-  },
-
   // Public apply — OTP already verified, just creates ghost user + issues token
   async publicApplyLogin(email, mobile) {
     const response = await apiClient.post("/auth/public-apply-login", {
@@ -79,21 +74,6 @@ export const authService = {
       mobile,
     });
     return saveSession(unwrapData(response));
-  },
-
-  async register(payload) {
-    const response = await apiClient.post("/auth/register", payload);
-    return unwrapData(response);
-  },
-
-  async verifyOtp(payload) {
-    const response = await apiClient.post("/auth/verify-otp", payload);
-    return saveSession(unwrapData(response));
-  },
-
-  async resendOtp(email) {
-    const response = await apiClient.post("/auth/resend-otp", { email });
-    return unwrapData(response);
   },
 
   async me() {

@@ -7,13 +7,9 @@ import GlobalPageLoader from "../components/common/GlobalPageLoader";
 import Home from "../app/public/Home";
 
 // Lazy load all other components
-const Login = lazy(() => import("../app/auth/Login"));
-const CandidateLogin = lazy(() => import("../app/auth/CandidateLogin"));
 const AdminLogin = lazy(() => import("../app/auth/AdminLogin"));
 const EmployeeLogin = lazy(() => import("../app/auth/EmployeeLogin"));
-const Register = lazy(() => import("../app/auth/Register"));
 const ForgotPassword = lazy(() => import("../app/auth/ForgotPassword"));
-const VerifyOTP = lazy(() => import("../app/auth/VerifyOTP"));
 
 // Application Flow Pages
 const PersonalDetails = lazy(
@@ -109,24 +105,14 @@ const AppRoutes = () => {
         <Route path="/" element={<Home />} />
 
         {/* Auth Routes */}
-        <Route path="/auth/candidate-login" element={<CandidateLogin />} />
         <Route path="/auth/admin-login" element={<AdminLogin />} />
         <Route path="/auth/employee-login" element={<EmployeeLogin />} />
-        <Route path="/auth/register" element={<Register />} />
-        {/* Separate Forgot Password routes for each account type */}
-        <Route
-          path="/auth/forgot-password"
-          element={<ForgotPassword accountType="candidate" />}
-        />
-        <Route
-          path="/auth/admin/forgot-password"
-          element={<ForgotPassword accountType="admin" />}
-        />
+        {/* Separate Forgot Password routes for internal account types */}
+        <Route path="/auth/admin/forgot-password" element={<ForgotPassword accountType="admin" />} />
         <Route
           path="/auth/employee/forgot-password"
           element={<ForgotPassword accountType="employee" />}
         />
-        <Route path="/auth/verify-otp" element={<VerifyOTP />} />
 
         {/* Application Flow Routes (after OTP verification) */}
         <Route

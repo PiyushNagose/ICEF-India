@@ -16,15 +16,6 @@ import logo from "../../assets/logo.png";
 import { showOtpToast } from "../../utils/otpToast";
 
 const ACCOUNT_TYPES = {
-  candidate: {
-    label: "Candidate",
-    eyebrow: "Candidate Account",
-    title: "Reset Candidate Password",
-    description:
-      "Recover access to your applications, documents, payments, and admit cards.",
-    loginPath: "/auth/candidate-login",
-    emailPlaceholder: "candidate@example.com",
-  },
   admin: {
     label: "Super Admin",
     eyebrow: "Super Admin",
@@ -52,12 +43,12 @@ const ForgotPassword = ({ accountType: fixedAccountType }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Use prop if provided, otherwise fallback to URL param or default to candidate
+  // Use prop if provided, otherwise fallback to URL param or default to employee.
   const accountType =
     fixedAccountType ||
     (ACCOUNT_TYPES[searchParams.get("type")]
       ? searchParams.get("type")
-      : "candidate");
+      : "employee");
 
   const [email, setEmail] = useState(searchParams.get("email") || "");
   const [otp, setOtp] = useState("");

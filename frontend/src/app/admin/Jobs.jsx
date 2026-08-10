@@ -416,7 +416,15 @@ const Jobs = () => {
             admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto
           ">
 
-            <table className="w-full">
+            <table className="w-full min-w-[980px] table-fixed">
+              <colgroup>
+                <col className="w-[33%]" />
+                <col className="w-[25%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+              </colgroup>
 
               <thead className="
                 bg-gray-50
@@ -435,15 +443,15 @@ const Jobs = () => {
                   ].map((head) => (
                     <th
                       key={head}
-                      className="
-                        text-left
+                      className={`
                         px-5 py-4
                         text-xs
                         font-semibold
                         tracking-normal
                         text-gray-500
                         uppercase
-                      "
+                        ${['Applicants', 'Status', 'Deadline', 'Actions'].includes(head) ? 'text-center' : 'text-left'}
+                      `}
                     >
                       {head}
                     </th>
@@ -512,7 +520,7 @@ const Jobs = () => {
                           " />
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
 
                           <h3 className="
                             font-bold
@@ -537,8 +545,10 @@ const Jobs = () => {
                       px-5 py-5
                     ">
                       <p className="
+                        max-w-[260px]
                         text-sm text-gray-600
                         font-medium
+                        leading-snug
                       ">
                         {job.projectId?.name ||
                           '—'}
@@ -550,7 +560,7 @@ const Jobs = () => {
                       px-5 py-5
                     ">
 
-                      <div>
+                      <div className="text-center">
                         <h3 className="
                           font-bold
                           text-gray-900
@@ -572,7 +582,7 @@ const Jobs = () => {
 
                     {/* STATUS */}
                     <td className="
-                      px-5 py-5
+                      px-5 py-5 text-center
                     ">
                       <Badge
                         className={
@@ -588,11 +598,11 @@ const Jobs = () => {
 
                     {/* DEADLINE */}
                     <td className="
-                      px-5 py-5
+                      px-5 py-5 text-center
                     ">
 
                       <div className="
-                        flex items-center gap-2
+                        flex items-center justify-center gap-2
                       ">
 
                         <Clock className="
@@ -620,7 +630,7 @@ const Jobs = () => {
                     ">
 
                       <div className="
-                        flex items-center gap-2
+                        flex items-center justify-center gap-2
                       ">
 
                         {/* VIEW / EDIT */}

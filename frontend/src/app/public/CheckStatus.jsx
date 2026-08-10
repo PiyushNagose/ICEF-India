@@ -41,6 +41,7 @@ const statusColor = (s) => {
   const map = {
     submitted: "bg-blue-50 text-blue-700 border-blue-200",
     under_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    clarification_required: "bg-orange-50 text-orange-700 border-orange-200",
     approved: "bg-green-50 text-green-700 border-green-200",
     rejected: "bg-red-50 text-red-700 border-red-200",
     shortlisted: "bg-purple-50 text-purple-700 border-purple-200",
@@ -55,6 +56,20 @@ const paymentColor = (s) =>
     : s === "pending"
       ? "bg-yellow-50 text-yellow-700 border-yellow-200"
       : "bg-red-50 text-red-700 border-red-200";
+
+const isCorrectionResolved = (correction) => {
+  if (!correction || correction.status === "none") return false;
+  if (correction.status === "resolved") return true;
+  const issues = correction.issues || [];
+  return (
+    correction.status === "submitted" &&
+    issues.length > 0 &&
+    issues.every((issue) => issue.status === "resolved")
+  );
+};
+
+const getCorrectionDisplayStatus = (correction) =>
+  isCorrectionResolved(correction) ? "resolved" : correction?.status || "requested";
 
 const InfoTile = ({ label, value }) => (
   <div className="rounded border border-[#eadfd2] bg-[#fbf7f1] px-4 py-3">
@@ -77,6 +92,18 @@ export default function CheckStatus() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [checkLoading, setCheckLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const correctionIssues = result?.correction?.issues || [];
+  const pendingCorrectionIssues = correctionIssues.filter(
+    (issue) => issue.status !== "resolved",
+  );
+  const correctionDisplayStatus = getCorrectionDisplayStatus(
+    result?.correction,
+  );
+  const canSubmitCorrection =
+    result?.correctionWindow?.isOpen &&
+    !isCorrectionResolved(result?.correction) &&
+    result?.correction?.status !== "submitted" &&
+    pendingCorrectionIssues.length > 0;
 
   const handleSendOTP = async () => {
     if (!/^[6-9]\d{9}$/.test(mobile)) {
@@ -406,6 +433,102 @@ export default function CheckStatus() {
                     </div>
                   )}
 
+                  {correctionIssues.length > 0 && (
+                    <div className="rounded-[8px] border border-orange-200 bg-white p-6 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-orange-100 pb-4">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-600">
+                            Correction Required
+                          </p>
+                          <h3 className="mt-1 text-lg font-black text-[#1f1d1b]">
+                            Admin-marked fields for this application
+                          </h3>
+                          {result.correction?.note && (
+                            <p className="mt-1 text-sm font-medium leading-6 text-[#6d6761]">
+                              {result.correction.note}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-widest ${
+                            correctionDisplayStatus === "resolved"
+                              ? "border-green-200 bg-green-50 text-green-700"
+                              : "border-orange-200 bg-orange-50 text-orange-700"
+                          }`}
+                        >
+                          {correctionDisplayStatus === "resolved"
+                            ? "Resolved"
+                            : correctionDisplayStatus === "submitted"
+                              ? "Submitted"
+                              : `${pendingCorrectionIssues.length} pending`}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3">
+                        {correctionIssues.map((issue) => (
+                          <div
+                            key={issue.id || issue.fieldKey}
+                            className="rounded-[6px] border border-[#f0e2d4] bg-[#fffaf5] p-4"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e46a1d]">
+                                  {issue.section || "Application"}
+                                </p>
+                                <p className="mt-1 text-sm font-black text-[#1f1d1b]">
+                                  {issue.fieldLabel || issue.fieldKey}
+                                </p>
+                              </div>
+                              <span
+                                className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${
+                                  issue.status === "resolved"
+                                    ? "border-green-200 bg-green-50 text-green-700"
+                                    : "border-orange-200 bg-white text-orange-700"
+                                }`}
+                              >
+                                {issue.status || "pending"}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <InfoTile
+                                label="Issue Type"
+                                value={issue.issueType || "Clarification"}
+                              />
+                              <InfoTile
+                                label="Current Value"
+                                value={issue.currentValue || "Not provided"}
+                              />
+                            </div>
+                            {issue.remark && (
+                              <p className="mt-3 rounded-[6px] border border-orange-100 bg-white px-3 py-2 text-sm font-medium leading-6 text-[#5c5149]">
+                                {issue.remark}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {canSubmitCorrection && (
+                        <button
+                          onClick={() =>
+                            navigate("/correction-request", {
+                              state: {
+                                lookup: {
+                                  registrationNumber: result.registrationNumber,
+                                  mobile,
+                                },
+                              },
+                            })
+                          }
+                          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16]"
+                        >
+                          Submit Corrected Details
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {/* Action buttons */}
                   <div className="grid sm:grid-cols-2 gap-3">
                     {result.admitCardAvailable && (
@@ -417,7 +540,9 @@ export default function CheckStatus() {
                         Download Admit Card
                       </button>
                     )}
-                    {result.correctionWindow?.isOpen && (
+                    {result.correctionWindow?.isOpen &&
+                      pendingCorrectionIssues.length === 0 &&
+                      !isCorrectionResolved(result?.correction) && (
                       <button
                         onClick={() =>
                           navigate("/correction-request", {

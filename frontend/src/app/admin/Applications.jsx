@@ -452,7 +452,16 @@ const Applications = () => {
 
           {/* Table */}
           <div className="admin-data-scroll hover-scroll overflow-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1120px] table-fixed">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[18%]" />
+                <col className="w-[20%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[8%]" />
+              </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
@@ -464,16 +473,16 @@ const Applications = () => {
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Job Applied
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Status
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Payment
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Submitted
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">
                     Actions
                   </th>
                 </tr>
@@ -583,17 +592,17 @@ const Applications = () => {
                       </td>
 
                       {/* Status */}
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 text-center">
                         <StatusBadge status={app.status} />
                       </td>
 
                       {/* Payment */}
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 text-center">
                         <PaymentBadge status={app.paymentStatus || "unpaid"} />
                       </td>
 
                       {/* Submitted */}
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 text-center">
                         <span className="text-sm text-gray-700">
                           {app.submittedAt ? (
                             new Date(app.submittedAt).toLocaleDateString(
@@ -611,8 +620,8 @@ const Applications = () => {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-1">
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() =>
                               navigate(`/admin/applications/${app._id}`)

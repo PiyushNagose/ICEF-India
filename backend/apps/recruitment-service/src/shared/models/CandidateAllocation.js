@@ -48,6 +48,13 @@ candidateAllocationSchema.index(
   { examScheduleId: 1, rollNumber: 1 },
   { unique: true },
 );
+candidateAllocationSchema.index(
+  { examScheduleId: 1, roomId: 1, serialNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "allocated" },
+  },
+);
 candidateAllocationSchema.index({ examScheduleId: 1, centerId: 1, roomId: 1 });
 candidateAllocationSchema.index({ candidateId: 1 });
 

@@ -118,6 +118,18 @@ const updateStatusSchema = z.object({
   ]),
   rejectionReason: z.string().optional(),
   notes: z.string().optional(),
+  correctionIssues: z
+    .array(
+      z.object({
+        section: z.string().min(1).max(80),
+        fieldKey: z.string().min(1).max(160),
+        fieldLabel: z.string().min(1).max(160),
+        issueType: z.string().min(1).max(100),
+        currentValue: z.string().max(500).optional(),
+        remark: z.string().min(3).max(1000),
+      }),
+    )
+    .optional(),
 });
 
 const bulkActionSchema = z.object({
@@ -137,6 +149,11 @@ const bulkActionSchema = z.object({
   notes: z.string().optional(),
 });
 
+const reviewCorrectionSchema = z.object({
+  action: z.enum(["approve", "request_again"]),
+  notes: z.string().max(1000).optional(),
+});
+
 module.exports = {
   createApplicationSchema,
   personalDetailsSchema,
@@ -147,4 +164,5 @@ module.exports = {
   submitApplicationSchema,
   updateStatusSchema,
   bulkActionSchema,
+  reviewCorrectionSchema,
 };

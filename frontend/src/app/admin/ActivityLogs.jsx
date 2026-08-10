@@ -281,7 +281,7 @@ const ActivityLogs = () => {
               <thead className="bg-white shadow-sm">
                 <tr>
                   {['Date & Time','Employee','Action','Module','Details'].map(h => (
-                    <th key={h} className="bg-white text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">
+                    <th key={h} className={`bg-white py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal ${['Date & Time','Action'].includes(h) ? 'text-center' : 'text-left'}`}>
                       {h}
                     </th>
                   ))}
@@ -318,7 +318,7 @@ const ActivityLogs = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 align-middle">
+                      <td className="py-4 px-5 align-middle text-center">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '-'}
                         </span>

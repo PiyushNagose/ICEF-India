@@ -5,8 +5,8 @@ const ResetPassword = () => {
     <ComingSoon
       title="Reset Password"
       description="Enter your new password to complete the password reset process."
-      backLink="/auth/candidate-login"
-      backText="Back to Login"
+      backLink="/check-status"
+      backText="Back to Public Services"
     />
   );
 };

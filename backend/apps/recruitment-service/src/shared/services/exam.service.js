@@ -215,8 +215,8 @@ const barcodeBars = (value) => {
 };
 
 const getEligibleApplicationFilter = (jobId) => ({
-  jobId,
-  status: { $in: ["submitted", "under_review", "approved", "shortlisted"] },
+  jobId: jobId?._id || jobId,
+  status: { $in: ["submitted", "under_review", "verified", "approved", "shortlisted"] },
   $or: [{ paymentStatus: "paid" }, { totalFee: 0 }],
 });
 
@@ -562,7 +562,7 @@ const getScheduleStats = async (id) => {
   ] = await Promise.all([
     Application.countDocuments({
       jobId: schedule.jobId._id,
-      status: { $in: ["submitted", "under_review", "approved", "shortlisted"] },
+      status: { $in: ["submitted", "under_review", "verified", "approved", "shortlisted"] },
       $or: [{ paymentStatus: "paid" }, { totalFee: 0 }],
     }),
     CandidateAllocation.countDocuments({
@@ -630,6 +630,21 @@ const allocateCandidates = async (id, options = {}, userId) => {
   if (!schedule)
     throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
   assertAllocatableSchedule(schedule);
+
+  const [existingAllocations, existingAdmitCards] = await Promise.all([
+    CandidateAllocation.countDocuments({
+      examScheduleId: schedule._id,
+      status: "allocated",
+    }),
+    AdmitCard.countDocuments({ examScheduleId: schedule._id }),
+  ]);
+  if ((existingAllocations > 0 || existingAdmitCards > 0) && !options.forceReallocate) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "This exam already has committed seat allocations or admit cards. Bulk reallocation is disabled to protect issued seats.",
+      { existingAllocations, existingAdmitCards },
+    );
+  }
 
   const plan = await buildAllocationPlan(schedule, options);
   await assertCandidateAllocationConflicts(schedule, plan.planned);
@@ -757,10 +772,410 @@ const getAdmitCardPopulate = () => [
 ];
 
 const isAdmitCardReleased = (admitCard) => {
-  const releaseDate = parseDate(
-    admitCard?.examScheduleId?.jobId?.admitCardReleaseDate,
+  return admitCard?.examScheduleId?.status === "published";
+};
+
+const normalizeMobile = (value) =>
+  String(value || "")
+    .replace(/\D/g, "")
+    .replace(/^91(?=\d{10}$)/, "");
+
+const getApplicationMobile = (application) =>
+  normalizeMobile(
+    application?.candidateId?.registeredMobile ||
+      application?.contactMobile ||
+      application?.personalDetails?.registeredMobile,
   );
-  return !releaseDate || new Date() >= releaseDate;
+
+const hasPendingCorrection = (application) => {
+  const correctionStatus = application.correction?.status;
+  if (application.status === "clarification_required") return true;
+  if (["requested", "in_progress"].includes(correctionStatus)) return true;
+  if (correctionStatus !== "submitted") return false;
+
+  const issues = application.correction?.issues || [];
+  if (!issues.length) return true;
+  return issues.some((issue) => issue.status !== "resolved");
+};
+
+const assertApplicationReadyForAdmitCard = (application) => {
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+  }
+  if (application.status === "draft") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Application is not submitted yet",
+    );
+  }
+  if (application.status === "rejected") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Application is not eligible for admit card",
+    );
+  }
+  if (hasPendingCorrection(application)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Correction is pending. Admit card will be available after correction review",
+    );
+  }
+  if (application.paymentStatus !== "paid" && Number(application.totalFee || 0) > 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Payment is pending for this application",
+    );
+  }
+};
+
+const findPublishedScheduleForApplication = async (application) => {
+  const schedule = await ExamSchedule.findOne({
+    jobId: application.jobId,
+    status: "published",
+  })
+    .sort({ examDate: 1, createdAt: 1 })
+    .populate("jobId", "title postCode department admitCardReleaseDate")
+    .populate("projectId", "name department state");
+
+  if (!schedule) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
+  }
+  return schedule;
+};
+
+const getSeatCapacitySnapshot = async (schedule) => {
+  const selectedCenterIds = getSelectedCenterIds(schedule);
+  if (!selectedCenterIds.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "No centers selected for this exam schedule",
+    );
+  }
+
+  const [centers, rooms, counts] = await Promise.all([
+    ExamCenter.find({ _id: { $in: selectedCenterIds }, active: true }).sort({
+      centerCode: 1,
+    }),
+    ExamRoom.find({
+      centerId: { $in: selectedCenterIds },
+      active: true,
+    }).sort({ centerId: 1, roomCode: 1 }),
+    CandidateAllocation.aggregate([
+      {
+        $match: {
+          examScheduleId: schedule._id,
+          status: "allocated",
+        },
+      },
+      {
+        $group: {
+          _id: { centerId: "$centerId", roomId: "$roomId" },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+
+  const countByRoom = new Map(
+    counts.map((item) => [String(item._id.roomId), item.count]),
+  );
+  const roomsByCenter = rooms.reduce((map, room) => {
+    const centerId = room.centerId.toString();
+    if (!map.has(centerId)) map.set(centerId, []);
+    const capacity = Number(room.usableCapacity || room.capacity || 0);
+    const allocated = countByRoom.get(room._id.toString()) || 0;
+    map.get(centerId).push({
+      room,
+      capacity,
+      allocated,
+      available: Math.max(capacity - allocated, 0),
+    });
+    return map;
+  }, new Map());
+
+  return centers
+    .map((center) => {
+      const centerRooms = roomsByCenter.get(center._id.toString()) || [];
+      const totalCapacity = centerRooms.reduce((sum, item) => sum + item.capacity, 0);
+      const allocated = centerRooms.reduce((sum, item) => sum + item.allocated, 0);
+      const available = Math.max(totalCapacity - allocated, 0);
+      return {
+        center,
+        rooms: centerRooms
+          .filter((item) => item.available > 0)
+          .sort(
+            (a, b) =>
+              b.available - a.available ||
+              String(a.room.roomCode || "").localeCompare(String(b.room.roomCode || "")),
+          ),
+        totalCapacity,
+        allocated,
+        available,
+      };
+    })
+    .filter((item) => item.available > 0)
+    .sort(
+      (a, b) =>
+        b.available - a.available ||
+        String(a.center.centerCode || "").localeCompare(
+          String(b.center.centerCode || ""),
+        ),
+    );
+};
+
+const findFirstAvailableSerial = async (scheduleId, room, capacity) => {
+  const used = await CandidateAllocation.find({
+    examScheduleId: scheduleId,
+    roomId: room._id,
+    status: "allocated",
+  }).distinct("serialNumber");
+  const usedSet = new Set(used.map(Number));
+  for (let serial = 1; serial <= capacity; serial += 1) {
+    if (!usedSet.has(serial)) return serial;
+  }
+  return null;
+};
+
+const refreshAllocationSummary = async (schedule) => {
+  const [eligibleCandidates, allocatedCandidates, capacitySnapshot, admitCards] =
+    await Promise.all([
+      Application.countDocuments(getEligibleApplicationFilter(schedule.jobId)),
+      CandidateAllocation.countDocuments({
+        examScheduleId: schedule._id,
+        status: "allocated",
+      }),
+      getAllocationInputs(schedule).catch(() => ({
+        slots: [],
+      })),
+      AdmitCard.countDocuments({ examScheduleId: schedule._id }),
+    ]);
+
+  const totalCapacity = capacitySnapshot.slots?.length || 0;
+  schedule.allocationSummary = {
+    eligibleCandidates,
+    allocatedCandidates,
+    unallocatedCandidates: Math.max(eligibleCandidates - allocatedCandidates, 0),
+    totalCapacity,
+    admitCards,
+    lastAllocatedAt: new Date(),
+  };
+  await schedule.save();
+};
+
+const assertCandidateScheduleConflict = async (schedule, candidateId) => {
+  const existing = await CandidateAllocation.find({
+    candidateId,
+    status: "allocated",
+  }).populate(
+    "examScheduleId",
+    "examName examCode examDate examStartTime examEndTime status",
+  );
+  const window = getScheduleWindow(schedule);
+  const conflict = existing.find((allocation) => {
+    const other = allocation.examScheduleId;
+    if (!other || other._id.toString() === schedule._id.toString()) return false;
+    if (other.status === "cancelled") return false;
+    return (
+      sameExamDate(other.examDate, schedule.examDate) &&
+      hasOverlap(window, getScheduleWindow(other))
+    );
+  });
+
+  if (conflict) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Candidate already has an admit card for overlapping exam ${conflict.examScheduleId.examName}`,
+    );
+  }
+};
+
+const allocateSeatOnDemand = async (schedule, application) => {
+  const existing = await CandidateAllocation.findOne({
+    examScheduleId: schedule._id,
+    applicationId: application._id,
+    status: "allocated",
+  });
+  if (existing) return existing;
+
+  await assertCandidateScheduleConflict(schedule, application.candidateId);
+
+  const allocationBatchId = `ONDEMAND-${Date.now()}`;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const centers = await getSeatCapacitySnapshot(schedule);
+    if (!centers.length) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "No seats available. Please contact the recruitment authority",
+      );
+    }
+
+    for (const centerItem of centers) {
+      for (const roomItem of centerItem.rooms) {
+        const serialNumber = await findFirstAvailableSerial(
+          schedule._id,
+          roomItem.room,
+          roomItem.capacity,
+        );
+        if (!serialNumber) continue;
+
+        const allocationCount = await CandidateAllocation.countDocuments({
+          examScheduleId: schedule._id,
+        });
+        const rollNumber = buildRollNumber(schedule, allocationCount + attempt);
+        const seatNumber = `${roomItem.room.seatPrefix || roomItem.room.roomCode || "SEAT"}-${String(serialNumber).padStart(3, "0")}`;
+
+        try {
+          return await CandidateAllocation.create({
+            examScheduleId: schedule._id,
+            jobId: schedule.jobId?._id || schedule.jobId,
+            applicationId: application._id,
+            candidateId: application.candidateId?._id || application.candidateId,
+            centerId: centerItem.center._id,
+            roomId: roomItem.room._id,
+            rollNumber,
+            seatNumber,
+            serialNumber,
+            allocationBatchId,
+            allocationReason: "On-demand public admit card request",
+            allocatedAt: new Date(),
+          });
+        } catch (error) {
+          if (error?.code === 11000) continue;
+          throw error;
+        }
+      }
+    }
+  }
+
+  throw new ApiError(
+    StatusCodes.CONFLICT,
+    "Seat allocation is busy. Please retry in a few seconds",
+  );
+};
+
+const createOrPublishAdmitCard = async (schedule, allocation, application) => {
+  const admitCardNumber = `AC-${schedule.examCode}-${allocation.rollNumber}`;
+  const barcodeValue = `${schedule.examCode}|${allocation.rollNumber}|${allocation.applicationId}`;
+  const checksum = crypto
+    .createHash("sha256")
+    .update(barcodeValue)
+    .digest("hex");
+
+  let admitCard = await AdmitCard.findOne({
+    examScheduleId: schedule._id,
+    applicationId: application._id,
+  });
+
+  if (admitCard) {
+    if (admitCard.status !== "published") {
+      admitCard.status = "published";
+      admitCard.publishedAt = new Date();
+    }
+    admitCard.allocationId = allocation._id;
+    admitCard.candidateId = application.candidateId?._id || application.candidateId;
+    admitCard.admitCardNumber = admitCardNumber;
+    admitCard.rollNumber = allocation.rollNumber;
+    admitCard.barcodeValue = barcodeValue;
+    admitCard.qrPayload = barcodeValue;
+    admitCard.pdfChecksum = checksum;
+    await admitCard.save();
+  } else {
+    admitCard = await AdmitCard.create({
+      examScheduleId: schedule._id,
+      allocationId: allocation._id,
+      applicationId: application._id,
+      candidateId: application.candidateId?._id || application.candidateId,
+      admitCardNumber,
+      rollNumber: allocation.rollNumber,
+      barcodeValue,
+      qrPayload: barcodeValue,
+      pdfChecksum: checksum,
+      status: "published",
+      generatedAt: new Date(),
+      publishedAt: new Date(),
+    });
+  }
+
+  const center = await ExamCenter.findById(allocation.centerId).lean();
+
+  await Application.updateOne(
+    { _id: application._id },
+    {
+      $set: {
+        "examAllocation.examScheduleId": schedule._id,
+        "examAllocation.allocatedDate": schedule.examDate,
+        "examAllocation.allocatedShift": schedule.shiftName,
+        "examAllocation.admitCardGenerated": true,
+        "examAllocation.admitCardGeneratedAt": new Date(),
+        "examAllocation.rollNumber": allocation.rollNumber,
+        "examAllocation.seatNumber": allocation.seatNumber,
+        "examAllocation.examCenter": center
+          ? {
+              centerId: center._id,
+              centerCode: center.centerCode,
+              name: center.name,
+              addressLine1: center.addressLine1,
+              addressLine2: center.addressLine2,
+              city: center.city,
+              district: center.district,
+              state: center.state,
+              pincode: center.pincode,
+            }
+          : undefined,
+      },
+    },
+  );
+
+  return AdmitCard.findById(admitCard._id).populate(getAdmitCardPopulate());
+};
+
+const serializePublicAdmitCard = (admitCard, application, fromCache = false) => ({
+  admitCardId: admitCard._id,
+  admitCardNumber: admitCard.admitCardNumber,
+  rollNumber: admitCard.rollNumber,
+  applicationId: application.applicationId,
+  registrationNumber: application.registrationNumber,
+  candidateName: application.personalDetails?.fullName,
+  examName: admitCard.examScheduleId?.examName,
+  examDate: admitCard.examScheduleId?.examDate,
+  reportingTime: admitCard.examScheduleId?.reportingTime,
+  gateClosingTime: admitCard.examScheduleId?.gateClosingTime,
+  examTime: `${admitCard.examScheduleId?.examStartTime || ""}${admitCard.examScheduleId?.examEndTime ? ` to ${admitCard.examScheduleId.examEndTime}` : ""}`,
+  centerName: admitCard.allocationId?.centerId?.name,
+  centerDistrict: admitCard.allocationId?.centerId?.district,
+  seatNumber: admitCard.allocationId?.seatNumber,
+  verificationToken: admitCard.barcodeValue,
+  alreadyGenerated: fromCache,
+  message: fromCache
+    ? "Already generated, downloading existing admit card"
+    : "Admit card generated and seat allocated successfully",
+});
+
+const generateAdmitCardOnDemand = async (application) => {
+  assertApplicationReadyForAdmitCard(application);
+
+  const existing = await AdmitCard.findOne({
+    applicationId: application._id,
+    status: "published",
+  })
+    .populate(getAdmitCardPopulate())
+    .sort({ publishedAt: -1, createdAt: -1 });
+  if (existing) {
+    if (!isAdmitCardReleased(existing)) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
+    }
+    return serializePublicAdmitCard(existing, application, true);
+  }
+
+  const schedule = await findPublishedScheduleForApplication(application);
+  const allocation = await allocateSeatOnDemand(schedule, application);
+  const admitCard = await createOrPublishAdmitCard(
+    schedule,
+    allocation,
+    application,
+  );
+  await refreshAllocationSummary(schedule).catch(() => {});
+  return serializePublicAdmitCard(admitCard, application, false);
 };
 
 const generateAdmitCards = async (id, userId) => {
@@ -850,10 +1265,24 @@ const publishAdmitCards = async (id, userId) => {
   const schedule = await ExamSchedule.findById(id);
   if (!schedule)
     throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
-  if (schedule.status !== "locked" && schedule.status !== "published") {
+  if (schedule.status === "cancelled") {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Only locked schedules can publish admit cards",
+      "Cancelled schedules cannot publish admit cards",
+    );
+  }
+  const hasCenters = getSelectedCenterIds(schedule).length > 0;
+  if (!hasCenters) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Select centers and rooms before publishing the admit-card window",
+    );
+  }
+  const { slots } = await getAllocationInputs(schedule);
+  if (!slots.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Selected centers do not have active usable room capacity",
     );
   }
 
@@ -865,6 +1294,7 @@ const publishAdmitCards = async (id, userId) => {
   schedule.status = "published";
   schedule.publishedAt = schedule.publishedAt || new Date();
   schedule.publishedBy = schedule.publishedBy || userId;
+  schedule.updatedBy = userId;
   await schedule.save();
 
   return { schedule, publishedCount: result.modifiedCount || 0 };
@@ -969,7 +1399,9 @@ const lookupPublicAdmitCard = async ({
   registrationNumber,
   mobile,
 }) => {
-  // Support both old lookup (applicationId + DOB) and new (registrationNumber + mobile)
+  // Support both old lookup (applicationId + DOB) and new no-login flow
+  // (registrationNumber + mobile OTP). The new flow generates the admit card
+  // on-demand and persists the allocation/card for all future downloads.
   let application;
 
   if (registrationNumber) {
@@ -978,29 +1410,26 @@ const lookupPublicAdmitCard = async ({
         .trim()
         .toUpperCase(),
     })
-      .select("applicationId personalDetails candidateId contactMobile")
+      .select(
+        "applicationId registrationNumber personalDetails candidateId contactMobile jobId status paymentStatus totalFee correction",
+      )
       .populate("candidateId", "email registeredMobile");
 
     if (!application)
       throw new ApiError(
         StatusCodes.NOT_FOUND,
-        "No admit card found for this registration number",
+        "No application found for this registration number",
       );
 
-    // Verify mobile matches
-    const storedMobile =
-      application.candidateId?.registeredMobile || application.contactMobile;
-    if (
-      mobile &&
-      storedMobile &&
-      storedMobile !== mobile &&
-      storedMobile !== `+91${mobile}`
-    ) {
+    const storedMobile = getApplicationMobile(application);
+    if (mobile && storedMobile && storedMobile !== normalizeMobile(mobile)) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
         "Mobile number does not match our records",
       );
     }
+
+    return generateAdmitCardOnDemand(application);
   } else {
     application = await Application.findOne({
       applicationId: String(applicationId || "").trim(),
@@ -1111,7 +1540,10 @@ const getAdmitCardForHtml = async (id, options = {}) => {
   );
   if (!admitCard)
     throw new ApiError(StatusCodes.NOT_FOUND, "Admit card not found");
-  if (options.candidateId && !isAdmitCardReleased(admitCard)) {
+  if (options.publicAccess && admitCard.status !== "published") {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
+  }
+  if ((options.candidateId || options.publicAccess) && !isAdmitCardReleased(admitCard)) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
   }
   return admitCard;

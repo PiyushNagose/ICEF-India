@@ -1,5 +1,6 @@
 const { StatusCodes } = require("http-status-codes");
 const Application = require("../../shared/models/Application");
+const ExamSchedule = require("../../shared/models/ExamSchedule");
 const SupportTicket = require("../../shared/models/SupportTicket");
 const User = require("../../shared/models/User");
 const ApiError = require("../../shared/utils/ApiError");
@@ -10,6 +11,22 @@ const {
   normalizeOtpIdentifier,
   assertOTPVerified,
 } = require("../../shared/utils/publicOtp");
+
+const getCorrectionDisplayStatus = (correction) => {
+  if (!correction || correction.status === "none") {
+    return correction?.status || "none";
+  }
+  if (correction.status === "resolved") return "resolved";
+  const issues = correction.issues || [];
+  if (
+    correction.status === "submitted" &&
+    issues.length > 0 &&
+    issues.every((issue) => issue.status === "resolved")
+  ) {
+    return "resolved";
+  }
+  return correction.status;
+};
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/public/application/status
@@ -71,7 +88,20 @@ exports.checkStatus = asyncHandler(async (req, res) => {
   }
 
   const job = application.jobId;
+  const publishedSchedule = job
+    ? await ExamSchedule.exists({ jobId: job._id, status: "published" })
+    : null;
   const now = new Date();
+  const correctionDisplayStatus = getCorrectionDisplayStatus(
+    application.correction,
+  );
+  const activeCorrectionRequest = [...(application.corrections || [])]
+    .filter((c) => ["pending", "more_info_needed"].includes(c.status))
+    .sort(
+      (a, b) =>
+        new Date(b.requestedAt || 0).getTime() -
+        new Date(a.requestedAt || 0).getTime(),
+    )[0];
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Application status fetched", {
@@ -107,13 +137,38 @@ exports.checkStatus = asyncHandler(async (req, res) => {
         startDate: job?.correctionStartDate,
         endDate: job?.correctionDeadline,
       },
-      admitCardAvailable:
-        job?.admitCardReleaseDate && job.admitCardReleaseDate <= now,
+      correction: application.correction
+        ? {
+            status: correctionDisplayStatus,
+            note: application.correction.note,
+            requestedAt: application.correction.requestedAt,
+            submittedAt: application.correction.submittedAt,
+            issues: (application.correction.issues || []).map((issue) => ({
+              id: String(issue._id || issue.fieldKey),
+              section: issue.section,
+              fieldKey: issue.fieldKey,
+              fieldLabel: issue.fieldLabel,
+              issueType: issue.issueType,
+              currentValue: issue.currentValue,
+              remark: issue.remark,
+              status: issue.status,
+            })),
+          }
+        : null,
+      admitCardAvailable: Boolean(publishedSchedule),
       hasExistingCorrection:
-        application.corrections?.length > 0 &&
-        application.corrections.some((c) =>
-          ["pending", "approved"].includes(c.status),
-        ),
+        Boolean(activeCorrectionRequest),
+      activeCorrectionRequest: activeCorrectionRequest
+        ? {
+            requestId: activeCorrectionRequest.requestId,
+            status: activeCorrectionRequest.status,
+            requestedAt: activeCorrectionRequest.requestedAt,
+            reviewedAt: activeCorrectionRequest.reviewedAt,
+            reviewComments: activeCorrectionRequest.reviewComments,
+            requestedFields: activeCorrectionRequest.requestedFields || [],
+            reason: activeCorrectionRequest.reason,
+          }
+        : null,
     }),
   );
 });
@@ -192,9 +247,14 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     );
   }
 
-  // Public correction is one request per submitted application.
+  // Public correction is one request per submitted application unless admin
+  // opens a fresh clarification cycle for specific fields.
+  const hasAdminMarkedSubmission =
+    ["requested", "in_progress"].includes(application.correction?.status) &&
+    corrections.some((c) => c.adminIssueId);
   const existingPending = application.corrections?.find((c) =>
-    ["pending", "approved", "more_info_needed"].includes(c.status),
+    ["pending", "more_info_needed"].includes(c.status) ||
+    (!hasAdminMarkedSubmission && c.status === "approved"),
   );
   if (existingPending) {
     throw new ApiError(
@@ -210,9 +270,12 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     requestedAt: now,
     requestedFields: corrections.map((c) => ({
       field: c.field,
+      fieldLabel: c.fieldLabel,
+      adminIssueId: c.adminIssueId,
       oldValue: String(c.oldValue || ""),
       newValue: String(c.newValue || ""),
       supportingDocument: c.supportingDocumentUrl || "",
+      reason: c.reason,
     })),
     reason: overallReason || corrections.map((c) => c.reason).join("; "),
     status: "pending",
@@ -220,12 +283,22 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
 
   application.corrections.push(correctionEntry);
 
-  // Also set the legacy correction field for compatibility with existing admin views
-  application.correction = {
-    status: "requested",
-    requestedAt: now,
-    note: overallReason,
-  };
+  // Keep admin-marked correction issues attached to this exact application.
+  const existingIssues = application.correction?.issues || [];
+  if (!application.correction) {
+    application.correction = {};
+  }
+  application.correction.status = "submitted";
+  application.correction.submittedAt = now;
+  application.correction.note = overallReason || application.correction.note;
+  application.correction.issues = existingIssues.map((issue) => {
+    const issueId = String(issue._id || issue.fieldKey);
+    const matched = corrections.find((c) => c.adminIssueId === issueId);
+    if (!matched) return issue;
+    issue.status = "resolved";
+    issue.resolvedAt = now;
+    return issue;
+  });
 
   await application.save();
 

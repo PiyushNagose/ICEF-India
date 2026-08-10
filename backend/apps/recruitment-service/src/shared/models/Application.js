@@ -182,7 +182,7 @@ const applicationSchema = new mongoose.Schema(
     correction: {
       status: {
         type: String,
-        enum: ["none", "requested", "in_progress", "submitted"],
+        enum: ["none", "requested", "in_progress", "submitted", "resolved"],
         default: "none",
       },
       requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
@@ -193,6 +193,23 @@ const applicationSchema = new mongoose.Schema(
         ref: "SupportTicket",
       },
       note: { type: String },
+      issues: [
+        {
+          section: { type: String },
+          fieldKey: { type: String },
+          fieldLabel: { type: String },
+          issueType: { type: String },
+          currentValue: { type: String },
+          remark: { type: String },
+          status: {
+            type: String,
+            enum: ["pending", "resolved", "rejected"],
+            default: "pending",
+          },
+          requestedAt: { type: Date },
+          resolvedAt: { type: Date },
+        },
+      ],
     },
 
     // ── Timestamps ────────────────────────────────────────
@@ -256,9 +273,12 @@ const applicationSchema = new mongoose.Schema(
         requestedFields: [
           {
             field: { type: String },
+            fieldLabel: { type: String },
+            adminIssueId: { type: String },
             oldValue: { type: String },
             newValue: { type: String },
             supportingDocument: { type: String },
+            reason: { type: String },
           },
         ],
         reason: { type: String },

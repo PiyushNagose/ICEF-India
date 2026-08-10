@@ -33,7 +33,7 @@ export const getInternalLoginPath = (user) =>
 export const getDashboardPath = (user) => {
   if (isAdminUser(user)) return "/admin/dashboard";
   if (isCandidateUser(user)) return "/check-status";
-  return "/auth/candidate-login";
+  return "/check-status";
 };
 
 export const hasPermission = (user, module, action = "view") => {

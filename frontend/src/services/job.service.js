@@ -1,4 +1,5 @@
 import { apiClient, unwrapData } from "../api/client";
+import { API_BASE_URL } from "../api/config";
 
 export const jobService = {
   // ── Public ────────────────────────────────────────────────
@@ -33,6 +34,12 @@ export const jobService = {
   async verifyPublicAdmitCard(token) {
     const response = await apiClient.get(`/admit-cards/verify/${encodeURIComponent(token)}`);
     return unwrapData(response);
+  },
+  getPublicAdmitCardHtmlUrl(id) {
+    return `${API_BASE_URL}/admit-cards/${id}/html`;
+  },
+  getPublicAdmitCardPdfUrl(id) {
+    return `${API_BASE_URL}/admit-cards/${id}/pdf`;
   },
 
   // ── Eligibility Filter ───────────────────────────────────

@@ -153,6 +153,32 @@
   .admin-data-scroll {
     max-height: clamp(320px, calc(100vh - 340px), 620px);
   }
+  .admin-page-root .admin-data-scroll table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .admin-page-root .admin-data-scroll :where(th, td) {
+    vertical-align: middle;
+  }
+  .admin-page-root .admin-data-scroll :where(thead th) {
+    height: 56px;
+    white-space: nowrap;
+  }
+  .admin-page-root .admin-data-scroll :where(tbody tr) {
+    height: 78px;
+  }
+  .admin-page-root .admin-data-scroll :where(tbody td) {
+    line-height: 1.35;
+  }
+  .admin-page-root .admin-data-scroll :where(th:last-child, td:last-child) {
+    text-align: center;
+  }
+  .admin-page-root .admin-data-scroll :where(td:last-child > .flex, td:last-child > div) {
+    justify-content: center;
+  }
+  .admin-page-root .admin-data-scroll :where(button) {
+    flex-shrink: 0;
+  }
   .admin-data-scroll thead {
     position: sticky;
     top: 0;

@@ -169,11 +169,18 @@ const Roles = () => {
           </div>
 
           <div className="admin-data-scroll hover-scroll overflow-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[960px] table-fixed">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[34%]" />
+                <col className="w-[14%]" />
+                <col className="w-[18%]" />
+                <col className="w-[12%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Role Name','Description','Assigned Users','Last Updated','Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal">{h}</th>
+                    <th key={h} className={`py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-normal ${['Assigned Users','Actions'].includes(h) ? 'text-center' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -207,7 +214,7 @@ const Roles = () => {
                       </td>
 
                       {/* Assigned Users */}
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 text-center">
                         <AvatarStack count={role.employeeCount || 0} />
                       </td>
 
@@ -222,8 +229,8 @@ const Roles = () => {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-1">
+                      <td className="py-4 px-5 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => navigate(`/admin/roles/${role._id}/edit`)}
                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

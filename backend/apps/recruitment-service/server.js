@@ -46,12 +46,22 @@ const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins = env.CLIENT_URL?.split(",")
   .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
+const frameAncestors = ["'self'", ...parsedOrigins];
 
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────
 app.set("trust proxy", 1);
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        frameAncestors,
+      },
+    },
+  }),
+);
 app.use(
   cors({
     origin: parsedOrigins.length > 1 ? parsedOrigins : parsedOrigins[0],

@@ -48,6 +48,11 @@ router.post(
   verifyMobileOtpIfNeeded,
   admitCardController.lookupAdmitCard,
 );
+router.get("/:id/html", admitCardController.renderPublicAdmitCardHtml);
+router.get("/:id/pdf", (req, _res, next) => {
+  req.query.pdf = "1";
+  next();
+}, admitCardController.renderPublicAdmitCardHtml);
 router.get("/verify/:token", admitCardController.verifyAdmitCard);
 
 module.exports = router;

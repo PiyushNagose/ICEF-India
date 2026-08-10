@@ -8,6 +8,7 @@ const validate = require("../../shared/middlewares/validate");
 const {
   updateStatusSchema,
   bulkActionSchema,
+  reviewCorrectionSchema,
 } = require("../../shared/validations/application.validation");
 
 router.use(authenticate, authorize("admin", "employee"));
@@ -33,6 +34,13 @@ router.put(
   validate(updateStatusSchema),
   auditLog("Applications", "UPDATE"),
   applicationController.updateApplicationStatus,
+);
+router.put(
+  "/:id/correction-review",
+  checkPermission("applications", "edit"),
+  validate(reviewCorrectionSchema),
+  auditLog("Applications", "UPDATE"),
+  applicationController.reviewCorrection,
 );
 router.post(
   "/bulk-action",

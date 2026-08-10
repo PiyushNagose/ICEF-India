@@ -19,10 +19,8 @@ const DevNavigation = () => {
       { name: "Contact", path: "/contact" },
     ],
     "Auth Pages": [
-      { name: "Candidate Login", path: "/auth/candidate-login" },
       { name: "Admin Login", path: "/auth/admin-login" },
       { name: "Employee Login", path: "/auth/employee-login" },
-      { name: "Register", path: "/auth/register" },
     ],
     "Admin Pages": [
       { name: "Dashboard", path: "/admin/dashboard" },
@@ -46,7 +44,6 @@ const DevNavigation = () => {
       { name: "Support", path: "/contact" },
     ],
     "Application Flow": [
-      { name: "OTP Verification", path: "/auth/verify-otp" },
       { name: "Personal Details", path: "/application/personal-details" },
       { name: "Education", path: "/application/education" },
       { name: "Additional Info", path: "/application/additional-info" },

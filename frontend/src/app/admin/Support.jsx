@@ -209,7 +209,17 @@ const Support = () => {
         {/* Table */}
         <Card className="bg-white">
           <div className="admin-data-scroll hover-scroll overflow-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1080px] table-fixed">
+              <colgroup>
+                <col className="w-[14%]" />
+                <col className="w-[22%]" />
+                <col className="w-[20%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[4%]" />
+              </colgroup>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {[
@@ -224,7 +234,7 @@ const Support = () => {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal"
+                      className={`py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal ${["Priority", "Status", "Created", "Actions"].includes(h) ? "text-center" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -276,7 +286,7 @@ const Support = () => {
                     <td className="py-4 px-4 text-sm text-gray-700">
                       {ticket.category || "—"}
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 text-center">
                       <Badge
                         className={
                           PRIORITY_COLORS[ticket.priority] ||
@@ -286,7 +296,7 @@ const Support = () => {
                         {ticket.priority || "Medium"}
                       </Badge>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 text-center">
                       <Badge
                         className={
                           STATUS_COLORS[ticket.status] ||
@@ -296,12 +306,12 @@ const Support = () => {
                         {ticket.status}
                       </Badge>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-600">
+                    <td className="py-4 px-4 text-center text-sm text-gray-600">
                       {ticket.createdAt
                         ? new Date(ticket.createdAt).toLocaleDateString("en-IN")
                         : "—"}
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 text-center">
                       <Button
                         variant="ghost"
                         size="sm"
