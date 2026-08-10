@@ -189,7 +189,26 @@ const applicationSchema = new mongoose.Schema(
     lastSavedAt: { type: Date, default: Date.now },
 
     // ── Current step (for draft tracking) ─────────────────
-    currentStep: { type: Number, default: 1, min: 1, max: 9 },
+    currentStep: { type: Number, default: 1, min: 1, max: 30 },
+
+    registrationNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    isPublicApplication: { type: Boolean, default: false },
+    paymentTiming: {
+      type: String,
+      enum: ["step1", "last_step"],
+      default: "last_step",
+    },
+    contactEmail: { type: String },
+    contactMobile: { type: String },
+    fileStorage: {
+      batchNumber: String,
+      basePath: String,
+    },
   },
   { timestamps: true },
 );
@@ -199,5 +218,6 @@ applicationSchema.index({ jobId: 1 });
 applicationSchema.index({ status: 1 });
 applicationSchema.index({ paymentStatus: 1 });
 applicationSchema.index({ submittedAt: -1 });
+applicationSchema.index({ isPublicApplication: 1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

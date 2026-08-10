@@ -3,6 +3,8 @@ const https = require("https");
 const Payment = require("../models/Payment");
 const Application = require("../models/Application");
 const PaymentGateway = require("../models/PaymentGateway");
+const Project = require("../models/Project");
+const User = require("../models/User");
 const ApiError = require("../utils/ApiError");
 const {
   generateUUID,
@@ -20,6 +22,10 @@ const { sendPaymentSuccessEmail } = require("./email.service");
 const { notifyAdmins } = require("../utils/notifyAdmins");
 const { assertPaymentWindowOpen } = require("../utils/timeline");
 const env = require("../config/env");
+const {
+  generateRegistrationNumber,
+  buildProjectCode,
+} = require("./registrationNumber.service");
 
 // ─────────────────────────────────────────────────────────────
 // GATEWAY CONFIG HELPERS
@@ -119,6 +125,46 @@ const calculateProcessingFee = (baseAmount, processingPercent = 0) => {
   const amount = Number(baseAmount) || 0;
   const percent = Math.max(0, Number(processingPercent) || 0);
   return Math.round((amount * percent) / 100);
+};
+
+const finalizePaidApplicationForPayment = async (payment, transactionId) => {
+  const application = await Application.findById(payment.applicationId)
+    .populate("candidateId", "email fullName")
+    .populate("jobId", "paymentConfig applicationDeadline projectId title");
+
+  if (!application) return null;
+
+  application.paymentStatus = "paid";
+  application.transactionId = transactionId;
+  application.status = "approved";
+  application.submittedAt = application.submittedAt || new Date();
+  application.currentStep = Math.max(Number(application.currentStep || 1), 9);
+
+  if (application.isPublicApplication && !application.registrationNumber) {
+    const project = application.jobId?.projectId
+      ? await Project.findById(application.jobId.projectId).select("name publicSlug")
+      : null;
+    const projectCode = project
+      ? buildProjectCode(project.name, new Date().getFullYear())
+      : "APP26";
+    const registrationNumber = await generateRegistrationNumber(projectCode);
+    const numericPart = parseInt(registrationNumber.slice(-6), 10) || 1;
+    const batchNumber = `batch-${Math.ceil(numericPart / 10000)}`;
+
+    application.registrationNumber = registrationNumber;
+    application.fileStorage = {
+      ...(application.fileStorage || {}),
+      batchNumber,
+      basePath: `recruitment_portal/projects/${project?.publicSlug || "general"}/applicants/${batchNumber}/${registrationNumber}`,
+    };
+
+    await User.findByIdAndUpdate(application.candidateId?._id || application.candidateId, {
+      registrationNumber,
+    });
+  }
+
+  await application.save();
+  return application;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -473,7 +519,10 @@ const verifyPayment = async ({
 }) => {
   const payment = await Payment.findOne({ transactionId });
   if (!payment) throw new ApiError(404, "Transaction not found");
-  if (payment.status === "success") return payment;
+  if (payment.status === "success") {
+    await finalizePaidApplicationForPayment(payment, transactionId);
+    return payment;
+  }
 
   let verified = false;
 
@@ -539,32 +588,37 @@ const verifyPayment = async ({
     payment.failureReason = "Payment failed at gateway";
   await payment.save();
 
-  const application = await Application.findById(payment.applicationId)
-    .populate("candidateId", "email fullName")
-    .populate("jobId", "paymentConfig applicationDeadline");
+  let application = null;
+
+  if (verified) {
+    const paymentApplication = await Application.findById(payment.applicationId)
+      .populate("jobId", "paymentConfig applicationDeadline");
+    try {
+      assertPaymentWindowOpen(paymentApplication?.jobId);
+    } catch (err) {
+      payment.status = "failed";
+      payment.failureReason = err.message || "Payment deadline has passed";
+      await payment.save();
+      if (paymentApplication) {
+        paymentApplication.paymentStatus = "failed";
+        paymentApplication.transactionId = transactionId;
+        await paymentApplication.save();
+      }
+      throw err;
+    }
+    application = await finalizePaidApplicationForPayment(payment, transactionId);
+  } else {
+    application = await Application.findById(payment.applicationId)
+      .populate("candidateId", "email fullName")
+      .populate("jobId", "paymentConfig applicationDeadline");
+    if (application) {
+      application.paymentStatus = "failed";
+      application.transactionId = transactionId;
+      await application.save();
+    }
+  }
 
   if (application) {
-    if (verified) {
-      try {
-        assertPaymentWindowOpen(application.jobId);
-      } catch (err) {
-        payment.status = "failed";
-        payment.failureReason = err.message || "Payment deadline has passed";
-        await payment.save();
-        application.paymentStatus = "failed";
-        application.transactionId = transactionId;
-        await application.save();
-        throw err;
-      }
-    }
-    application.paymentStatus = verified ? "paid" : "failed";
-    application.transactionId = transactionId;
-    if (verified && application.status === "draft") {
-      application.status = "submitted";
-      application.submittedAt = new Date();
-    }
-    await application.save();
-
     const cid = application.candidateId?._id?.toString();
     if (verified && cid) {
       emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_SUCCESS, {

@@ -8,6 +8,7 @@ const projectSchema = new mongoose.Schema(
       trim: true,
     },
     description: { type: String, trim: true },
+    publicSlug: { type: String, trim: true, lowercase: true, index: true },
     department: { type: String, required: true, trim: true },
     state: { type: String, required: true, trim: true },
     status: {

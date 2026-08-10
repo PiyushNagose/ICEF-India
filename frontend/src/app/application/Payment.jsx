@@ -122,6 +122,55 @@ const Payment = () => {
     };
   };
 
+  const completePaidApplication = async (transactionId, amount) => {
+    const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
+    let finalized;
+
+    try {
+      finalized = await candidateService.finalizeApplication(
+        applicationId,
+        transactionId,
+        draft.declaration || "",
+      );
+    } catch (err) {
+      const latestData = await candidateService.getApplication(applicationId);
+      const latest = latestData?.application || latestData;
+      const isPaid = latest?.paymentStatus === "paid";
+      const isSubmitted = ["submitted", "approved"].includes(latest?.status);
+
+      if (!isPaid || !isSubmitted) {
+        throw err;
+      }
+
+      finalized = { application: latest };
+    }
+
+    sessionStorage.removeItem(APP_KEY);
+    toast.success("Payment successful! Application submitted.");
+    navigate("/application/success", {
+      state: buildSuccessState({
+        finalized,
+        amount,
+        transactionId,
+      }),
+    });
+  };
+
+  const recoverPaidApplication = async (fallbackTransactionId, amount) => {
+    const latestData = await candidateService.getApplication(applicationId);
+    const latest = latestData?.application || latestData;
+    const isPaid = latest?.paymentStatus === "paid";
+    const isSubmitted = ["submitted", "approved"].includes(latest?.status);
+
+    if (!isPaid || !isSubmitted) return false;
+
+    await completePaidApplication(
+      latest?.transactionId || fallbackTransactionId,
+      amount,
+    );
+    return true;
+  };
+
   const handlePay = async () => {
     if (grandTotal === 0) {
       // Free application — submit directly
@@ -277,22 +326,37 @@ const Payment = () => {
       }
 
       // ── FINALIZE (common for Razorpay + Cashfree) ─────────
-      const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
-      const finalized = await candidateService.finalizeApplication(applicationId, transactionId, draft.declaration || "");
-      sessionStorage.removeItem(APP_KEY);
-      toast.success("Payment successful! Application submitted.");
-      navigate("/application/success", {
-        state: buildSuccessState({
-          finalized,
-          amount: payableAmount,
-          transactionId,
-        }),
-      });
+      await completePaidApplication(transactionId, payableAmount);
     } catch (err) {
       if (err.message === "Payment cancelled by user") {
         toast.error("Payment cancelled");
+      } else if (
+        /payment already completed/i.test(err.message || "") ||
+        (application?.paymentStatus === "paid" &&
+          ["submitted", "approved"].includes(application?.status))
+      ) {
+        try {
+          await completePaidApplication(
+            application?.transactionId || `PAID-${application?.applicationId || Date.now()}`,
+            grandTotal,
+          );
+        } catch (recoveryErr) {
+          toast.error(recoveryErr.message || "Payment completed, but submission sync failed. Please check status.");
+        }
       } else {
-        toast.error(err.message || "Payment failed. Please try again.");
+        try {
+          const recovered = await recoverPaidApplication(
+            application?.transactionId || `PAID-${application?.applicationId || Date.now()}`,
+            grandTotal,
+          );
+          if (!recovered && !err.toastShown) {
+            toast.error(err.message || "Payment failed. Please try again.");
+          }
+        } catch (recoveryErr) {
+          if (!err.toastShown) {
+            toast.error(recoveryErr.message || err.message || "Payment failed. Please try again.");
+          }
+        }
       }
     } finally {
       setProcessing(false);

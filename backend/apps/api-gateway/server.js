@@ -23,7 +23,7 @@ const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 const parsedOrigins = process.env.CLIENT_URL?.split(",")
   .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
-const requestTimeoutMs = 15000;
+const requestTimeoutMs = 45000;
 
 // ── Middleware ────────────────────────────────────────────────
 app.set("trust proxy", 1);
@@ -60,8 +60,8 @@ const proxy = (target, label) =>
     xfwd: true,
     ws: true,
     pathRewrite: (path, req) => `${req.baseUrl}${path}`,
-    proxyTimeout: 15000,
-    timeout: 15000,
+    proxyTimeout: 45000,
+    timeout: 45000,
     on: {
       error: (err, _req, res) => {
         console.error(`❌ [${label}] ${err.message}`);
@@ -80,8 +80,8 @@ const socketProxy = (target, label, routePrefix) =>
     changeOrigin: true,
     xfwd: true,
     ws: true,
-    proxyTimeout: 15000,
-    timeout: 15000,
+    proxyTimeout: 45000,
+    timeout: 45000,
     pathRewrite: {
       [`^${routePrefix}/socket.io`]: "/socket.io",
     },
