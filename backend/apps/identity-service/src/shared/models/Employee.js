@@ -67,9 +67,22 @@ const employeeSchema = new mongoose.Schema(
       enum: ["Active", "Inactive", "On Leave"],
       default: "Active",
     },
+    projectScopes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Project",
+      },
+    ],
+    fieldPermissions: {
+      applicationProfile: {
+        allowedFields: [{ type: String, trim: true }],
+        canEditLockedFields: { type: Boolean, default: false },
+      },
+    },
 
     // ── Security ──────────────────────────────────────────────
     refreshToken: { type: String, select: false },
+    sessionVersion: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date },
     lastLoginIP: { type: String },
     mustChangePassword: { type: Boolean, default: false },
@@ -81,6 +94,12 @@ const employeeSchema = new mongoose.Schema(
 
     // ── Metadata ──────────────────────────────────────────────
     createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      default: null,
+    },
+    deactivatedAt: { type: Date },
+    deactivatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
       default: null,
@@ -116,6 +135,11 @@ employeeSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.refreshToken;
+  delete obj.sessionVersion;
+  delete obj.otp;
+  delete obj.otpExpiry;
+  delete obj.failedLoginAttempts;
+  delete obj.lockedUntil;
   return obj;
 };
 

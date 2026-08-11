@@ -13,6 +13,11 @@ const ApiError = require("../utils/ApiError");
 const { getPaginationParams } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
 const { assertJobTimeline, parseDate } = require("../utils/timeline");
+const {
+  emitToAdmins,
+  emitBroadcast,
+  SOCKET_EVENTS,
+} = require("../socket/index");
 
 const DEFAULT_PROVISIONAL_NOTE =
   "NOTE: THIS ADMIT CARD PROVISIONALLY ALLOWS YOU TO APPEAR THE OMR BASED TEST ON THE BASIS OF THE PARTICULARS PROVIDED BY YOU IN THE ONLINE APPLICATION. MERE ISSUANCE OF THIS ADMIT CARD DOES NOT NECESSARILY MEAN ACCEPTANCE OF YOUR ELIGIBILITY. YOUR DOCUMENTS REGARDING ELIGIBILITY WILL BE SCRUTINIZED SUBSEQUENTLY.";
@@ -30,6 +35,16 @@ const DEFAULT_INSTRUCTIONS = [
   "The Jharkhand Competitive Examination (Measures for Control and Prevention of Unfair Means in Recruitment) Act 2023 shall be applicable during examination process.",
   "In case of any discrepancy in the admit card, visit Commission Office after issuance of admit card.",
 ].map((text, index) => ({ order: index + 1, text }));
+
+const emitExamRealtime = (event, payload = {}, options = {}) => {
+  try {
+    const eventPayload = { ...payload, timestamp: new Date() };
+    emitToAdmins(event, eventPayload);
+    if (options.public) emitBroadcast(event, eventPayload);
+  } catch {
+    // Socket.IO is initialized only in server runtime.
+  }
+};
 
 const assertEditableSchedule = (schedule) => {
   if (["locked", "published"].includes(schedule.status)) {
@@ -1175,6 +1190,17 @@ const generateAdmitCardOnDemand = async (application) => {
     application,
   );
   await refreshAllocationSummary(schedule).catch(() => {});
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ADMIT_CARD_GENERATED, {
+    action: "on_demand_generated",
+    applicationId: application._id,
+    publicApplicationId: application.applicationId,
+    registrationNumber: application.registrationNumber,
+    scheduleId: schedule._id,
+    jobId: schedule.jobId?._id || schedule.jobId,
+    allocationId: allocation._id,
+    admitCardId: admitCard._id,
+    rollNumber: allocation.rollNumber,
+  }, { public: true });
   return serializePublicAdmitCard(admitCard, application, false);
 };
 

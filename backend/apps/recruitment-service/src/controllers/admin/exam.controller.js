@@ -5,6 +5,22 @@ const { htmlToPdfBuffer } = require("../../shared/services/pdf.service");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
+const {
+  emitToAdmins,
+  emitBroadcast,
+  SOCKET_EVENTS,
+} = require("../../shared/socket/index");
+
+const emitExamRealtime = (event, payload = {}, options = {}) => {
+  try {
+    emitToAdmins(event, { ...payload, timestamp: new Date() });
+    if (options.public) {
+      emitBroadcast(event, { ...payload, timestamp: new Date() });
+    }
+  } catch {
+    // Socket.IO may not be initialized in test/CLI contexts.
+  }
+};
 
 const listCenters = asyncHandler(async (req, res) => {
   const result = await examService.listCenters(req.query);
@@ -16,6 +32,11 @@ const listCenters = asyncHandler(async (req, res) => {
 const createCenter = asyncHandler(async (req, res) => {
   const center = await examService.createCenter(req.body, req.user.id);
   await saveAuditLog(req, `Created exam center: ${center.centerCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_CENTER_CHANGED, {
+    action: "created",
+    centerId: center._id,
+    centerCode: center.centerCode,
+  });
   res
     .status(StatusCodes.CREATED)
     .json(new ApiResponse(StatusCodes.CREATED, "Exam center created", { center }));
@@ -31,6 +52,11 @@ const getCenter = asyncHandler(async (req, res) => {
 const updateCenter = asyncHandler(async (req, res) => {
   const center = await examService.updateCenter(req.params.id, req.body, req.user.id);
   await saveAuditLog(req, `Updated exam center: ${center.centerCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_CENTER_CHANGED, {
+    action: "updated",
+    centerId: center._id,
+    centerCode: center.centerCode,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam center updated", { center }));
@@ -46,6 +72,12 @@ const listRooms = asyncHandler(async (req, res) => {
 const createRoom = asyncHandler(async (req, res) => {
   const room = await examService.createRoom(req.params.centerId, req.body, req.user.id);
   await saveAuditLog(req, `Created exam room: ${room.roomCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ROOM_CHANGED, {
+    action: "created",
+    centerId: req.params.centerId,
+    roomId: room._id,
+    roomCode: room.roomCode,
+  });
   res
     .status(StatusCodes.CREATED)
     .json(new ApiResponse(StatusCodes.CREATED, "Exam room created", { room }));
@@ -54,6 +86,12 @@ const createRoom = asyncHandler(async (req, res) => {
 const updateRoom = asyncHandler(async (req, res) => {
   const room = await examService.updateRoom(req.params.roomId, req.body, req.user.id);
   await saveAuditLog(req, `Updated exam room: ${room.roomCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ROOM_CHANGED, {
+    action: "updated",
+    centerId: room.centerId,
+    roomId: room._id,
+    roomCode: room.roomCode,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam room updated", { room }));
@@ -69,6 +107,11 @@ const listSchedules = asyncHandler(async (req, res) => {
 const createSchedule = asyncHandler(async (req, res) => {
   const schedule = await examService.createSchedule(req.body, req.user.id);
   await saveAuditLog(req, `Created exam schedule: ${schedule.examCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_SCHEDULE_CREATED, {
+    scheduleId: schedule._id,
+    jobId: schedule.jobId?._id || schedule.jobId,
+    status: schedule.status,
+  });
   res
     .status(StatusCodes.CREATED)
     .json(new ApiResponse(StatusCodes.CREATED, "Exam schedule created", { schedule }));
@@ -84,6 +127,11 @@ const getSchedule = asyncHandler(async (req, res) => {
 const updateSchedule = asyncHandler(async (req, res) => {
   const schedule = await examService.updateSchedule(req.params.id, req.body, req.user.id);
   await saveAuditLog(req, `Updated exam schedule: ${schedule.examCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_SCHEDULE_UPDATED, {
+    scheduleId: schedule._id,
+    jobId: schedule.jobId?._id || schedule.jobId,
+    status: schedule.status,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam schedule updated", { schedule }));
@@ -106,6 +154,11 @@ const previewAllocation = asyncHandler(async (req, res) => {
 const allocateCandidates = asyncHandler(async (req, res) => {
   const result = await examService.allocateCandidates(req.params.id, req.body, req.user.id);
   await saveAuditLog(req, `Allocated candidates for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ALLOCATION_CHANGED, {
+    action: "allocated",
+    scheduleId: req.params.id,
+    summary: result.summary,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Candidates allocated", result));
@@ -114,6 +167,12 @@ const allocateCandidates = asyncHandler(async (req, res) => {
 const lockAllocation = asyncHandler(async (req, res) => {
   const schedule = await examService.lockAllocation(req.params.id, req.user.id);
   await saveAuditLog(req, `Locked allocation for exam schedule: ${schedule.examCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ALLOCATION_CHANGED, {
+    action: "locked",
+    scheduleId: schedule._id,
+    jobId: schedule.jobId?._id || schedule.jobId,
+    status: schedule.status,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Allocation locked", { schedule }));
@@ -129,6 +188,12 @@ const listAllocations = asyncHandler(async (req, res) => {
 const generateAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.generateAdmitCards(req.params.id, req.user.id);
   await saveAuditLog(req, `Generated admit cards for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ADMIT_CARD_GENERATED, {
+    scheduleId: req.params.id,
+    generatedCount: result.summary?.created ?? result.generatedCount ?? 0,
+    updatedCount: result.summary?.updated ?? result.updatedCount ?? 0,
+    summary: result.summary,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Admit cards generated", result));
@@ -137,6 +202,16 @@ const generateAdmitCards = asyncHandler(async (req, res) => {
 const publishAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.publishAdmitCards(req.params.id, req.user.id);
   await saveAuditLog(req, `Published admit cards for exam schedule: ${req.params.id}`);
+  emitExamRealtime(
+    SOCKET_EVENTS.EXAM_ADMIT_CARD_PUBLISHED,
+    {
+      scheduleId: req.params.id,
+      jobId: result.schedule?.jobId?._id || result.schedule?.jobId,
+      publishedCount: result.publishedCount,
+      status: result.schedule?.status,
+    },
+    { public: true },
+  );
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Admit cards published", result));
@@ -149,6 +224,16 @@ const unpublishAdmitCards = asyncHandler(async (req, res) => {
     req.body?.reason,
   );
   await saveAuditLog(req, `Unpublished admit cards for exam schedule: ${req.params.id}`);
+  emitExamRealtime(
+    SOCKET_EVENTS.EXAM_ADMIT_CARD_UNPUBLISHED,
+    {
+      scheduleId: req.params.id,
+      jobId: result.schedule?.jobId?._id || result.schedule?.jobId,
+      unpublishedCount: result.unpublishedCount,
+      status: result.schedule?.status,
+    },
+    { public: true },
+  );
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Admit cards unpublished", result));
@@ -157,6 +242,12 @@ const unpublishAdmitCards = asyncHandler(async (req, res) => {
 const regenerateAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.regenerateAdmitCards(req.params.id, req.user.id, req.body || {});
   await saveAuditLog(req, `Regenerated admit cards for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_ADMIT_CARD_GENERATED, {
+    action: "regenerated",
+    scheduleId: req.params.id,
+    generatedCount: result.generatedCount ?? 0,
+    updatedCount: result.updatedCount ?? 0,
+  });
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Admit cards regenerated", result));
@@ -214,6 +305,13 @@ const enqueueAllocation = asyncHandler(async (req, res) => {
     options: req.body || {},
   });
   await saveAuditLog(req, `Queued background allocation for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_BULK_JOB_UPDATED, {
+    action: "queued",
+    scheduleId: req.params.id,
+    jobId: job._id,
+    type: job.type,
+    status: job.status,
+  });
   res
     .status(StatusCodes.ACCEPTED)
     .json(new ApiResponse(StatusCodes.ACCEPTED, "Allocation job queued", { job }));
@@ -227,6 +325,13 @@ const enqueueAdmitCardGeneration = asyncHandler(async (req, res) => {
     options: req.body || {},
   });
   await saveAuditLog(req, `Queued background admit card generation for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_BULK_JOB_UPDATED, {
+    action: "queued",
+    scheduleId: req.params.id,
+    jobId: job._id,
+    type: job.type,
+    status: job.status,
+  });
   res
     .status(StatusCodes.ACCEPTED)
     .json(new ApiResponse(StatusCodes.ACCEPTED, "Admit card generation job queued", { job }));
@@ -240,6 +345,13 @@ const enqueueAdmitCardZip = asyncHandler(async (req, res) => {
     options: req.body || {},
   });
   await saveAuditLog(req, `Queued bulk admit card ZIP for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_BULK_JOB_UPDATED, {
+    action: "queued",
+    scheduleId: req.params.id,
+    jobId: job._id,
+    type: job.type,
+    status: job.status,
+  });
   res
     .status(StatusCodes.ACCEPTED)
     .json(new ApiResponse(StatusCodes.ACCEPTED, "Bulk admit card ZIP job queued", { job }));
@@ -253,6 +365,13 @@ const enqueueAttendanceZip = asyncHandler(async (req, res) => {
     options: req.body || {},
   });
   await saveAuditLog(req, `Queued attendance ZIP for exam schedule: ${req.params.id}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_BULK_JOB_UPDATED, {
+    action: "queued",
+    scheduleId: req.params.id,
+    jobId: job._id,
+    type: job.type,
+    status: job.status,
+  });
   res
     .status(StatusCodes.ACCEPTED)
     .json(new ApiResponse(StatusCodes.ACCEPTED, "Attendance ZIP job queued", { job }));
@@ -268,6 +387,13 @@ const getBulkJob = asyncHandler(async (req, res) => {
 const retryBulkJob = asyncHandler(async (req, res) => {
   const job = await bulkExamJobService.retryJob(req.params.jobId, req.user.id);
   await saveAuditLog(req, `Retried bulk exam job: ${req.params.jobId}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_BULK_JOB_UPDATED, {
+    action: "retried",
+    scheduleId: job.examScheduleId,
+    jobId: job._id,
+    type: job.type,
+    status: job.status,
+  });
   res
     .status(StatusCodes.ACCEPTED)
     .json(new ApiResponse(StatusCodes.ACCEPTED, "Bulk job retry queued", { job }));

@@ -34,6 +34,17 @@ const createJobSchema = z.object({
       pwd: z.number().min(0).optional(),
     })
     .optional(),
+  paymentConfig: z
+    .object({
+      applicationFee: z.number().min(0).optional(),
+      examFee: z.number().min(0).optional(),
+      processingFee: z.number().min(0).optional(),
+      paymentTiming: z.enum(["after_personal", "final"]).optional(),
+      paymentMethods: z.array(z.string()).optional(),
+      refundPolicy: z.string().optional(),
+      paymentDeadline: z.string().optional(),
+    })
+    .optional(),
   applicationStartDate: z.string().optional(),
   applicationDeadline: z.string().optional(),
   correctionStartDate: z.string().optional(),

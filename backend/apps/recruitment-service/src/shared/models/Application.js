@@ -235,7 +235,7 @@ const applicationSchema = new mongoose.Schema(
     // Payment timing preference
     paymentTiming: {
       type: String,
-      enum: ["step1", "last_step"],
+      enum: ["step1", "last_step", "after_personal", "final"],
       default: "last_step",
     },
 

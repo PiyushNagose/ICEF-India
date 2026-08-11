@@ -10,6 +10,7 @@ import Badge from "../../components/ui/Badge";
 import { candidateService } from "../../services/candidate.service";
 import {
   buildApplicationSteps,
+  getPaymentTiming,
   isCorrectionMode,
   readApplicationDraft,
 } from "../../utils/applicationFlow";
@@ -86,29 +87,14 @@ const PostSelection = () => {
   // Candidate's category from Step 1 personal details
   const candidateCategory = app?.personalDetails?.category || "";
   const allowsPreference = job?.postSelectionMode === "preference";
+  const paymentTiming = getPaymentTiming(job, app);
+  const isEarlyPayment = paymentTiming === "after_personal";
+  const categoryLabel =
+    CATEGORY_LABELS[candidateCategory] || candidateCategory.toUpperCase();
 
   // Fee calculated based on candidate's actual category
   const applicationFee = calculateFee(job?.applicationFee, candidateCategory);
-
-  // Fee breakdown for all categories (to show transparency)
-  const feeBreakdown = job?.applicationFee
-    ? [
-        { label: "General", fee: job.applicationFee.general ?? 0 },
-        {
-          label: "OBC",
-          fee: job.applicationFee.obc ?? job.applicationFee.general ?? 0,
-        },
-        {
-          label: "SC/ST",
-          fee: job.applicationFee.scSt ?? job.applicationFee.scst ?? 0,
-        },
-        {
-          label: "EWS",
-          fee: job.applicationFee.ews ?? job.applicationFee.general ?? 0,
-        },
-        { label: "PwD", fee: job.applicationFee.pwd ?? 0 },
-      ]
-    : [];
+  const feeBreakdown = [];
 
   // Build available posts from job
   const availablePosts = useMemo(() => {
@@ -255,19 +241,17 @@ const PostSelection = () => {
     >
       <div className="space-y-6">
         {/* Fee info banner — shows candidate's applicable fee */}
-        {candidateCategory && job?.applicationFee && (
+        {!isEarlyPayment && candidateCategory && job?.applicationFee && (
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
             <IndianRupee className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-orange-800">
-                Your Application Fee:{" "}
+                Your Applicable Fee:{" "}
                 <span className="text-lg">
                   ₹{applicationFee.toLocaleString("en-IN")}
                 </span>
                 <span className="ml-2 text-xs font-normal bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
-                  {CATEGORY_LABELS[candidateCategory] ||
-                    candidateCategory.toUpperCase()}{" "}
-                  category
+                  {categoryLabel} category
                 </span>
               </p>
               <p className="text-xs text-orange-700 mt-1">
@@ -455,6 +439,7 @@ const PostSelection = () => {
                 ))}
 
                 {/* Fee summary */}
+                {!isEarlyPayment && (
                 <div className="border-t border-orange-200 pt-3 mt-3">
                   <div className="flex justify-between items-center">
                     <div>
@@ -480,6 +465,7 @@ const PostSelection = () => {
                     </p>
                   )}
                 </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -553,7 +539,7 @@ const PostSelection = () => {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Saving...
               </>
-            ) : correctionMode ? (
+            ) : correctionMode || isEarlyPayment ? (
               "Save & Continue to Review →"
             ) : (
               "Proceed to Payment →"

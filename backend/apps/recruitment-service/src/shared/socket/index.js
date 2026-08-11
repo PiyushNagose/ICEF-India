@@ -131,6 +131,9 @@ const SOCKET_EVENTS = {
   APPLICATION_STATUS_CHANGED: "application:status:changed",
   APPLICATION_NEW: "admin:application:new",
   APPLICATION_UPDATED: "application:updated",
+  CORRECTION_REQUESTED: "correction:requested",
+  CORRECTION_SUBMITTED: "correction:submitted",
+  CORRECTION_REVIEWED: "correction:reviewed",
 
   // Documents
   DOCUMENT_VERIFIED: "document:verified",
@@ -141,8 +144,29 @@ const SOCKET_EVENTS = {
   PAYMENT_FAILED: "payment:failed",
 
   // Jobs
+  PROJECT_CREATED: "project:created",
+  PROJECT_UPDATED: "project:updated",
+  PROJECT_DELETED: "project:deleted",
+  JOB_CREATED: "job:created",
+  JOB_UPDATED: "job:updated",
   JOB_PUBLISHED: "job:published",
   JOB_CLOSED: "job:closed",
+
+  // CMS
+  CMS_CREATED: "cms:created",
+  CMS_UPDATED: "cms:updated",
+  CMS_DELETED: "cms:deleted",
+
+  // Exams / admit cards
+  EXAM_CENTER_CHANGED: "exam:center:changed",
+  EXAM_ROOM_CHANGED: "exam:room:changed",
+  EXAM_SCHEDULE_CREATED: "exam:schedule:created",
+  EXAM_SCHEDULE_UPDATED: "exam:schedule:updated",
+  EXAM_ALLOCATION_CHANGED: "exam:allocation:changed",
+  EXAM_ADMIT_CARD_GENERATED: "exam:admit-card:generated",
+  EXAM_ADMIT_CARD_PUBLISHED: "exam:admit-card:published",
+  EXAM_ADMIT_CARD_UNPUBLISHED: "exam:admit-card:unpublished",
+  EXAM_BULK_JOB_UPDATED: "exam:bulk-job:updated",
 
   // Support
   TICKET_CREATED: "support:ticket:created",

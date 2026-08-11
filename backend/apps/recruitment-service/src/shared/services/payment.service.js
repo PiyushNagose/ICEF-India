@@ -4,7 +4,7 @@ const PaymentGateway = require("../models/PaymentGateway");
 const Project = require("../models/Project");
 const User = require("../models/User");
 const ApiError = require("../utils/ApiError");
-const { generateUUID, getPaginationParams } = require("../utils/helpers");
+const { generateUUID, getPaginationParams, calculateFee } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
 const {
   emitToCandidate,
@@ -25,15 +25,23 @@ const initiatePayment = async (
   const application = await Application.findOne({
     _id: applicationId,
     candidateId,
-  }).populate("appliedPosts");
+  })
+    .populate("appliedPosts")
+    .populate("jobId", "applicationFee paymentConfig");
   if (!application) throw new ApiError(404, "Application not found");
   if (application.paymentStatus === "paid")
     throw new ApiError(400, "Payment already completed");
 
-  const totalFee = application.appliedPosts.reduce(
+  let totalFee = application.appliedPosts.reduce(
     (sum, p) => sum + (p.fee || 0),
     0,
   );
+  if (!totalFee) {
+    totalFee = calculateFee(
+      application.jobId?.applicationFee || {},
+      application.personalDetails?.category,
+    );
+  }
   if (totalFee === 0)
     throw new ApiError(400, "No fee applicable for selected posts");
 
@@ -78,16 +86,28 @@ const verifyPayment = async ({
   // Update application payment status
   const application = await Application.findById(
     payment.applicationId,
-  ).populate("candidateId", "email fullName");
+  )
+    .populate("candidateId", "email fullName")
+    .populate("jobId", "paymentConfig projectId title");
 
   if (application) {
     application.paymentStatus = status === "success" ? "paid" : "failed";
     application.transactionId = transactionId;
+    const timing =
+      application.jobId?.paymentConfig?.paymentTiming ||
+      application.paymentTiming ||
+      "final";
+    const earlyPayment = ["after_personal", "step1"].includes(timing);
+    if (status === "success" && earlyPayment && application.status === "draft") {
+      application.paymentTiming = "after_personal";
+      application.currentStep = Math.max(Number(application.currentStep || 1), 2);
+      await application.save();
+    }
     await application.save();
 
     const candidateId = application.candidateId._id.toString();
 
-    if (status === "success") {
+    if (status === "success" && !(earlyPayment && application.status === "draft")) {
       // ── Generate registration number for public applications ──
       if (application.isPublicApplication && !application.registrationNumber) {
         try {

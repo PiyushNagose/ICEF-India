@@ -4,6 +4,27 @@ const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const ApiError = require("../../shared/utils/ApiError");
 const { uploadToCloudinary } = require("../../shared/services/upload.service");
+const {
+  emitToAdmins,
+  emitBroadcast,
+  SOCKET_EVENTS,
+} = require("../../shared/socket/index");
+
+const emitCmsRealtime = (event, page, action) => {
+  try {
+    const payload = {
+      action,
+      state: page?.state,
+      pageId: page?._id,
+      page: typeof page?.toObject === "function" ? page.toObject() : page,
+      timestamp: new Date(),
+    };
+    emitToAdmins(event, payload);
+    emitBroadcast(event, payload);
+  } catch {
+    // Socket.IO may not be initialized in test/CLI contexts.
+  }
+};
 
 // GET /api/admin/cms  — list all state pages with summary
 const getAll = asyncHandler(async (req, res) => {
@@ -63,6 +84,7 @@ const create = asyncHandler(async (req, res) => {
     createdBy:    req.user?.id,
     updatedBy:    req.user?.id,
   });
+  emitCmsRealtime(SOCKET_EVENTS.CMS_CREATED, page, "created");
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(StatusCodes.CREATED, "State page created", { page }),
@@ -84,6 +106,7 @@ const update = asyncHandler(async (req, res) => {
   page.updatedBy = req.user?.id;
 
   await page.save();
+  emitCmsRealtime(SOCKET_EVENTS.CMS_UPDATED, page, "updated");
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "State page updated", { page }),
@@ -94,6 +117,7 @@ const update = asyncHandler(async (req, res) => {
 const remove = asyncHandler(async (req, res) => {
   const page = await StateBanner.findOneAndDelete({ state: req.params.state });
   if (!page) throw new ApiError(404, "State page not found");
+  emitCmsRealtime(SOCKET_EVENTS.CMS_DELETED, page, "deleted");
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "State page deleted"),
@@ -107,6 +131,7 @@ const publish = asyncHandler(async (req, res) => {
   page.status = "published";
   page.updatedBy = req.user?.id;
   await page.save();
+  emitCmsRealtime(SOCKET_EVENTS.CMS_UPDATED, page, "published");
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "State page published", { page }),
   );

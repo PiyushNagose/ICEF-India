@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
+import { buildApplicationSteps } from "../../utils/applicationFlow";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -120,7 +121,14 @@ const Education = () => {
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else {
-        navigate("/application/additional-info", { state: { applicationId } });
+        const app = appData?.application || appData;
+        const steps = buildApplicationSteps(app?.jobId, app);
+        const educationStep =
+          steps.find((step) => step.type === "education")?.id || 2;
+        const nextStep = steps.find((step) => step.id === educationStep + 1);
+        navigate(nextStep?.path || "/application/additional-info", {
+          state: { applicationId },
+        });
       }
     },
     onError: (err) => toast.error(err.message || "Failed to save"),

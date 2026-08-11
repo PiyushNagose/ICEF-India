@@ -200,7 +200,7 @@ const applicationSchema = new mongoose.Schema(
     isPublicApplication: { type: Boolean, default: false },
     paymentTiming: {
       type: String,
-      enum: ["step1", "last_step"],
+      enum: ["step1", "last_step", "after_personal", "final"],
       default: "last_step",
     },
     contactEmail: { type: String },

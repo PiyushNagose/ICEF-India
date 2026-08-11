@@ -25,7 +25,7 @@ const menuItems = [
   { icon: Users,           label: 'Applications',        path: '/admin/applications',     permission: ['applications', 'view'] },
   { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards',      permission: ['admitCards', 'view'] },
   { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics',        permission: ['analytics', 'view'] },
-  { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs',    permission: ['employees', 'view'] },
+  { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs',    permission: ['activityLogs', 'view'] },
   { icon: HeadphonesIcon,  label: 'Support',             path: '/admin/support',          permission: ['support', 'view'] },
   { icon: UserCheck,       label: 'Employees',           path: '/admin/employees',        permission: ['employees', 'view'] },
   { icon: Shield,          label: 'Roles & Permissions', path: '/admin/roles',            permission: ['employees', 'view'] },

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Edit2, Trash2, Activity, ChevronLeft, ChevronRight, Filter, Users, UserCheck, Building2, AlertCircle, Loader2 } from 'lucide-react'
+import { Plus, Edit2, UserX, Activity, ChevronLeft, ChevronRight, Filter, Users, UserCheck, Building2, AlertCircle, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
@@ -53,18 +53,20 @@ const Employees = () => {
     queryFn: () => adminService.getRoles(),
   })
 
-  const { mutate: deleteEmployee } = useMutation({
+  const { mutate: deactivateEmployee } = useMutation({
     mutationFn: adminService.deleteEmployee,
     onSuccess: () => {
-      toast.success('Employee deleted')
+      toast.success('Employee deactivated')
       queryClient.invalidateQueries({ queryKey: ['admin-employees'] })
       queryClient.invalidateQueries({ queryKey: ['admin-employee-stats'] })
     },
-    onError: (err) => toast.error(err.message || 'Failed to delete'),
+    onError: (err) => toast.error(err.message || 'Failed to deactivate'),
   })
 
-  const handleDelete = (emp) => {
-    if (window.confirm(`Delete ${emp.fullName}? This cannot be undone.`)) deleteEmployee(emp._id)
+  const handleDeactivate = (emp) => {
+    if (window.confirm(`Deactivate ${emp.fullName}? They will be signed out and blocked from employee access.`)) {
+      deactivateEmployee(emp._id)
+    }
   }
 
   const employees  = data?.employees || []
@@ -285,10 +287,10 @@ const Employees = () => {
                             className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Activity">
                             <Activity className="w-4 h-4" />
                           </button>
-                          {canDelete && (
-                            <button onClick={() => handleDelete(emp)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                              <Trash2 className="w-4 h-4" />
+                          {canDelete && emp.status !== 'Inactive' && (
+                            <button onClick={() => handleDeactivate(emp)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Deactivate">
+                              <UserX className="w-4 h-4" />
                             </button>
                           )}
                         </div>

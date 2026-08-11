@@ -404,7 +404,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/activity-logs"
           element={
-            <ProtectedRoute role="admin" permission={["employees", "view"]}>
+            <ProtectedRoute role="admin" permission={["activityLogs", "view"]}>
               <ActivityLogs />
             </ProtectedRoute>
           }
@@ -412,7 +412,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/activity-logs/:id"
           element={
-            <ProtectedRoute role="admin" permission={["employees", "view"]}>
+            <ProtectedRoute role="admin" permission={["activityLogs", "view"]}>
               <EmployeeActivityDetails />
             </ProtectedRoute>
           }

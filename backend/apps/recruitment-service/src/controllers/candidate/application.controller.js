@@ -76,6 +76,13 @@ const RESERVED_FORM_SECTION_TITLES = new Set([
 const normalizeTitle = (title = "") =>
   String(title).trim().toLowerCase().replace(/\s+/g, " ");
 
+const isEarlyPaymentApplication = (app = {}) =>
+  ["after_personal", "step1"].includes(
+    app?.jobId?.paymentConfig?.paymentTiming ||
+      app?.paymentTiming ||
+      app?.paymentConfig?.paymentTiming,
+  );
+
 const getCustomFormSections = (job) =>
   Array.isArray(job?.formSections)
     ? job.formSections.filter(
@@ -322,6 +329,7 @@ const createApplication = asyncHandler(async (req, res) => {
     contactMobile: isPublicApplySession
       ? candidate.registeredMobile || ""
       : undefined,
+    paymentTiming: job.paymentConfig?.paymentTiming || "final",
     personalDetails: {
       fullName: candidate.fullName || "",
       registeredMobile: candidate.registeredMobile || "",
@@ -489,15 +497,23 @@ const updatePersonalDetails = asyncHandler(async (req, res) => {
     ...(app.personalDetails?.toObject?.() || {}),
     ...req.body,
   };
+  app.paymentTiming = app.jobId?.paymentConfig?.paymentTiming || app.paymentTiming;
+  app.totalFee = calculateFee(
+    app.jobId?.applicationFee || {},
+    app.personalDetails?.category,
+  );
   // Move to next step after completing this one
   app.currentStep = Math.max(app.currentStep, 2);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate(
+    "jobId",
+    "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
+  );
   emitStepSaved(req.user.id, app._id, app.currentStep);
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Personal details saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
+      application: app,
     }),
   );
 });
@@ -818,7 +834,13 @@ const uploadDocument = asyncHandler(async (req, res) => {
   const correctionOpen = ["requested", "in_progress"].includes(
     app.correction?.status,
   );
-  if (app.paymentStatus === "paid" && !correctionOpen) {
+  await app.populate("jobId");
+  if (
+    app.paymentStatus === "paid" &&
+    app.status !== "draft" &&
+    !correctionOpen &&
+    !isEarlyPaymentApplication(app)
+  ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Cannot upload documents after payment is completed",
@@ -828,7 +850,6 @@ const uploadDocument = asyncHandler(async (req, res) => {
     app.correction.status = "in_progress";
   }
   const docType = req.params.type;
-  await app.populate("jobId");
   assertCandidateMutationWindow(app);
 
   const requirements = (app.jobId?.documentRequirements || []).filter(
@@ -981,7 +1002,12 @@ const updatePostSelection = asyncHandler(async (req, res) => {
   const correctionOpen = ["requested", "in_progress"].includes(
     app.correction?.status,
   );
-  if (app.paymentStatus === "paid" && !correctionOpen) {
+  await app.populate("jobId");
+  if (
+    app.paymentStatus === "paid" &&
+    !correctionOpen &&
+    !isEarlyPaymentApplication(app)
+  ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Cannot update post selection after payment is completed",
@@ -991,7 +1017,6 @@ const updatePostSelection = asyncHandler(async (req, res) => {
     app.correction.status = "in_progress";
   }
 
-  await app.populate("jobId");
   assertCandidateMutationWindow(app);
 
   const candidate = await User.findById(req.user.id).select("category");
@@ -1237,8 +1262,13 @@ const finalizeApplication = asyncHandler(async (req, res) => {
   assertApplicationCompleteForJob(app);
   assertPaymentWindowOpen(app.jobId);
 
-  // Mark payment as simulated/paid and finalize
-  app.paymentStatus = "paid";
+  const totalDue = Number(app.totalFee || 0);
+  if (totalDue > 0 && app.paymentStatus !== "paid") {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Payment is pending");
+  }
+
+  // Free applications are finalized without a gateway transaction.
+  if (totalDue === 0) app.paymentStatus = "paid";
   app.status = "approved";
   app.submittedAt = new Date();
   const formSectionsCount = getCustomFormSections(app.jobId).length;

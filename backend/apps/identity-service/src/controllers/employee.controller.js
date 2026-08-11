@@ -12,6 +12,11 @@ const { sendWelcomeEmail } = require("../shared/services/email.service");
 const isSuperAdminRole = (role) =>
   role?.roleName?.trim().toLowerCase() === "super admin";
 
+const revokeEmployeeSessions = (employee) => {
+  employee.refreshToken = undefined;
+  employee.sessionVersion = (employee.sessionVersion || 0) + 1;
+};
+
 /**
  * @swagger
  * /api/admin/employees:
@@ -207,6 +212,8 @@ const createEmployee = asyncHandler(async (req, res) => {
     officialEmail,
     password,
     systemRole,
+    projectScopes,
+    fieldPermissions,
   } = req.body;
 
   // Check if email or employeeId exists in Employee collection
@@ -246,6 +253,8 @@ const createEmployee = asyncHandler(async (req, res) => {
     officialEmail,
     password,
     systemRole,
+    projectScopes,
+    fieldPermissions,
     createdBy: req.user.id,
     mustChangePassword: true,
   });
@@ -307,7 +316,9 @@ const createEmployee = asyncHandler(async (req, res) => {
  *         description: Employee updated
  */
 const updateEmployee = asyncHandler(async (req, res) => {
-  const employee = await Employee.findById(req.params.id);
+  const employee = await Employee.findById(req.params.id).select(
+    "+refreshToken +sessionVersion",
+  );
   if (!employee)
     throw new ApiError(StatusCodes.NOT_FOUND, "Employee not found");
 
@@ -322,7 +333,13 @@ const updateEmployee = asyncHandler(async (req, res) => {
     systemRole,
     status,
     password,
+    projectScopes,
+    fieldPermissions,
   } = req.body;
+
+  const originalStatus = employee.status;
+  const originalRole = employee.systemRole?.toString();
+  let shouldRevokeSessions = false;
 
   if (fullName !== undefined) employee.fullName = fullName;
   if (dateOfBirth !== undefined) employee.dateOfBirth = dateOfBirth;
@@ -331,10 +348,15 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (department !== undefined) employee.department = department;
   if (roleDesignation !== undefined) employee.roleDesignation = roleDesignation;
   if (dateOfJoining !== undefined) employee.dateOfJoining = dateOfJoining;
-  if (status !== undefined) employee.status = status;
+  if (status !== undefined) {
+    employee.status = status;
+    if (status !== originalStatus) shouldRevokeSessions = true;
+  }
   if (password !== undefined) {
     employee.password = password;
     employee.mustChangePassword = true;
+    employee.passwordChangedAt = new Date();
+    shouldRevokeSessions = true;
   }
   if (systemRole !== undefined) {
     const role = await Role.findById(systemRole);
@@ -346,7 +368,11 @@ const updateEmployee = asyncHandler(async (req, res) => {
       );
     }
     employee.systemRole = systemRole;
+    if (systemRole !== originalRole) shouldRevokeSessions = true;
   }
+  if (projectScopes !== undefined) employee.projectScopes = projectScopes;
+  if (fieldPermissions !== undefined) employee.fieldPermissions = fieldPermissions;
+  if (shouldRevokeSessions) revokeEmployeeSessions(employee);
 
   await employee.save();
   await employee.populate("systemRole", "roleName permissions");
@@ -386,7 +412,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
  * /api/admin/employees/{id}:
  *   delete:
  *     tags: [Admin - Employees]
- *     summary: Delete an employee
+ *     summary: Deactivate an employee
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -396,35 +422,42 @@ const updateEmployee = asyncHandler(async (req, res) => {
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: Employee deleted
+ *         description: Employee deactivated
  *       400:
  *         description: Cannot delete own account
  */
 const deleteEmployee = asyncHandler(async (req, res) => {
-  const employee = await Employee.findById(req.params.id);
+  const employee = await Employee.findById(req.params.id).select(
+    "+refreshToken +sessionVersion",
+  );
   if (!employee)
     throw new ApiError(StatusCodes.NOT_FOUND, "Employee not found");
   if (employee._id.toString() === req.user.id)
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Cannot delete your own account",
+      "Cannot deactivate your own account",
     );
 
-  await Employee.findByIdAndDelete(req.params.id);
+  employee.status = "Inactive";
+  employee.deactivatedAt = new Date();
+  employee.deactivatedBy = req.user.id;
+  revokeEmployeeSessions(employee);
+  await employee.save({ validateBeforeSave: false });
+
   await saveAuditLog(
     req,
-    `Deleted employee: ${employee.fullName} (${employee.employeeId})`,
+    `Deactivated employee: ${employee.fullName} (${employee.employeeId})`,
   );
 
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
-    type: "employee_deleted",
-    message: `Employee "${employee.fullName}" deleted`,
+    type: "employee_deactivated",
+    message: `Employee "${employee.fullName}" deactivated`,
     timestamp: new Date(),
   });
 
   res
     .status(StatusCodes.OK)
-    .json(new ApiResponse(StatusCodes.OK, "Employee deleted successfully"));
+    .json(new ApiResponse(StatusCodes.OK, "Employee deactivated successfully"));
 });
 
 module.exports = {

@@ -6,11 +6,11 @@ const { authorize, checkPermission } = require("../shared/middlewares/authorize"
 
 router.use(authenticate, authorize("admin", "employee"));
 
-router.get("/", checkPermission("employees", "view"), activityLogController.getActivityLogs);
-router.get("/export", checkPermission("employees", "download"), activityLogController.exportActivityLogs);
+router.get("/", checkPermission("activityLogs", "view"), activityLogController.getActivityLogs);
+router.get("/export", checkPermission("activityLogs", "download"), activityLogController.exportActivityLogs);
 router.get(
   "/employee/:employeeId",
-  checkPermission("employees", "view"),
+  checkPermission("activityLogs", "view"),
   activityLogController.getEmployeeActivityLogs,
 );
 

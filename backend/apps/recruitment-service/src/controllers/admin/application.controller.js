@@ -416,6 +416,23 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     },
   );
 
+  if (status === "clarification_required") {
+    const correctionPayload = {
+      applicationId: application._id,
+      publicApplicationId: application.applicationId,
+      registrationNumber: application.registrationNumber,
+      status: application.correction?.status,
+      issues: application.correction?.issues || [],
+      timestamp: new Date(),
+    };
+    emitToAdmins(SOCKET_EVENTS.CORRECTION_REQUESTED, correctionPayload);
+    emitToCandidate(
+      application.candidateId._id,
+      SOCKET_EVENTS.CORRECTION_REQUESTED,
+      correctionPayload,
+    );
+  }
+
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Application status updated successfully", {
       message: "Application status updated successfully",
@@ -524,6 +541,24 @@ const reviewCorrection = asyncHandler(async (req, res) => {
     correctionRequestId: correction.requestId,
     notes,
   });
+
+  const correctionReviewPayload = {
+    applicationId: application._id,
+    publicApplicationId: application.applicationId,
+    registrationNumber: application.registrationNumber,
+    requestId: correction.requestId,
+    status: correction.status,
+    applicationStatus: application.status,
+    timestamp: new Date(),
+  };
+  emitToAdmins(SOCKET_EVENTS.CORRECTION_REVIEWED, correctionReviewPayload);
+  if (application.candidateId?._id) {
+    emitToCandidate(
+      application.candidateId._id,
+      SOCKET_EVENTS.CORRECTION_REVIEWED,
+      correctionReviewPayload,
+    );
+  }
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Correction review saved successfully", {
@@ -634,6 +669,21 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
         timestamp: new Date(),
       },
     );
+    if (status === "clarification_required") {
+      const correctionPayload = {
+        applicationId: application._id,
+        publicApplicationId: application.applicationId,
+        registrationNumber: application.registrationNumber,
+        status: "requested",
+        timestamp: new Date(),
+      };
+      emitToAdmins(SOCKET_EVENTS.CORRECTION_REQUESTED, correctionPayload);
+      emitToCandidate(
+        application.candidateId._id,
+        SOCKET_EVENTS.CORRECTION_REQUESTED,
+        correctionPayload,
+      );
+    }
   });
 
   res.status(StatusCodes.OK).json(

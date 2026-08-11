@@ -12,21 +12,56 @@ const SOCKET_EVENTS = [
   "application:submitted",
   "application:status:changed",
   "application:autosaved",
+  "application:updated",
   "admin:application:new",
   "document:verified",
   "document:rejected",
   "payment:success",
   "payment:failed",
+  "project:created",
+  "project:updated",
+  "project:deleted",
+  "job:created",
+  "job:updated",
   "job:published",
   "job:closed",
+  "cms:created",
+  "cms:updated",
+  "cms:deleted",
   "support:ticket:created",
   "support:ticket:reply",
   "support:ticket:resolved",
+  "correction:requested",
+  "correction:submitted",
+  "correction:reviewed",
+  "exam:center:changed",
+  "exam:room:changed",
+  "exam:schedule:created",
+  "exam:schedule:updated",
+  "exam:allocation:changed",
+  "exam:admit-card:generated",
+  "exam:admit-card:published",
+  "exam:admit-card:unpublished",
+  "exam:bulk-job:updated",
   "notification:new",
   "admin:live:count",
 ];
 
 const uniqueUrls = (urls) => [...new Set(urls.filter(Boolean))];
+const REALTIME_EVENT_PREFIXES = [
+  "admin:",
+  "application:",
+  "cms:",
+  "correction:",
+  "dashboard:",
+  "document:",
+  "exam:",
+  "job:",
+  "notification:",
+  "payment:",
+  "project:",
+  "support:",
+];
 const TEARDOWN_GRACE_MS = 2000;
 
 let activeSockets = [];
@@ -52,11 +87,15 @@ export const getRealtimeSocketUrls = () => {
 
 const disconnectActiveSockets = () => {
   activeSockets.forEach((socket) => {
-    SOCKET_EVENTS.forEach((eventName) => socket.off(eventName));
+    socket.offAny();
     socket.disconnect();
   });
   activeSockets = [];
 };
+
+const isRealtimeDomainEvent = (eventName) =>
+  SOCKET_EVENTS.includes(eventName) ||
+  REALTIME_EVENT_PREFIXES.some((prefix) => eventName?.startsWith(prefix));
 
 const getSocketEndpoint = (url) => {
   try {
@@ -124,11 +163,11 @@ const createSocketConnections = (token) => {
       });
     });
 
-    SOCKET_EVENTS.forEach((eventName) => {
-      socket.on(eventName, (payload) => {
-        activeSubscribers.forEach((subscriber) => {
-          subscriber.onEvent?.({ eventName, payload, source: url });
-        });
+    socket.onAny((eventName, payload) => {
+      if (!isRealtimeDomainEvent(eventName)) return;
+
+      activeSubscribers.forEach((subscriber) => {
+        subscriber.onEvent?.({ eventName, payload, source: url });
       });
     });
 

@@ -14,12 +14,33 @@ const MODULES = [
   { id: 'analytics',      label: 'Analytics & Reports' },
   { id: 'employees',      label: 'Employee Management' },
   { id: 'paymentSettings', label: 'Payment Settings' },
+  { id: 'payments',       label: 'Payments & Reconciliation' },
   { id: 'support',        label: 'Support Management' },
   { id: 'projects',       label: 'Project Management' },
   { id: 'results',        label: 'Results Management' },
   { id: 'admitCards',     label: 'Admit Card Management' },
+  { id: 'cms',            label: 'Public CMS' },
+  { id: 'activityLogs',   label: 'Activity Logs' },
 ]
-const ACTIONS = ['create', 'view', 'edit', 'delete', 'download']
+const ACTIONS = ['create', 'view', 'edit', 'delete', 'publish', 'approve', 'reject', 'assign', 'resolve', 'refund', 'reconcile', 'publishWindow', 'generateOnDemand', 'bulkGenerate', 'attendance', 'download']
+const ACTION_LABELS = {
+  create: 'Create',
+  view: 'View',
+  edit: 'Edit',
+  delete: 'Delete',
+  publish: 'Publish',
+  approve: 'Approve',
+  reject: 'Reject',
+  assign: 'Assign',
+  resolve: 'Resolve',
+  refund: 'Refund',
+  reconcile: 'Reconcile',
+  publishWindow: 'Window',
+  generateOnDemand: 'On-demand',
+  bulkGenerate: 'Bulk gen.',
+  attendance: 'Attendance',
+  download: 'Download',
+}
 
 const emptyPermissions = () =>
   Object.fromEntries(
@@ -182,20 +203,26 @@ const EditRole = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="admin-compact-scroll hover-scroll overflow-auto">
-                  <table className="w-full min-w-[720px] table-fixed">
+                <div className="admin-compact-scroll hover-scroll overflow-x-auto overflow-y-hidden">
+                  <table className="w-full min-w-[1760px] table-fixed">
                     <colgroup>
-                      <col className="w-[32%]" />
+                      <col className="w-[250px]" />
                       {ACTIONS.map(a => (
-                        <col key={a} className="w-[12%]" />
+                        <col key={a} className="w-[86px]" />
                       ))}
-                      <col className="w-[8%]" />
+                      <col className="w-[70px]" />
                     </colgroup>
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal">Module</th>
+                        <th className="sticky left-0 z-10 bg-gray-50 text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-normal shadow-[1px_0_0_#e5e7eb]">Module</th>
                         {ACTIONS.map(a => (
-                          <th key={a} className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-normal">{a}</th>
+                          <th
+                            key={a}
+                            title={a}
+                            className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-normal leading-tight"
+                          >
+                            <span className="block truncate">{ACTION_LABELS[a] || a}</span>
+                          </th>
                         ))}
                         <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-normal">All</th>
                       </tr>
@@ -203,9 +230,9 @@ const EditRole = () => {
                     <tbody className="divide-y divide-gray-100">
                       {MODULES.map(mod => (
                         <tr key={mod.id} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm font-medium text-gray-900">{mod.label}</td>
+                          <td className="sticky left-0 z-10 bg-white py-3 px-4 text-sm font-medium text-gray-900 shadow-[1px_0_0_#e5e7eb]">{mod.label}</td>
                           {ACTIONS.map(action => (
-                            <td key={action} className="py-3 px-3 text-center">
+                            <td key={action} className="py-3 px-2 text-center">
                               <input
                                 type="checkbox"
                                 checked={permissions[mod.id]?.[action] || false}

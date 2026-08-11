@@ -321,6 +321,12 @@ const createJob = asyncHandler(async (req, res) => {
     job: job.toObject(),
     timestamp: new Date(),
   });
+  emitToAdmins(SOCKET_EVENTS.JOB_CREATED, {
+    jobId: job._id,
+    projectId: job.projectId?._id || job.projectId,
+    job: job.toObject(),
+    timestamp: new Date(),
+  });
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(StatusCodes.CREATED, "Job created successfully as draft", {
@@ -459,6 +465,18 @@ const updateJob = asyncHandler(async (req, res) => {
     type: "job_updated",
     message: `Job "${job.title}" updated`,
     job: job.toObject(),
+    timestamp: new Date(),
+  });
+  emitToAdmins(SOCKET_EVENTS.JOB_UPDATED, {
+    jobId: job._id,
+    projectId: job.projectId?._id || job.projectId,
+    job: job.toObject(),
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.JOB_UPDATED, {
+    jobId: job._id,
+    projectId: job.projectId?._id || job.projectId,
+    status: job.status,
     timestamp: new Date(),
   });
 
@@ -621,6 +639,20 @@ const deleteJob = asyncHandler(async (req, res) => {
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "job_deleted",
     message: `Job "${job.title}" deleted`,
+    jobId: job._id,
+    projectId: job.projectId,
+    timestamp: new Date(),
+  });
+  emitToAdmins(SOCKET_EVENTS.JOB_UPDATED, {
+    type: "job_deleted",
+    jobId: job._id,
+    projectId: job.projectId,
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.JOB_UPDATED, {
+    type: "job_deleted",
+    jobId: job._id,
+    projectId: job.projectId,
     timestamp: new Date(),
   });
 

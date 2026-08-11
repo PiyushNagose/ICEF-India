@@ -213,6 +213,7 @@ const buildUpdatePayload = (draft) => {
     payload.paymentConfig = {
       applicationFee: num(draft.paymentConfig.applicationFee) || 0,
       processingFee: num(draft.paymentConfig.processingFee) || 0,
+      paymentTiming: draft.paymentConfig.paymentTiming || "final",
       paymentMethods: Array.isArray(draft.paymentConfig.paymentMethods)
         ? draft.paymentConfig.paymentMethods
         : [],
@@ -809,6 +810,14 @@ const JobReview = () => {
                       {(draft.applicationFee?.pwd ?? 0) === 0
                         ? "Free"
                         : `₹${draft.applicationFee?.pwd}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-100 pt-2 text-gray-600">
+                    <span>Payment Step</span>
+                    <span className="font-medium text-gray-900 text-right">
+                      {draft.paymentConfig?.paymentTiming === "after_personal"
+                        ? "After Personal Details"
+                        : "Before Final Submit"}
                     </span>
                   </div>
                 </CardContent>

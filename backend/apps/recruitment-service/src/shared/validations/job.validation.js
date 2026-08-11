@@ -178,6 +178,7 @@ const createJobSchema = z.object({
       applicationFee:      z.number().min(0).optional(),
       examFee:             z.number().min(0).optional(),
       processingFee:       z.number().min(0).optional(),
+      paymentTiming:       z.enum(["after_personal", "final"]).optional(),
       paymentMethods:      z.array(z.string()).optional(),
       refundPolicy:        z.string().optional(),
       paymentDeadline:     z.string().optional(),

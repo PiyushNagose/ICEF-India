@@ -12,6 +12,8 @@ const createEmployeeSchema = z.object({
   officialEmail: z.string().email("Invalid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   systemRole: z.string().min(1, "System role is required"),
+  projectScopes: z.array(z.string()).optional(),
+  fieldPermissions: z.record(z.any()).optional(),
 });
 
 const updateEmployeeSchema = z.object({
@@ -28,6 +30,8 @@ const updateEmployeeSchema = z.object({
   systemRole: z.string().optional(),
   status: z.enum(["Active", "Inactive", "On Leave"]).optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
+  projectScopes: z.array(z.string()).optional(),
+  fieldPermissions: z.record(z.any()).optional(),
 });
 
 module.exports = { createEmployeeSchema, updateEmployeeSchema };

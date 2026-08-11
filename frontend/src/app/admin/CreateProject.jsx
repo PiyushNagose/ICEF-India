@@ -9,6 +9,10 @@ import {
   Plus,
   Loader2,
   Sparkles,
+  BriefcaseBusiness,
+  ArrowRight,
+  CheckCircle2,
+  X,
 } from 'lucide-react'
 
 import AdminLayout from '../../components/layouts/AdminLayout'
@@ -93,6 +97,8 @@ const CreateProject = () => {
   })
 
   const [errors, setErrors] = useState({})
+  const [createdProject, setCreatedProject] = useState(null)
+  const [showCreatedModal, setShowCreatedModal] = useState(false)
 
   const { data: projectData, isLoading: isProjectLoading } = useQuery({
     queryKey: ['admin-project', id],
@@ -120,14 +126,21 @@ const CreateProject = () => {
     useMutation({
       mutationFn: adminService.createProject,
 
-      onSuccess: () => {
+      onSuccess: (response) => {
         toast.success('Project created successfully')
 
         queryClient.invalidateQueries({
           queryKey: ['admin-projects'],
         })
 
-        navigate('/admin/projects')
+        const projectPayload =
+          response?.project ||
+          response?.data?.project ||
+          response?.data ||
+          response
+
+        setCreatedProject(projectPayload || formData)
+        setShowCreatedModal(true)
       },
 
       onError: (err) => {
@@ -220,6 +233,38 @@ const CreateProject = () => {
     }
 
     updateProject(payload)
+  }
+
+  const getCreatedProjectId = () =>
+    createdProject?._id ||
+    createdProject?.id ||
+    createdProject?.projectId ||
+    createdProject?.data?._id ||
+    createdProject?.data?.id
+
+  const handleCreateAdvertisement = () => {
+    const projectId = getCreatedProjectId()
+
+    if (!projectId) {
+      toast.error('Project created, but project ID was not returned. Please open Jobs and select the project manually.')
+      navigate('/admin/jobs/create')
+      return
+    }
+
+    sessionStorage.removeItem('job_draft')
+    sessionStorage.setItem(
+      'job_draft',
+      JSON.stringify({
+        projectId,
+      })
+    )
+
+    navigate(`/admin/jobs/create/basic-info?project=${projectId}`)
+  }
+
+  const handleCreateLater = () => {
+    setShowCreatedModal(false)
+    navigate('/admin/projects')
   }
 
   const isPending = isCreating || isUpdating
@@ -558,6 +603,152 @@ const CreateProject = () => {
         </div>
         )}
       </div>
+
+      {showCreatedModal && (
+        <div className="
+          fixed inset-0 z-[80]
+          flex items-center justify-center
+          bg-slate-950/55
+          px-4 py-6
+          backdrop-blur-md
+        ">
+          <div className="
+            w-full max-w-[620px]
+            overflow-hidden rounded-[28px]
+            border border-white/70
+            bg-white
+            shadow-2xl shadow-slate-950/20
+          ">
+            <div className="
+              relative overflow-hidden
+              bg-gradient-to-br from-orange-600 via-orange-500 to-[#c94807]
+              px-7 py-6 text-white
+            ">
+              <button
+                type="button"
+                onClick={handleCreateLater}
+                className="
+                  absolute right-5 top-5
+                  flex h-9 w-9 items-center justify-center
+                  rounded-full bg-white/15 text-white
+                  transition hover:bg-white/25
+                "
+                aria-label="Close project created dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="
+                mb-5 flex h-14 w-14 items-center justify-center
+                rounded-2xl bg-white/18
+              ">
+                <CheckCircle2 className="h-7 w-7" />
+              </div>
+
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/85">
+                Project Ready
+              </p>
+
+              <h2 className="max-w-[470px] text-2xl font-bold leading-tight">
+                Create job advertisement under this project now?
+              </h2>
+
+              <p className="mt-2 max-w-[500px] text-sm leading-6 text-white/85">
+                Continue directly to the job form with this project already selected, or finish it later from Job Management.
+              </p>
+            </div>
+
+            <div className="space-y-5 px-7 py-6">
+              <div className="
+                rounded-[20px]
+                border border-orange-100
+                bg-[#fff8f1]
+                p-5
+              ">
+                <div className="flex items-start gap-4">
+                  <div className="
+                    flex h-12 w-12 shrink-0 items-center justify-center
+                    rounded-2xl bg-orange-100 text-orange-600
+                  ">
+                    <BriefcaseBusiness className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">
+                      Selected Project
+                    </p>
+
+                    <h3 className="mt-1 text-lg font-bold text-slate-950">
+                      {createdProject?.name || formData.name || 'New recruitment project'}
+                    </h3>
+
+                    <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                          State
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-800">
+                          {createdProject?.state || formData.state || 'Not specified'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Department
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-800">
+                          {createdProject?.department || formData.department || 'Not specified'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="
+                rounded-[18px]
+                border border-slate-200
+                bg-white
+                px-5 py-4
+              ">
+                <p className="text-sm font-semibold text-slate-900">
+                  Recommended next step
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Create the advertisement, posts, fees, dates, form sections, documents, and publish only after review.
+                </p>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleCreateLater}
+                  className="
+                    h-12 rounded-2xl border-slate-200 px-6
+                    text-slate-700 hover:bg-slate-50
+                  "
+                >
+                  Later
+                </Button>
+
+                <Button
+                  onClick={handleCreateAdvertisement}
+                  className="
+                    h-12 rounded-2xl
+                    bg-orange-600 px-6 text-white
+                    shadow-xl shadow-orange-200
+                    hover:bg-orange-700
+                  "
+                >
+                  <BriefcaseBusiness className="mr-2 h-4 w-4" />
+                  Create Job Advertisement
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

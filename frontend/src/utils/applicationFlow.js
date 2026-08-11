@@ -63,43 +63,67 @@ export const hasPaymentStep = (jobOrApplication, application) => {
   return Number(fee) >= 0;
 };
 
+export const getPaymentTiming = (jobOrApplication, application = {}) => {
+  const job = normaliseJob(jobOrApplication);
+  const timing =
+    job?.paymentConfig?.paymentTiming ||
+    application?.paymentTiming ||
+    job?.paymentTiming ||
+    "final";
+  return ["after_personal", "step1"].includes(timing)
+    ? "after_personal"
+    : "final";
+};
+
 export const buildApplicationSteps = (jobOrApplication, application = {}) => {
   const job = normaliseJob(jobOrApplication);
+  const includePayment = hasPaymentStep(job, application);
+  const paymentTiming = getPaymentTiming(job, application);
+
+  const steps = [];
+  const addStep = (step) => {
+    steps.push({
+      ...step,
+      id: steps.length + 1,
+    });
+  };
 
   // All 9 fixed steps + dynamic custom form sections inserted between Address and Documents
-  const steps = [
-    {
-      id: 1,
-      type: "personal-details",
-      name: "Personal Details",
-      path: "/application/personal-details",
-    },
-    {
-      id: 2,
-      type: "education",
-      name: "Educational Info",
-      path: "/application/education",
-    },
-    {
-      id: 3,
-      type: "additional-info",
-      name: "Additional Information",
-      path: "/application/additional-info",
-    },
-    {
-      id: 4,
-      type: "address",
-      name: "Address Details",
-      path: "/application/address",
-    },
-  ];
+  addStep({
+    type: "personal-details",
+    name: "Personal Details",
+    path: "/application/personal-details",
+  });
+
+  if (includePayment && paymentTiming === "after_personal") {
+    addStep({
+      type: "payment",
+      name: "Payment",
+      path: "/application/payment",
+    });
+  }
+
+  addStep({
+    type: "education",
+    name: "Educational Info",
+    path: "/application/education",
+  });
+  addStep({
+    type: "additional-info",
+    name: "Additional Information",
+    path: "/application/additional-info",
+  });
+  addStep({
+    type: "address",
+    name: "Address Details",
+    path: "/application/address",
+  });
 
   // Insert custom form sections if admin configured them (between Address and Documents)
   const formSections = getJobFormSections(job);
   if (formSections.length > 0) {
     formSections.forEach((section, index) => {
-      steps.push({
-        id: steps.length + 1,
+      addStep({
         type: "form-section",
         name: section.title || `Form Section ${index + 1}`,
         path: `/application/form-responses?section=${index}`,
@@ -108,31 +132,27 @@ export const buildApplicationSteps = (jobOrApplication, application = {}) => {
     });
   }
 
-  steps.push({
-    id: steps.length + 1,
+  addStep({
     type: "documents",
     name: "Document Upload",
     path: "/application/documents",
   });
 
   // Step 6 (or 6+N): Review
-  steps.push({
-    id: steps.length + 1,
+  addStep({
     type: "review",
     name: "Review",
     path: "/application/review",
   });
 
-  steps.push({
-    id: steps.length + 1,
+  addStep({
     type: "post-selection",
     name: "Post Selection",
     path: "/application/post-selection",
   });
 
-  if (hasPaymentStep(job, application)) {
-    steps.push({
-      id: steps.length + 1,
+  if (includePayment && paymentTiming === "final") {
+    addStep({
       type: "payment",
       name: "Payment",
       path: "/application/payment",
@@ -140,8 +160,7 @@ export const buildApplicationSteps = (jobOrApplication, application = {}) => {
   }
 
   // Step 9 (or 9+N): Submit
-  steps.push({
-    id: steps.length + 1,
+  addStep({
     type: "success",
     name: "Submit",
     path: "/application/success",

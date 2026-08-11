@@ -429,6 +429,8 @@ const changePassword = asyncHandler(async (req, res) => {
   if (req.user.role !== "candidate") {
     user.mustChangePassword = false;
     user.passwordChangedAt = new Date();
+    user.refreshToken = undefined;
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
   }
   await user.save({ validateBeforeSave: false });
 

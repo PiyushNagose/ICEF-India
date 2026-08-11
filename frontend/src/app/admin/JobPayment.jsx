@@ -13,6 +13,8 @@ import {
   Percent,
   Shield,
   Info,
+  CheckCircle,
+  FileCheck2,
 } from "lucide-react";
 
 const FeeInput = ({
@@ -77,6 +79,7 @@ const JobPayment = () => {
       ews: af.ews ?? "",
       pwd: af.pwd ?? 0,
       processingFee: pc.processingFee ?? "",
+      paymentTiming: pc.paymentTiming || "final",
       refundPolicy: pc.refundPolicy ?? "",
       paymentDeadline: pc.paymentDeadline ?? "",
       paymentMethods: {
@@ -131,6 +134,7 @@ const JobPayment = () => {
         paymentConfig: {
           applicationFee: Number(config.general) || 0, // backward compat
           processingFee: Number(config.processingFee) || 0,
+          paymentTiming: config.paymentTiming || "final",
           paymentMethods: enabledMethods,
           refundPolicy: config.refundPolicy || undefined,
           paymentDeadline: config.paymentDeadline || undefined,
@@ -250,6 +254,81 @@ const JobPayment = () => {
                         </div>
                       ))}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Timing */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-orange-600" />
+                    <h3 className="font-semibold text-gray-900">
+                      Payment Step Position
+                    </h3>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Choose when candidates pay in the application flow. Early
+                    payment appears after Personal Details so category-wise fee
+                    can be calculated correctly.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      {
+                        value: "after_personal",
+                        title: "After Personal Details",
+                        desc: "Candidate verifies details, pays fee, then continues form, documents, review, and final submit.",
+                        icon: CreditCard,
+                      },
+                      {
+                        value: "final",
+                        title: "Before Final Submit",
+                        desc: "Candidate fills the full application first, reviews everything, then pays before submission.",
+                        icon: FileCheck2,
+                      },
+                    ].map((option) => {
+                      const selected = config.paymentTiming === option.value;
+                      const Icon = option.icon;
+                      return (
+                        <button
+                          type="button"
+                          key={option.value}
+                          onClick={() => set("paymentTiming", option.value)}
+                          className={`relative rounded-xl border p-4 text-left transition-all ${
+                            selected
+                              ? "border-orange-500 bg-orange-50 shadow-sm"
+                              : "border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/40"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
+                                selected
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-gray-100 text-gray-500"
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-900">
+                                  {option.title}
+                                </p>
+                                {selected && (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                )}
+                              </div>
+                              <p className="mt-1 text-sm leading-5 text-gray-600">
+                                {option.desc}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

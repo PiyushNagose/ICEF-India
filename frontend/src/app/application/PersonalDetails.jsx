@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
@@ -8,12 +8,14 @@ import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
+import { buildApplicationSteps } from "../../utils/applicationFlow";
 
 const APP_KEY = "app_draft";
 
 const PersonalDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   // Persist applicationId in sessionStorage so it survives navigation
   useEffect(() => {
@@ -92,13 +94,30 @@ const PersonalDetails = () => {
   const { mutate: saveStep, isPending } = useMutation({
     mutationFn: (data) =>
       candidateService.savePersonalDetails(applicationId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Personal details saved");
+      const latestApplication = result?.application || result || app;
+      queryClient.setQueryData(["application-personal", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-payment", applicationId], {
+        application: latestApplication,
+      });
       // If editing from Review, go back to Review
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else {
-        navigate("/application/education", { state: { applicationId } });
+        const steps = buildApplicationSteps(
+          latestApplication?.jobId || app?.jobId,
+          latestApplication,
+        );
+        const personalStep = steps.find(
+          (step) => step.type === "personal-details",
+        );
+        const nextStep = steps.find((step) => step.id === personalStep?.id + 1);
+        navigate(nextStep?.path || "/application/education", {
+          state: { applicationId },
+        });
       }
     },
     onError: (err) => toast.error(err.message || "Failed to save"),

@@ -11,66 +11,177 @@ const TOKEN_CHECK_INTERVAL_MS = 1000;
 
 const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
   const applicationId =
-    payload.applicationId || payload.application?._id || payload.application?._id;
-  const ticketId = payload.ticketId || payload.ticket?._id;
+    payload.applicationId ||
+    payload.application?._id ||
+    payload.application?.id ||
+    payload.id;
+  const jobId = payload.jobId || payload.job?._id || payload.job?.id;
+  const projectId =
+    payload.projectId || payload.project?._id || payload.project?.id;
+  const scheduleId =
+    payload.scheduleId ||
+    payload.examScheduleId ||
+    payload.schedule?._id ||
+    payload.schedule?.id;
+  const ticketId = payload.ticketId || payload.ticket?._id || payload.ticket?.id;
 
-  const invalidate = (queryKey) =>
-    queryClient.invalidateQueries({ queryKey, refetchType: "active" });
+  const roots = new Set();
+  const exactKeys = [];
 
-  switch (eventName) {
-    case "notification:new":
-      invalidate(["candidate-notifications-count"]);
-      invalidate(["candidate-notifications"]);
-      invalidate(["admin-notifications-count"]);
-      invalidate(["admin-notifications"]);
-      break;
-    case "application:submitted":
-    case "application:status:changed":
-    case "document:verified":
-    case "document:rejected":
-      invalidate(["candidate-dashboard"]);
-      invalidate(["candidate-applications"]);
-      if (applicationId) {
-        invalidate(["candidate-application-status", applicationId]);
-      }
-      invalidate(["admin-applications"]);
-      break;
-    case "payment:success":
-    case "payment:failed":
-      invalidate(["candidate-dashboard"]);
-      invalidate(["candidate-payments"]);
-      invalidate(["admin-payment-stats"]);
-      break;
-    case "job:published":
-    case "job:closed":
-      invalidate(["public-jobs"]);
-      invalidate(["candidate-jobs"]);
-      invalidate(["candidate-dashboard"]);
-      invalidate(["admin-jobs"]);
-      break;
-    case "support:ticket:created":
-    case "support:ticket:reply":
-    case "support:ticket:resolved":
-      invalidate(["candidate-tickets"]);
-      invalidate(["admin-support-tickets"]);
-      invalidate(["admin-support-tickets-kanban"]);
-      invalidate(["admin-support-stats"]);
-      if (ticketId) {
-        invalidate(["candidate-ticket", ticketId]);
-        invalidate(["admin-support-ticket", ticketId]);
-      }
-      break;
-    case "dashboard:stats:update":
-    case "dashboard:funnel:update":
-    case "admin:live:count":
-      invalidate(["candidate-dashboard"]);
-      invalidate(["admin-dashboard"]);
-      invalidate(["admin-analytics"]);
-      break;
-    case "application:autosaved":
-    default:
-      break;
+  const addRoots = (...keys) => {
+    keys.filter(Boolean).forEach((key) => roots.add(key));
+  };
+
+  const addExact = (...keys) => {
+    keys.filter(Boolean).forEach((key) => exactKeys.push(key));
+  };
+
+  if (!eventName || eventName === "application:autosaved") return;
+
+  if (eventName === "notification:new") {
+    addRoots(
+      "candidate-notifications-count",
+      "candidate-notifications",
+      "admin-notifications-count",
+      "admin-notifications",
+    );
   }
+
+  if (
+    eventName.startsWith("application:") ||
+    eventName.startsWith("correction:") ||
+    eventName.startsWith("document:") ||
+    eventName === "admin:application:new"
+  ) {
+    addRoots(
+      "admin-applications",
+      "candidate-dashboard",
+      "candidate-applications",
+      "public-application-status",
+    );
+    if (applicationId) {
+      addExact(
+        ["admin-application", applicationId],
+        ["candidate-application-status", applicationId],
+        ["application-success", applicationId],
+        ["application-review", applicationId],
+        ["application-post-selection", applicationId],
+      );
+    }
+  }
+
+  if (eventName.startsWith("payment:")) {
+    addRoots(
+      "admin-applications",
+      "admin-payment-stats",
+      "candidate-dashboard",
+      "candidate-payments",
+    );
+    if (applicationId) {
+      addExact(
+        ["admin-application", applicationId],
+        ["application-success", applicationId],
+      );
+    }
+  }
+
+  if (eventName.startsWith("project:")) {
+    addRoots("admin-projects", "public-projects", "public-jobs");
+    if (projectId) {
+      addExact(["admin-project", projectId], ["public-project", projectId]);
+    }
+  }
+
+  if (eventName.startsWith("job:")) {
+    addRoots(
+      "admin-jobs",
+      "candidate-jobs",
+      "public-jobs",
+      "public-projects",
+    );
+    if (jobId) {
+      addExact(["admin-job", jobId], ["public-job", jobId], ["job-details-review", jobId]);
+    }
+    if (projectId) {
+      addExact(["admin-project", projectId], ["public-project", projectId]);
+    }
+  }
+
+  if (eventName.startsWith("cms:")) {
+    addRoots(
+      "admin-cms-page",
+      "admin-cms-pages",
+      "public-cms-page",
+      "public-projects",
+      "public-jobs",
+    );
+  }
+
+  if (eventName.startsWith("exam:")) {
+    addRoots(
+      "exam-centers",
+      "exam-rooms",
+      "exam-schedules",
+      "exam-schedule-stats",
+      "public-admit-cards",
+      "public-jobs",
+      "admin-applications",
+    );
+    if (scheduleId) {
+      addExact(
+        ["exam-schedule", scheduleId],
+        ["exam-schedule-stats", scheduleId],
+        ["exam-allocations", scheduleId],
+        ["schedule-admit-cards", scheduleId],
+        ["bulk-exam-jobs", scheduleId],
+      );
+    }
+    if (applicationId) {
+      addExact(["admin-application", applicationId]);
+    }
+  }
+
+  if (eventName.startsWith("support:")) {
+    addRoots(
+      "candidate-tickets",
+      "admin-support-tickets",
+      "admin-support-tickets-kanban",
+      "admin-support-stats",
+    );
+    if (ticketId) {
+      addExact(["candidate-ticket", ticketId], ["admin-support-ticket", ticketId]);
+    }
+  }
+
+  if (
+    eventName.startsWith("dashboard:") ||
+    eventName === "admin:live:count"
+  ) {
+    addRoots(
+      "admin-analytics",
+      "admin-applications",
+      "admin-dashboard",
+      "admin-employees",
+      "admin-jobs",
+      "admin-projects",
+      "admin-roles",
+      "candidate-dashboard",
+      "exam-schedules",
+      "public-jobs",
+      "public-projects",
+    );
+  }
+
+  if (roots.size > 0) {
+    queryClient.invalidateQueries({
+      predicate: (query) => roots.has(query.queryKey?.[0]),
+      refetchType: "active",
+    });
+  }
+
+  exactKeys.forEach((queryKey) => {
+    queryClient.invalidateQueries({ queryKey, refetchType: "active" });
+  });
 };
 
 const useRealtimeTokenVersion = () => {

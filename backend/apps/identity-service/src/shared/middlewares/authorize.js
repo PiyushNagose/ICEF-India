@@ -40,14 +40,22 @@ const checkPermission = (module, action) => {
         const Employee = require("../models/Employee");
         const Role = require("../models/Role");
 
-        const employee = await Employee.findById(req.user.id).select("systemRole");
+        const employee = await Employee.findById(req.user.id).select(
+          "status systemRole",
+        );
         if (!employee) {
           throw new ApiError(403, "Employee not found");
+        }
+        if (employee.status !== "Active") {
+          throw new ApiError(403, "Employee account is inactive");
         }
 
         const role = await Role.findById(employee.systemRole);
         if (!role) {
           throw new ApiError(403, "Role not found");
+        }
+        if (role.isActive === false) {
+          throw new ApiError(403, "Role is inactive");
         }
 
         const hasPermission = role.permissions?.[module]?.[action];

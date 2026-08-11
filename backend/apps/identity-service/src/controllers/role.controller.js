@@ -90,17 +90,23 @@ const getPermissionsStructure = asyncHandler(async (req, res) => {
       {
         name: "jobs",
         label: "Jobs Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: ["create", "view", "edit", "delete", "publish", "download"],
       },
       {
         name: "applications",
         label: "Applications Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: [
+          "view",
+          "edit",
+          "approve",
+          "reject",
+          "download",
+        ],
       },
       {
         name: "analytics",
         label: "Analytics & Reports",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: ["view", "download"],
       },
       {
         name: "employees",
@@ -113,24 +119,49 @@ const getPermissionsStructure = asyncHandler(async (req, res) => {
         actions: ["create", "view", "edit", "delete", "download"],
       },
       {
+        name: "payments",
+        label: "Payments & Reconciliation",
+        actions: ["view", "refund", "reconcile", "download"],
+      },
+      {
         name: "support",
         label: "Support Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: ["create", "view", "edit", "assign", "resolve", "download"],
       },
       {
         name: "projects",
         label: "Project Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: ["create", "view", "edit", "delete", "publish", "download"],
       },
       {
         name: "results",
         label: "Results Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: ["create", "view", "edit", "delete", "publish", "download"],
       },
       {
         name: "admitCards",
         label: "Admit Card Management",
-        actions: ["create", "view", "edit", "delete", "download"],
+        actions: [
+          "create",
+          "view",
+          "edit",
+          "delete",
+          "publishWindow",
+          "generateOnDemand",
+          "bulkGenerate",
+          "attendance",
+          "download",
+        ],
+      },
+      {
+        name: "cms",
+        label: "Public CMS",
+        actions: ["create", "view", "edit", "delete", "publish"],
+      },
+      {
+        name: "activityLogs",
+        label: "Activity Logs",
+        actions: ["view", "download"],
       },
     ],
   };
@@ -214,7 +245,7 @@ const getRole = asyncHandler(async (req, res) => {
  *         description: Role name already exists
  */
 const createRole = asyncHandler(async (req, res) => {
-  const { roleName, roleDescription, permissions } = req.body;
+  const { roleName, roleDescription, permissions, isActive } = req.body;
   const normalizedRoleName = roleName?.trim().toLowerCase();
 
   if (normalizedRoleName === "super admin") {
@@ -235,6 +266,7 @@ const createRole = asyncHandler(async (req, res) => {
     roleName,
     roleDescription,
     permissions,
+    isActive,
     createdBy: req.user.id,
   });
   await role.populate("createdBy", "fullName employeeId");
@@ -291,7 +323,7 @@ const updateRole = asyncHandler(async (req, res) => {
     );
   }
 
-  const { roleName, roleDescription, permissions } = req.body;
+  const { roleName, roleDescription, permissions, isActive } = req.body;
 
   if (roleName && roleName !== role.roleName) {
     const existing = await Role.findOne({ roleName });
@@ -302,8 +334,13 @@ const updateRole = asyncHandler(async (req, res) => {
   if (roleName !== undefined) role.roleName = roleName;
   if (roleDescription !== undefined) role.roleDescription = roleDescription;
   if (permissions !== undefined) role.permissions = permissions;
+  if (isActive !== undefined) role.isActive = isActive;
 
   await role.save();
+  await Employee.updateMany(
+    { systemRole: role._id },
+    { $unset: { refreshToken: "" }, $inc: { sessionVersion: 1 } },
+  );
   await role.populate("createdBy", "fullName employeeId");
   await saveAuditLog(req, `Updated role: ${role.roleName}`);
 

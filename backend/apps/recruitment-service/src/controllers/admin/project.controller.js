@@ -5,7 +5,11 @@ const Application = require("../../shared/models/Application");
 const ApiError = require("../../shared/utils/ApiError");
 const { ApiResponse, paginationMeta } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
-const { emitToAdmins, SOCKET_EVENTS } = require("../../shared/socket/index");
+const {
+  emitToAdmins,
+  emitBroadcast,
+  SOCKET_EVENTS,
+} = require("../../shared/socket/index");
 const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const {
@@ -193,6 +197,16 @@ const createProject = asyncHandler(async (req, res) => {
     project: project.toObject(),
     timestamp: new Date(),
   });
+  emitToAdmins(SOCKET_EVENTS.PROJECT_CREATED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.PROJECT_CREATED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(StatusCodes.CREATED, "Project created successfully", {
@@ -243,6 +257,16 @@ const updateProject = asyncHandler(async (req, res) => {
     project: project.toObject(),
     timestamp: new Date(),
   });
+  emitToAdmins(SOCKET_EVENTS.PROJECT_UPDATED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.PROJECT_UPDATED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Project updated successfully", {
@@ -281,6 +305,17 @@ const deleteProject = asyncHandler(async (req, res) => {
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
     type: "project_deleted",
     message: `Project "${project.name}" deleted`,
+    projectId: project._id,
+    timestamp: new Date(),
+  });
+  emitToAdmins(SOCKET_EVENTS.PROJECT_DELETED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.PROJECT_DELETED, {
+    projectId: project._id,
+    project: project.toObject(),
     timestamp: new Date(),
   });
 

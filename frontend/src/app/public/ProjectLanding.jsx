@@ -26,6 +26,10 @@ import {
   getApplicationAction,
   getJobAvailability,
 } from "../../utils/jobAvailability";
+import {
+  getRouteForApplicationStep,
+  persistApplicationDraft,
+} from "../../utils/applicationFlow";
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const fmt = (d) =>
@@ -258,7 +262,27 @@ export default function ProjectLanding() {
     navigate(`/apply/${slug}/start?jobId=${job._id}`);
   };
 
-  const handleStatus = (application) => {
+  const handleStatus = (application, job) => {
+    if (application?.status === "draft") {
+      persistApplicationDraft({
+        applicationId: application._id,
+        jobId: job?._id || application.jobId?._id || application.jobId,
+      });
+      navigate(
+        getRouteForApplicationStep(
+          { ...application, jobId: job || application.jobId },
+          application.currentStep || 1,
+        ),
+        {
+          state: {
+            applicationId: application._id,
+            jobId: job?._id || application.jobId?._id || application.jobId,
+          },
+        },
+      );
+      return;
+    }
+
     navigate("/check-status", {
       state: {
         applicationId: application?._id,
@@ -446,7 +470,7 @@ export default function ProjectLanding() {
                       job={job}
                       existingApp={appliedMap[job._id]}
                       onApply={handleApply}
-                      onStatus={handleStatus}
+                    onStatus={(application) => handleStatus(application, job)}
                     />
                   ))}
                 </div>

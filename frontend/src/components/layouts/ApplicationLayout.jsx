@@ -77,10 +77,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
 
   const app = appData?.application || appData;
   const correctionMode = isCorrectionMode(app) || draft.correctionMode === true;
-  const dynamicSteps =
-    app?.jobId?.formSections || app?.jobId?.documentRequirements
-      ? buildApplicationSteps(app.jobId, app)
-      : [];
+  const dynamicSteps = app?.jobId ? buildApplicationSteps(app.jobId, app) : [];
   const steps = dynamicSteps.length > 0 ? dynamicSteps : FALLBACK_STEPS;
   const activeStep =
     steps.find((step) => {

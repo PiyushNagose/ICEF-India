@@ -128,6 +128,11 @@ const paymentConfigSchema = new mongoose.Schema(
     applicationFee: Number,
     examFee: Number,
     processingFee: Number,
+    paymentTiming: {
+      type: String,
+      enum: ["after_personal", "final"],
+      default: "final",
+    },
     paymentDeadline: Date,
     paymentMethods: [
       { type: String, enum: ["razorpay", "payu", "ccavenue", "billdesk"] },

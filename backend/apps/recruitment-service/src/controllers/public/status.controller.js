@@ -11,6 +11,11 @@ const {
   normalizeOtpIdentifier,
   assertOTPVerified,
 } = require("../../shared/utils/publicOtp");
+const {
+  emitToAdmins,
+  emitToCandidate,
+  SOCKET_EVENTS,
+} = require("../../shared/socket/index");
 
 const getCorrectionDisplayStatus = (correction) => {
   if (!correction || correction.status === "none") {
@@ -353,6 +358,28 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     ticket._id;
   application.correction.supportTicket = ticket._id;
   await application.save();
+
+  const correctionPayload = {
+    applicationId: application._id,
+    publicApplicationId: application.applicationId,
+    registrationNumber: application.registrationNumber,
+    requestId,
+    ticketId: ticket._id,
+    status: "pending",
+    timestamp: new Date(),
+  };
+  try {
+    emitToAdmins(SOCKET_EVENTS.CORRECTION_SUBMITTED, correctionPayload);
+    if (application.candidateId?._id) {
+      emitToCandidate(
+        application.candidateId._id,
+        SOCKET_EVENTS.CORRECTION_SUBMITTED,
+        correctionPayload,
+      );
+    }
+  } catch {
+    // Socket.IO may not be initialized in test/CLI contexts.
+  }
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(

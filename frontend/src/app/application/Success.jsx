@@ -27,13 +27,14 @@ const Success = () => {
   const location = useLocation();
   const draft = readApplicationDraft();
   const rawApplicationId = location.state?.applicationId || draft.applicationId;
-  const transactionId = location.state?.transactionId || "-";
+  const stateTransactionId = location.state?.transactionId;
   const amount = location.state?.amount || 0;
   const selectedPostsFromState = location.state?.selectedPosts || [];
   const submittedAtFromState = location.state?.submittedAt;
   const [showAcknowledgement, setShowAcknowledgement] = useState(false);
+  const [finalizingSubmit, setFinalizingSubmit] = useState(false);
 
-  const { data: appData, isLoading } = useQuery({
+  const { data: appData, isLoading, refetch } = useQuery({
     queryKey: ["application-success", rawApplicationId],
     queryFn: () => candidateService.getApplication(rawApplicationId),
     enabled: Boolean(rawApplicationId),
@@ -41,6 +42,7 @@ const Success = () => {
   });
 
   const app = appData?.application || appData;
+  const transactionId = app?.transactionId || stateTransactionId || "-";
   const correctionMode =
     isCorrectionMode(app) ||
     draft.correctionMode === true ||
@@ -70,7 +72,7 @@ const Success = () => {
 
   // Clear draft and fire correction toast on mount
   useEffect(() => {
-    if (app && !correctionMode) {
+    if (app && !correctionMode && ["submitted", "approved"].includes(app.status)) {
       sessionStorage.removeItem("app_draft");
     }
     if (app && correctionMode) {
@@ -83,6 +85,42 @@ const Success = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app]);
+
+  useEffect(() => {
+    const finalizeEarlyPaidDraft = async () => {
+      if (
+        !app ||
+        correctionMode ||
+        ["submitted", "approved"].includes(app.status) ||
+        finalizingSubmit
+      ) {
+        return;
+      }
+
+      setFinalizingSubmit(true);
+      try {
+        const finalTransactionId =
+          app.transactionId ||
+          stateTransactionId ||
+          (Number(app.totalFee || amount || 0) === 0
+            ? `FREE-${Date.now()}`
+            : "");
+        await candidateService.finalizeApplication(
+          rawApplicationId,
+          finalTransactionId,
+          draft.declaration || "",
+        );
+        await refetch();
+      } catch (err) {
+        toast.error(err.message || "Final submission failed. Please try again.");
+      } finally {
+        setFinalizingSubmit(false);
+      }
+    };
+
+    finalizeEarlyPaidDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app?._id, app?.status, correctionMode]);
 
   const handleDownloadAcknowledgement = () => {
     setShowAcknowledgement(true);
@@ -228,11 +266,13 @@ const Success = () => {
       </header>
 
       <main className="application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6">
-        {isLoading ? (
+        {isLoading || finalizingSubmit ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
             <span className="ml-3 text-gray-600">
-              Loading application details...
+              {finalizingSubmit
+                ? "Submitting your application..."
+                : "Loading application details..."}
             </span>
           </div>
         ) : (

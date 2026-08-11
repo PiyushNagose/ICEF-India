@@ -202,7 +202,9 @@ const loginAdmin = async (
   meta = {},
 ) => {
   const employee = await Employee.findOne({ officialEmail: email })
-    .select("+password +refreshToken +failedLoginAttempts +lockedUntil")
+    .select(
+      "+password +refreshToken +failedLoginAttempts +lockedUntil +sessionVersion",
+    )
     .populate("systemRole", "roleName permissions isSystemRole");
   if (!employee) throw new ApiError(401, "Invalid credentials");
   if (employee.status !== "Active")
@@ -238,6 +240,7 @@ const loginAdmin = async (
     email: employee.officialEmail,
     role: internalRole,
     employeeId: employee.employeeId,
+    sessionVersion: employee.sessionVersion || 0,
   };
   const { accessToken, refreshToken } = generateTokenPair(payload);
 
@@ -272,7 +275,12 @@ const refreshAccessToken = async (incomingRefreshToken) => {
   if (decoded.role === "candidate") {
     entity = await User.findById(decoded.id).select("+refreshToken");
   } else {
-    entity = await Employee.findById(decoded.id).select("+refreshToken");
+    entity = await Employee.findById(decoded.id).select(
+      "+refreshToken +sessionVersion status",
+    );
+    if (entity?.status !== "Active") {
+      throw new ApiError(403, "Account is not active");
+    }
   }
 
   if (!entity || entity.refreshToken !== incomingRefreshToken) {
@@ -284,6 +292,9 @@ const refreshAccessToken = async (incomingRefreshToken) => {
     email: entity.email || entity.officialEmail,
     role: decoded.role,
     ...(decoded.employeeId && { employeeId: decoded.employeeId }),
+    ...(decoded.role !== "candidate" && {
+      sessionVersion: entity.sessionVersion || 0,
+    }),
   };
 
   const { accessToken, refreshToken } = generateTokenPair(payload);
@@ -359,6 +370,7 @@ const resetPassword = async ({
     account.passwordChangedAt = new Date();
     account.failedLoginAttempts = 0;
     account.lockedUntil = undefined;
+    account.sessionVersion = (account.sessionVersion || 0) + 1;
   }
   await account.save();
 

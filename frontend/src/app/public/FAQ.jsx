@@ -28,12 +28,12 @@ const baseFaqs = [
   {
     question: "How do I apply for a job?",
     answer:
-      "Open an active job, review eligibility, login or register as a candidate, complete all application steps, pay any applicable fee, and submit before the deadline.",
+      "Open an active job, verify your email and mobile, complete the application steps, pay any applicable fee, and submit before the deadline.",
   },
   {
     question: "Can I resume a draft application?",
     answer:
-      "Yes. Open the public application status page with your registered details. Draft applications can be resumed from the saved step when allowed.",
+      "Yes. Open the same job or project apply page after verification. The Resume Application button continues the saved draft from its current step. The status page is for submitted applications after a registration number is issued.",
   },
   {
     question: "Where do I download admit cards?",

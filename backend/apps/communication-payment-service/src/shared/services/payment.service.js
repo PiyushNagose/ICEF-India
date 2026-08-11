@@ -11,6 +11,7 @@ const {
   getPaginationParams,
   encrypt,
   decrypt,
+  calculateFee,
 } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
 const {
@@ -127,6 +128,14 @@ const calculateProcessingFee = (baseAmount, processingPercent = 0) => {
   return Math.round((amount * percent) / 100);
 };
 
+const isEarlyPaymentApplication = (application) => {
+  const timing =
+    application?.jobId?.paymentConfig?.paymentTiming ||
+    application?.paymentTiming ||
+    "final";
+  return ["after_personal", "step1"].includes(timing);
+};
+
 const finalizePaidApplicationForPayment = async (payment, transactionId) => {
   const application = await Application.findById(payment.applicationId)
     .populate("candidateId", "email fullName")
@@ -136,6 +145,14 @@ const finalizePaidApplicationForPayment = async (payment, transactionId) => {
 
   application.paymentStatus = "paid";
   application.transactionId = transactionId;
+
+  if (isEarlyPaymentApplication(application) && application.status === "draft") {
+    application.paymentTiming = "after_personal";
+    application.currentStep = Math.max(Number(application.currentStep || 1), 2);
+    await application.save();
+    return application;
+  }
+
   application.status = "approved";
   application.submittedAt = application.submittedAt || new Date();
   application.currentStep = Math.max(Number(application.currentStep || 1), 9);
@@ -377,7 +394,7 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
     _id: applicationId,
     candidateId,
   })
-    .populate("jobId", "paymentConfig applicationDeadline")
+    .populate("jobId", "paymentConfig applicationDeadline applicationFee")
     .populate("appliedPosts");
   if (!application) throw new ApiError(404, "Application not found");
   if (application.paymentStatus === "paid")
@@ -390,6 +407,18 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
       (s, p) => s + (p.fee || 0),
       0,
     );
+  if (!applicationFee) {
+    applicationFee = calculateFee(
+      application.jobId?.applicationFee || {},
+      application.personalDetails?.category,
+    );
+  }
+  if (!application.totalFee && applicationFee >= 0) {
+    application.totalFee = applicationFee;
+    application.paymentTiming =
+      application.jobId?.paymentConfig?.paymentTiming || application.paymentTiming;
+    await application.save();
+  }
   const processingPercent =
     application.jobId?.paymentConfig?.processingFee || 0;
   const processingFee = calculateProcessingFee(
