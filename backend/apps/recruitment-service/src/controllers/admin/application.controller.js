@@ -17,6 +17,14 @@ const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const { notify } = require("../../shared/utils/notify");
 const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
+const {
+  buildExportContent,
+  buildGovernmentBundle,
+  writeExportFile,
+} = require("../../shared/services/applicationExport.service");
+const {
+  applyFileStorageMetadata,
+} = require("../../shared/services/fileStorage.service");
 
 const getApplicationCandidateName = (application) =>
   application?.personalDetails?.fullName ||
@@ -116,6 +124,135 @@ const getRequiredDocumentIssues = (application) => {
     return [];
   });
 };
+
+const buildExportFilter = (query = {}) => {
+  const filter = {};
+  if (query.status && query.status !== "all") filter.status = query.status;
+  if (query.paymentStatus && query.paymentStatus !== "all") {
+    filter.paymentStatus = query.paymentStatus;
+  }
+  if (query.documentStatus && query.documentStatus !== "all") {
+    filter.documentStatus = query.documentStatus;
+  }
+  if (query.jobId) filter.jobId = query.jobId;
+  if (query.search) {
+    const searchRegex = new RegExp(String(query.search).trim(), "i");
+    filter.$or = [
+      { applicationId: searchRegex },
+      { registrationNumber: searchRegex },
+      { contactEmail: searchRegex },
+      { contactMobile: searchRegex },
+      { "personalDetails.fullName": searchRegex },
+      { "personalDetails.registeredMobile": searchRegex },
+    ];
+  }
+  return filter;
+};
+
+const loadExportApplications = async (query = {}) => {
+  const filter = buildExportFilter(query);
+  const limit = Math.min(Number(query.limit || 50000), 100000);
+  const applications = await Application.find(filter)
+    .sort({ submittedAt: -1, createdAt: -1 })
+    .limit(limit)
+    .populate("candidateId", "fullName email registeredMobile category")
+    .populate({
+      path: "jobId",
+      select: "title postCode department projectId",
+      populate: { path: "projectId", select: "name publicSlug" },
+    })
+    .lean();
+
+  return applications;
+};
+
+const normalizeExportType = (type) => {
+  const allowed = new Set([
+    "register",
+    "documents",
+    "payments",
+    "corrections",
+    "bundle",
+    "print",
+  ]);
+  return allowed.has(type) ? type : "register";
+};
+
+const sendExportFile = (res, file) => {
+  res.setHeader("Content-Type", file.contentType);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${file.filename}"`,
+  );
+  return res.sendFile(file.filePath);
+};
+
+const exportApplications = asyncHandler(async (req, res) => {
+  const type = normalizeExportType(req.params.type);
+  const applications = await loadExportApplications(req.query);
+
+  if (type === "bundle") {
+    const bundle = await buildGovernmentBundle(applications);
+    await saveAuditLog(
+      req,
+      `Exported government handover bundle for ${applications.length} applications`,
+    );
+    return sendExportFile(res, bundle);
+  }
+
+  const content = buildExportContent(type, applications);
+  const isPrintableRegister = type === "print";
+  const file = await writeExportFile({
+    filename: `application-${type}-${Date.now()}.${
+      isPrintableRegister ? "html" : "csv"
+    }`,
+    content,
+    contentType: isPrintableRegister
+      ? "text/html; charset=utf-8"
+      : "text/csv; charset=utf-8",
+  });
+
+  await saveAuditLog(
+    req,
+    `Exported application ${type} register for ${applications.length} applications`,
+  );
+
+  return sendExportFile(res, file);
+});
+
+const repairStorageManifests = asyncHandler(async (req, res) => {
+  const filter = buildExportFilter(req.query);
+  const limit = Math.min(Number(req.query.limit || 5000), 20000);
+  const applications = await Application.find(filter)
+    .sort({ submittedAt: -1, createdAt: -1 })
+    .limit(limit)
+    .populate({
+      path: "jobId",
+      select: "title postCode department projectId",
+      populate: { path: "projectId", select: "name publicSlug" },
+    });
+
+  let updatedCount = 0;
+  for (const application of applications) {
+    applyFileStorageMetadata(application, {
+      job: application.jobId,
+      project: application.jobId?.projectId,
+    });
+    await application.save();
+    updatedCount += 1;
+  }
+
+  await saveAuditLog(
+    req,
+    `Repaired storage manifests for ${updatedCount} applications`,
+  );
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Storage manifests repaired", {
+      updatedCount,
+    }),
+  );
+});
 
 const assertReviewTransitionAllowed = (application, status, reason, issues = []) => {
   if (!REVIEW_STATUSES.has(status)) {
@@ -533,14 +670,14 @@ const reviewCorrection = asyncHandler(async (req, res) => {
 
   await application.save();
 
-  await saveAuditLog(req, {
-    action:
-      action === "approve" ? "APPROVE_CORRECTION" : "REQUEST_CORRECTION_AGAIN",
-    applicationId: application.applicationId,
-    registrationNumber: application.registrationNumber,
-    correctionRequestId: correction.requestId,
-    notes,
-  });
+  await saveAuditLog(
+    req,
+    `${
+      action === "approve" ? "Approved correction" : "Requested correction again"
+    } for ${application.registrationNumber || application.applicationId} (${
+      correction.requestId
+    })${notes ? `: ${notes}` : ""}`,
+  );
 
   const correctionReviewPayload = {
     applicationId: application._id,
@@ -949,6 +1086,8 @@ const getApplicationStats = asyncHandler(async (req, res) => {
 module.exports = {
   getApplications,
   getApplication,
+  exportApplications,
+  repairStorageManifests,
   updateApplicationStatus,
   reviewCorrection,
   bulkUpdateApplications,

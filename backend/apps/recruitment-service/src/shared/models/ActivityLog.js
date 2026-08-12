@@ -24,6 +24,7 @@ const activityLogSchema = new mongoose.Schema(
         "GENERATE",
         "REGENERATE",
         "BULK_DOWNLOAD",
+        "EXPORT",
         "RETRY",
         "APPROVE",
         "REJECT",

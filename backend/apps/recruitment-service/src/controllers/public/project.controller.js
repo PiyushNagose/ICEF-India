@@ -7,9 +7,37 @@ const asyncHandler = require("../../shared/utils/asyncHandler");
 const { getRedis } = require("../../shared/config/redis");
 const { getProjectLifecycleStatus } = require("../../shared/utils/timeline");
 
-const CACHE_TTL = 60; // public data changes often during admin setup
+const CACHE_TTL = 10; // keep public pages fresh after admin publishing changes
 const PUBLIC_JOB_FILTER = { status: "active" };
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getVisibleJobFilter = (now = new Date()) => ({
+  status: "active",
+  $or: [
+    { applicationDeadline: { $exists: false } },
+    { applicationDeadline: null },
+    { applicationDeadline: { $gte: now } },
+  ],
+});
+
+const safeCacheGet = async (redis, key) => {
+  if (!redis) return null;
+  try {
+    return await redis.get(key);
+  } catch (error) {
+    console.warn(`[PUBLIC] Cache read skipped for ${key}: ${error.message}`);
+    return null;
+  }
+};
+
+const safeCacheSet = async (redis, key, ttl, payload) => {
+  if (!redis) return;
+  try {
+    await redis.setex(key, ttl, JSON.stringify(payload));
+  } catch (error) {
+    console.warn(`[PUBLIC] Cache write skipped for ${key}: ${error.message}`);
+  }
+};
 
 const buildAvailability = (job, now = new Date()) => {
   const start = job.applicationStartDate
@@ -63,14 +91,12 @@ const buildAvailability = (job, now = new Date()) => {
 const getProjectBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const redis = getRedis();
-  const cacheKey = `public:v2:project:${slug}`;
+  const cacheKey = `public:v3:project:${slug}`;
 
   // Try cache first
-  if (redis) {
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return res.status(StatusCodes.OK).json(JSON.parse(cached));
-    }
+  const cached = await safeCacheGet(redis, cacheKey);
+  if (cached) {
+    return res.status(StatusCodes.OK).json(JSON.parse(cached));
   }
 
   const project = await Project.findOne({ publicSlug: slug })
@@ -116,9 +142,7 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
   );
 
   // Cache the response
-  if (redis) {
-    await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(payload));
-  }
+  await safeCacheSet(redis, cacheKey, CACHE_TTL, payload);
 
   res.status(StatusCodes.OK).json(payload);
 });
@@ -130,13 +154,11 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
 const getActiveProjects = asyncHandler(async (req, res) => {
   const { page = 1, limit = 12, state, department, search } = req.query;
   const redis = getRedis();
-  const cacheKey = `public:v2:projects:${JSON.stringify(req.query)}`;
+  const cacheKey = `public:v3:projects:${JSON.stringify(req.query)}`;
 
-  if (redis) {
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return res.status(StatusCodes.OK).json(JSON.parse(cached));
-    }
+  const cached = await safeCacheGet(redis, cacheKey);
+  if (cached) {
+    return res.status(StatusCodes.OK).json(JSON.parse(cached));
   }
 
   const filter = { status: { $ne: "Cancelled" } };
@@ -169,26 +191,41 @@ const getActiveProjects = asyncHandler(async (req, res) => {
     .filter((project) => project.status === "Active");
 
   const projectIds = lifecycleActiveProjects.map((project) => project._id);
+  const now = new Date();
+  const visibleJobFilter = getVisibleJobFilter(now);
   const jobCounts = projectIds.length
     ? await Job.aggregate([
         {
           $match: {
             projectId: { $in: projectIds },
-            ...PUBLIC_JOB_FILTER,
+            ...visibleJobFilter,
           },
         },
-        { $group: { _id: "$projectId", totalJobs: { $sum: 1 } } },
+        {
+          $group: {
+            _id: "$projectId",
+            totalJobs: { $sum: 1 },
+            totalPosts: { $sum: "$totalPosts" },
+            nearestDeadline: { $min: "$applicationDeadline" },
+          },
+        },
       ])
     : [];
   const countByProjectId = new Map(
-    jobCounts.map((item) => [String(item._id), item.totalJobs]),
+    jobCounts.map((item) => [String(item._id), item]),
   );
 
   const activeProjects = lifecycleActiveProjects
-    .map((project) => ({
-      ...project,
-      totalJobs: countByProjectId.get(String(project._id)) || 0,
-    }))
+    .map((project) => {
+      const count = countByProjectId.get(String(project._id));
+      return {
+        ...project,
+        totalJobs: count?.totalJobs || 0,
+        openJobs: count?.totalJobs || 0,
+        totalPosts: count?.totalPosts || 0,
+        nearestDeadline: count?.nearestDeadline || null,
+      };
+    })
     .filter((project) => project.totalJobs > 0);
   const total = activeProjects.length;
   const skip = (requestedPage - 1) * requestedLimit;
@@ -208,9 +245,7 @@ const getActiveProjects = asyncHandler(async (req, res) => {
     },
   );
 
-  if (redis) {
-    await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(payload));
-  }
+  await safeCacheSet(redis, cacheKey, CACHE_TTL, payload);
 
   res.status(StatusCodes.OK).json(payload);
 });

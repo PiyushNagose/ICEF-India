@@ -92,6 +92,28 @@ Use this order instead of the older phase ordering where it conflicts:
 7. Public/candidate admit card, status, result, and verification pages.
 8. Scale hardening: queues, ZIP exports, audit logs, rate limits, monitoring.
 
+## Phase 5 Implemented Flow: File Storage And Government Handover
+
+For 10 lakh+ scale, uploaded files are not treated as loose application attachments. Every submitted application now carries a storage manifest:
+
+- `fileStorage.provider`: active storage provider, currently Cloudinary.
+- `fileStorage.batchNumber`: deterministic batch group, e.g. `batch-000001-010000`.
+- `fileStorage.basePath`: project/job/application level storage path.
+- `fileStorage.files`: normalized document manifest with type, original file name, size, status, URL, public ID, and upload time.
+- `fileStorage.totalStorageUsed`: application-level storage usage for reporting.
+
+New uploads are stored under project/job/batch/application paths so documents remain searchable, exportable, and easy to hand over even when volume grows.
+
+Admin government handover is handled from **Admin -> Applications -> Government Handover Exports**:
+
+- Application Register CSV: master candidate/application record.
+- Document Manifest CSV: all uploaded document URLs/public IDs/statuses.
+- Payment Register CSV: fee and transaction audit.
+- Correction Register CSV: clarification/correction audit.
+- Government Handover ZIP: all of the above in one downloadable bundle.
+
+For old records, admin can run **Repair old storage manifests** to backfill storage metadata from existing document records. This does not move files; it creates a clean index/manifest for reporting and government sharing.
+
 ## Edge Cases That Must Be Covered
 
 - Duplicate mobile/email applying for same job.

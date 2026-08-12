@@ -23,6 +23,18 @@ router.get(
   checkPermission("applications", "view"),
   applicationController.getApplicationStats,
 );
+router.post(
+  "/exports/repair-manifests",
+  checkPermission("applications", "edit"),
+  auditLog("Applications", "UPDATE"),
+  applicationController.repairStorageManifests,
+);
+router.get(
+  "/exports/:type",
+  checkPermission("applications", "view"),
+  auditLog("Applications", "EXPORT"),
+  applicationController.exportApplications,
+);
 router.get(
   "/:id",
   checkPermission("applications", "view"),

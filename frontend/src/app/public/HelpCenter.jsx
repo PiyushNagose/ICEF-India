@@ -163,7 +163,7 @@ const HelpCenter = () => {
     {
       question: "Can I apply for multiple jobs?",
       answer:
-        "Yes, you can apply for multiple jobs. Each application is separate and requires its own payment. You can track all your applications from your dashboard.",
+        "Yes, you can apply for multiple jobs. Each application is separate and gets its own registration number after submission. Track each application from the public status page using that registration number and registered mobile OTP.",
     },
     {
       question: "What if I made a mistake in my application?",
@@ -173,7 +173,7 @@ const HelpCenter = () => {
     {
       question: "How long does it take to process my application?",
       answer:
-        "Applications are typically processed within 5-7 business days. You will receive email notifications at each stage of the process. You can also check the status in your dashboard.",
+        "Applications are processed according to the recruitment timeline. You will receive email/SMS updates where enabled, and you can check status from the public status page using your registration number and mobile OTP.",
     },
     {
       question: "What payment methods are accepted?",
@@ -188,7 +188,7 @@ const HelpCenter = () => {
     {
       question: "Can I download my admit card before the exam date?",
       answer:
-        'Yes, admit cards are usually available 2-3 weeks before the exam date. You can download and print them from the "Admit Cards" section in your dashboard.',
+        'Admit cards are available only after the official release window opens. You can download and print them from the public "Admit Cards" page using your registration number and registered mobile OTP.',
     },
   ];
 

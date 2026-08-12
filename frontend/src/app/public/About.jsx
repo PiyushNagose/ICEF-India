@@ -47,7 +47,7 @@ const About = () => {
         <div className="grid gap-5 md:grid-cols-3">
           {[
             { icon: ShieldCheck, title: "Verified Recruitment", description: "Only active jobs published by authorized departments are shown to candidates.", to: "/jobs" },
-            { icon: Users, title: "Candidate First", description: "Candidates can apply, resume drafts, track applications, and receive updates from their dashboard.", to: "/how-to-apply" },
+            { icon: Users, title: "Candidate First", description: "Candidates can apply, resume drafts, and track updates through public status services using registration number and mobile OTP.", to: "/how-to-apply" },
             { icon: Building2, title: "Department Coverage", description: "Browse opportunities across active departments and recruitment projects.", to: "/jobs" },
           ].map((card, i) => (
             <motion.div

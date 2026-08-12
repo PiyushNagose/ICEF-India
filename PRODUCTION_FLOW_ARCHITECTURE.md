@@ -141,6 +141,26 @@ The implementation must handle:
 - Employee permission change during active session.
 - Result upload with invalid roll number or duplicate row.
 
+### 7. File Storage And Government Handover
+
+At production scale, file storage must be exportable and auditable without opening each application one by one.
+
+Implemented operating model:
+
+- Each application has a normalized `fileStorage` manifest.
+- New document uploads are grouped by project, job, batch, and application/registration number.
+- Batch size is designed around 10,000 applications per group so 10 lakh+ records remain manageable.
+- Document exports use manifests, not browser-side aggregation.
+- Admin can download government handover bundles from Applications:
+  - application register CSV
+  - document manifest CSV
+  - payment register CSV
+  - correction register CSV
+  - combined ZIP bundle
+- Legacy records can be repaired by generating manifests from existing document metadata.
+
+This gives the third-party operator a practical way to share candidate application information with government stakeholders: one ZIP for structured registers plus document URLs/public IDs for hard-copy or archival retrieval.
+
 ---
 
 ---

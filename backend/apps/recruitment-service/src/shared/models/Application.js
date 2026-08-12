@@ -304,9 +304,28 @@ const applicationSchema = new mongoose.Schema(
 
     // File storage batch info (for 10 lakh+ scale)
     fileStorage: {
+      provider: { type: String, default: "cloudinary" },
       batchNumber: { type: String },
       basePath: { type: String },
+      fileCount: { type: Number, default: 0 },
       totalStorageUsed: { type: Number, default: 0 },
+      manifestUpdatedAt: { type: Date },
+      files: [
+        {
+          key: { type: String },
+          type: { type: String },
+          label: { type: String },
+          provider: { type: String },
+          url: { type: String },
+          publicId: { type: String },
+          localPath: { type: String },
+          mimeType: { type: String },
+          originalName: { type: String },
+          sizeKB: { type: Number },
+          status: { type: String },
+          uploadedAt: { type: Date },
+        },
+      ],
     },
   },
   { timestamps: true },
@@ -320,5 +339,7 @@ applicationSchema.index({ submittedAt: -1 });
 applicationSchema.index({ isPublicApplication: 1 });
 applicationSchema.index({ contactMobile: 1 });
 applicationSchema.index({ jobId: 1, contactEmail: 1, contactMobile: 1, status: 1 });
+applicationSchema.index({ "fileStorage.batchNumber": 1 });
+applicationSchema.index({ "fileStorage.basePath": 1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

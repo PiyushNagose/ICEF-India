@@ -8,6 +8,20 @@ const asyncHandler = require("../../shared/utils/asyncHandler");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+const getPublicListingFilter = (now = new Date()) => ({
+  status: "active",
+  $or: [
+    { applicationDeadline: { $exists: false } },
+    { applicationDeadline: null },
+    { applicationDeadline: { $gte: now } },
+  ],
+});
+
+const appendAndFilter = (filter, clause) => {
+  filter.$and = filter.$and || [];
+  filter.$and.push(clause);
+};
+
 const buildAvailability = (jobLike, now = new Date()) => {
   const job = jobLike?.toObject ? jobLike.toObject() : jobLike || {};
   const start = job.applicationStartDate
@@ -77,16 +91,7 @@ const getJobs = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  // Public listings show published active jobs that are either open or upcoming.
-  // Closed jobs remain visible on project pages/direct URLs, but not in active listings.
-  const filter = {
-    status: "active",
-    $or: [
-      { applicationDeadline: { $exists: false } },
-      { applicationDeadline: null },
-      { applicationDeadline: { $gte: now } },
-    ],
-  };
+  const filter = getPublicListingFilter(now);
 
   if (department) filter.department = new RegExp(department, "i");
   if (category) filter.category = category;
@@ -100,11 +105,13 @@ const getJobs = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    filter.$or = [
-      { title: new RegExp(search, "i") },
-      { description: new RegExp(search, "i") },
-      { department: new RegExp(search, "i") },
-    ];
+    appendAndFilter(filter, {
+      $or: [
+        { title: new RegExp(search, "i") },
+        { description: new RegExp(search, "i") },
+        { department: new RegExp(search, "i") },
+      ],
+    });
   }
 
   // Build sort
@@ -222,15 +229,18 @@ const getJob = asyncHandler(async (req, res) => {
  * @access  Public
  */
 const getJobStats = asyncHandler(async (req, res) => {
-  const totalActiveJobs = await Job.countDocuments({ status: "active" });
+  const now = new Date();
+  const publicListingFilter = getPublicListingFilter(now);
+
+  const totalActiveJobs = await Job.countDocuments(publicListingFilter);
 
   const totalVacancies = await Job.aggregate([
-    { $match: { status: "active" } },
+    { $match: publicListingFilter },
     { $group: { _id: null, total: { $sum: "$totalPosts" } } },
   ]);
 
   const departmentStats = await Job.aggregate([
-    { $match: { status: "active" } },
+    { $match: publicListingFilter },
     {
       $group: {
         _id: "$department",
@@ -243,20 +253,29 @@ const getJobStats = asyncHandler(async (req, res) => {
   ]);
 
   const upcomingDeadlines = await Job.find({
-    status: "active",
+    ...publicListingFilter,
     applicationDeadline: {
-      $gte: new Date(),
-      $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Next 7 days
+      $gte: now,
+      $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   })
-    .select("title department applicationDeadline")
+    .select("title department applicationDeadline projectId")
+    .populate("projectId", "name state publicSlug")
     .sort({ applicationDeadline: 1 })
     .limit(5);
+
+  const [totalApplications, activeProjectIds] = await Promise.all([
+    Application.countDocuments({ status: { $ne: "draft" } }),
+    Job.distinct("projectId", publicListingFilter),
+  ]);
+  const totalActiveProjects = activeProjectIds.filter(Boolean).length;
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Job statistics fetched successfully", {
       totalActiveJobs,
       totalVacancies: totalVacancies[0]?.total || 0,
+      totalApplications,
+      totalActiveProjects,
       departmentStats,
       upcomingDeadlines,
     }),
@@ -290,22 +309,17 @@ const searchJobs = asyncHandler(async (req, res) => {
     limit = 20,
   } = req.query;
 
-  const filter = {
-    status: "active",
-    $or: [
-      { applicationDeadline: { $exists: false } },
-      { applicationDeadline: null },
-      { applicationDeadline: { $gte: new Date() } },
-    ],
-  };
+  const filter = getPublicListingFilter(new Date());
 
   if (q) {
-    filter.$or = [
-      { title: new RegExp(q, "i") },
-      { description: new RegExp(q, "i") },
-      { department: new RegExp(q, "i") },
-      { postCode: new RegExp(q, "i") },
-    ];
+    appendAndFilter(filter, {
+      $or: [
+        { title: new RegExp(q, "i") },
+        { description: new RegExp(q, "i") },
+        { department: new RegExp(q, "i") },
+        { postCode: new RegExp(q, "i") },
+      ],
+    });
   }
 
   if (department) filter.department = new RegExp(department, "i");
@@ -515,7 +529,10 @@ const searchJobs = asyncHandler(async (req, res) => {
  * @access  Public
  */
 const getDepartments = asyncHandler(async (req, res) => {
-  const departments = await Job.distinct("department", { status: "active" });
+  const departments = await Job.distinct(
+    "department",
+    getPublicListingFilter(new Date()),
+  );
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Departments fetched", {
@@ -530,7 +547,10 @@ const getDepartments = asyncHandler(async (req, res) => {
  * @access  Public
  */
 const getCategories = asyncHandler(async (req, res) => {
-  const categories = await Job.distinct("category", { status: "active" });
+  const categories = await Job.distinct(
+    "category",
+    getPublicListingFilter(new Date()),
+  );
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Categories fetched", {

@@ -89,9 +89,21 @@ const StateLanding = () => {
   const announcements = page?.announcements || [];
   const heroImage = page?.bannerImage || heroBg;
   const hasCmsImage = Boolean(page?.bannerImage);
-  const tickerItems = announcements.length
+  const dynamicUpdates = projects
+    .map((project) => {
+      const count = project.totalJobs || project.openJobs || 0;
+      if (!count) return null;
+      return {
+        text: `${project.name} has ${count} active ${
+          count === 1 ? "job" : "jobs"
+        } open till ${fmt(project.nearestDeadline || project.endDate)}`,
+      };
+    })
+    .filter(Boolean);
+  const sourceTickerItems = announcements.length ? announcements : dynamicUpdates;
+  const tickerItems = sourceTickerItems.length
     ? Array.from({ length: 6 }, (_, repeatIndex) =>
-        announcements.map((item, itemIndex) => ({
+        sourceTickerItems.map((item, itemIndex) => ({
           ...item,
           key: `${item.text || item.title || "update"}-${repeatIndex}-${itemIndex}`,
         })),
@@ -276,7 +288,9 @@ const StateLanding = () => {
                     </div>
                     <div className="rounded-[6px] bg-[#faf7f2] p-3">
                       <Calendar className="mb-1 h-4 w-4 text-orange-600" />
-                      <p className="font-bold text-[#1f1d1b]">{fmt(project.endDate)}</p>
+                      <p className="font-bold text-[#1f1d1b]">
+                        {fmt(project.nearestDeadline || project.endDate)}
+                      </p>
                     </div>
                   </div>
                   <button

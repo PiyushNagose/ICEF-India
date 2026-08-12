@@ -78,6 +78,24 @@ export const adminService = {
     const response = await apiClient.get(`/admin/applications/${id}`);
     return unwrapData(response);
   },
+  async downloadApplicationExport(type = "register", params = {}) {
+    const response = await apiClient.get(
+      `/admin/applications/exports/${type}`,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+    return response;
+  },
+  async repairApplicationStorageManifests(params = {}) {
+    const response = await apiClient.post(
+      "/admin/applications/exports/repair-manifests",
+      null,
+      { params },
+    );
+    return unwrapData(response);
+  },
   async updateApplicationStatus(id, data) {
     const response = await apiClient.put(
       `/admin/applications/${id}/status`,

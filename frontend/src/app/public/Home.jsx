@@ -125,13 +125,13 @@ const Home = () => {
     staleTime: 15 * 1000,
   });
 
+  const { data: statsData } = useQuery({
+    queryKey: ["public-home-stats"],
+    queryFn: jobService.getPublicStats,
+    staleTime: 15 * 1000,
+  });
+
   const activeProjects = projectsData?.projects || [];
-  const latestUpdates = [
-    "Admit Card for Assistant Manager Exam 2026 now available",
-    "Junior Engineer application extended till 30th October",
-    "Check project pages for official state-wise recruitment notices",
-    "Candidates can track application status from the public portal",
-  ];
 
   const formatDate = (date) =>
     date
@@ -141,6 +141,29 @@ const Home = () => {
           year: "numeric",
         })
       : "Not announced";
+
+  const deadlineUpdates =
+    statsData?.upcomingDeadlines?.map((job) => {
+      const projectName = job.projectId?.name || job.department || "Recruitment";
+      return `${job.title} under ${projectName} closes on ${formatDate(
+        job.applicationDeadline,
+      )}`;
+    }) || [];
+
+  const projectUpdates = activeProjects.map((project) => {
+    const count = project.totalJobs || project.openJobs || 0;
+    return `${project.name} has ${count} active ${
+      count === 1 ? "job" : "jobs"
+    } available`;
+  });
+
+  const latestUpdates = announcements.length
+    ? announcements.map((item) => item.text || item.title).filter(Boolean)
+    : [...deadlineUpdates, ...projectUpdates].filter(Boolean);
+
+  const tickerItems = latestUpdates.length
+    ? latestUpdates
+    : ["No active public recruitment notices are published right now"];
 
   return (
     <PublicLayout>
@@ -392,7 +415,7 @@ const Home = () => {
                 <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#111111] to-transparent" />
                 <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#111111] to-transparent" />
                 <div className="portal-ticker-track flex w-max items-center gap-10 whitespace-nowrap text-white/85">
-                  {[...latestUpdates, ...latestUpdates].map((update, index) => (
+                  {[...tickerItems, ...tickerItems].map((update, index) => (
                     <span
                       key={`${update}-${index}`}
                       className="inline-flex items-center gap-3 font-bold"
@@ -623,7 +646,7 @@ const Home = () => {
                         </span>
                         <span className="flex items-center gap-1.5 text-[#6d6761]">
                           <Calendar className="h-3.5 w-3.5 text-orange-600" />
-                          {formatDate(project.endDate)}
+                          {formatDate(project.nearestDeadline || project.endDate)}
                         </span>
                       </div>
                       <span className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#e46a1d] group-hover:gap-3">

@@ -33,6 +33,10 @@ const {
   assertCorrectionWindowOpen,
   assertPaymentWindowOpen,
 } = require("../../shared/utils/timeline");
+const {
+  applyFileStorageMetadata,
+  buildApplicationStoragePath,
+} = require("../../shared/services/fileStorage.service");
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -117,14 +121,17 @@ const ensurePublicRegistrationNumber = async (app) => {
     ? buildProjectCode(project.name, new Date().getFullYear())
     : "APP26";
   const registrationNumber = await generateRegistrationNumber(projectCode);
-  const numericPart = parseInt(registrationNumber.slice(-6), 10) || 1;
-  const batchNumber = `batch-${Math.ceil(numericPart / 10000)}`;
+  const appSnapshot = typeof app.toObject === "function" ? app.toObject() : app;
+  const storagePath = buildApplicationStoragePath({
+    application: { ...appSnapshot, registrationNumber },
+    project,
+    job,
+  });
 
   app.registrationNumber = registrationNumber;
   app.fileStorage = {
     ...(app.fileStorage || {}),
-    batchNumber,
-    basePath: `recruitment_portal/projects/${project?.publicSlug || "general"}/applicants/${batchNumber}/${registrationNumber}`,
+    ...storagePath,
   };
 
   await User.findByIdAndUpdate(app.candidateId?._id || app.candidateId, {
@@ -893,9 +900,11 @@ const uploadDocument = asyncHandler(async (req, res) => {
     fs.promises.unlink(existingDoc.localPath).catch(() => {});
   }
 
+  const storagePath = buildApplicationStoragePath({ application: app, job: app.jobId });
+
   // Upload to Cloudinary
   const result = await uploadToCloudinary(req.file.buffer, {
-    folder: `recruitment_portal/applications/${app._id}/${docType}`,
+    folder: `${storagePath.basePath}/documents/${docType}`,
     public_id: `${docType}_${Date.now()}`,
   });
 
@@ -960,6 +969,8 @@ const uploadDocument = asyncHandler(async (req, res) => {
         ];
   const allRequired = requiredTypes.every((t) => uploadedTypes.includes(t));
   if (allRequired) app.documentStatus = "pending";
+
+  applyFileStorageMetadata(app, { job: app.jobId });
 
   await app.save();
 

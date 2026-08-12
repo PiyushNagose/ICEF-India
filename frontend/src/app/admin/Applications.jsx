@@ -1,10 +1,10 @@
 import { useState } from "react";
-import Papa from "papaparse";
-import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
+  Archive,
+  Database,
   FileText,
   Eye,
   CheckCircle,
@@ -13,9 +13,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Users,
   Clock,
-  TrendingUp,
+  CreditCard,
+  FileSpreadsheet,
+  Printer,
+  RefreshCw,
   AlertCircle,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
@@ -132,6 +134,7 @@ const Applications = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [exportJobId, setExportJobId] = useState("");
 
   const status = activeTab === "all" ? undefined : activeTab;
 
@@ -151,6 +154,11 @@ const Applications = () => {
     queryFn: adminService.getApplicationStats,
   });
 
+  const { data: jobsData } = useQuery({
+    queryKey: ["admin-jobs-export-list"],
+    queryFn: () => adminService.getAdminJobs({ limit: 200 }),
+  });
+
   const applications = data?.applications || [];
   const pagination = data?.pagination || {};
   const totalPages = pagination.totalPages || 1;
@@ -161,6 +169,11 @@ const Applications = () => {
     statusStats.find((item) => item._id === key)?.count || 0;
   const total =
     totalItems || statsData?.totalApplications || applications.length;
+  const exportJobs =
+    jobsData?.jobs || jobsData?.items || jobsData?.data || jobsData || [];
+  const selectedExportJob = Array.isArray(exportJobs)
+    ? exportJobs.find((job) => String(job._id || job.id) === String(exportJobId))
+    : null;
 
   const stats = [
     {
@@ -216,107 +229,117 @@ const Applications = () => {
     { id: "draft", label: "Drafts", count: countByStatus("draft") },
   ];
 
-  const handleExport = async () => {
+  const exportActions = [
+    {
+      type: "register",
+      title: "Application Register",
+      description: "Candidate master CSV",
+      icon: FileSpreadsheet,
+      filename: "application-register.csv",
+    },
+    {
+      type: "documents",
+      title: "Document Manifest",
+      description: "Storage URLs and file status",
+      icon: Database,
+      filename: "document-manifest.csv",
+    },
+    {
+      type: "payments",
+      title: "Payment Register",
+      description: "Fee and transaction CSV",
+      icon: CreditCard,
+      filename: "payment-register.csv",
+    },
+    {
+      type: "corrections",
+      title: "Correction Register",
+      description: "Clarification audit CSV",
+      icon: AlertCircle,
+      filename: "correction-register.csv",
+    },
+    {
+      type: "print",
+      title: "Printable Register",
+      description: "A4 hard-copy HTML",
+      icon: Printer,
+      filename: "printable-application-register.html",
+    },
+    {
+      type: "bundle",
+      title: "Govt Handover ZIP",
+      description: "CSV + print register",
+      icon: Archive,
+      filename: "government-handover.zip",
+      featured: true,
+    },
+  ];
+
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (type = "bundle") => {
+    const action =
+      exportActions.find((item) => item.type === type) || exportActions[0];
     try {
       toast.loading("Preparing export...", {
         id: "export",
       });
 
-      // STEP 1: get all applications
-      const allAppsResponse = await adminService.getApplications({
-        limit: 999999,
+      const blob = await adminService.downloadApplicationExport(type, {
+        ...(status && { status }),
+        ...(search && { search }),
+        ...(exportJobId && { jobId: exportJobId }),
       });
-
-      const allApplications = allAppsResponse?.applications || [];
-
-      // STEP 2: fetch full details one by one
-      const detailedApplications = await Promise.all(
-        allApplications.map(async (app) => {
-          try {
-            const res = await adminService.getApplication(app._id);
-
-            return res?.application || res;
-          } catch (err) {
-            // Failed to fetch application details
-            return null;
-          }
-        }),
+      const suffix = new Date().toISOString().slice(0, 10);
+      const jobSlug = selectedExportJob
+        ? `-${String(
+            selectedExportJob.postCode ||
+              selectedExportJob.code ||
+              selectedExportJob.title ||
+              "job",
+          )
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")}`
+        : "";
+      const filename = action.filename.replace(
+        /(\.csv|\.zip|\.html)$/,
+        `${jobSlug}-${suffix}$1`,
       );
+      downloadBlob(blob, filename);
 
-      // remove failed
-      const validApps = detailedApplications.filter(Boolean);
-
-      // STEP 3: flatten data
-      const exportData = validApps.map((app) => ({
-        "Application ID": app.applicationId || "",
-
-        "Registration Number": app.registrationNumber || "",
-
-        "Candidate Name":
-          app.personalDetails?.fullName || app.candidateId?.fullName || "",
-
-        Email: app.contactEmail || app.candidateId?.email || "",
-
-        Mobile:
-          app.contactMobile || app.personalDetails?.registeredMobile || "",
-
-        Gender: app.personalDetails?.gender || "",
-
-        Category: app.personalDetails?.category || "",
-
-        DOB: app.personalDetails?.dateOfBirth
-          ? new Date(app.personalDetails.dateOfBirth).toLocaleDateString(
-              "en-IN",
-            )
-          : "",
-
-        Religion: app.personalDetails?.religion || "",
-
-        "10th Percentage": app.education?.tenth?.percentage || "",
-
-        "12th Percentage": app.education?.twelfth?.percentage || "",
-
-        Graduation: app.education?.graduation?.degree || "",
-
-        Department: app.jobId?.department || "",
-
-        "Job Title": app.jobId?.title || "",
-
-        Status: app.status || "",
-
-        "Payment Status": app.paymentStatus || "",
-
-        Fee: app.totalFee || "",
-
-        TransactionID: app.transactionId || "",
-
-        State: app.address?.permanent?.state || "",
-
-        District: app.address?.permanent?.district || "",
-
-        Pincode: app.address?.permanent?.pincode || "",
-
-        SubmittedAt: app.submittedAt
-          ? new Date(app.submittedAt).toLocaleDateString("en-IN")
-          : "",
-      }));
-
-      // STEP 4: convert to CSV
-      const csv = Papa.unparse(exportData);
-
-      const blob = new Blob([csv], {
-        type: "text/csv;charset=utf-8;",
-      });
-
-      saveAs(blob, `applications-${Date.now()}.csv`);
-
-      toast.success("CSV downloaded successfully", {
+      toast.success("Export downloaded successfully", {
         id: "export",
       });
     } catch (error) {
       toast.error("Failed to export applications", {
         id: "export",
       });
+    }
+  };
+
+  const handleRepairManifests = async () => {
+    try {
+      toast.loading("Repairing storage manifests...", { id: "repair-manifest" });
+      const result = await adminService.repairApplicationStorageManifests({
+        ...(status && { status }),
+        ...(exportJobId && { jobId: exportJobId }),
+      });
+      toast.success(
+        `${result?.updatedCount || 0} application manifests updated`,
+        { id: "repair-manifest" },
+      );
+    } catch (error) {
+      toast.error("Unable to repair manifests", { id: "repair-manifest" });
     }
   };
 
@@ -367,14 +390,6 @@ const Applications = () => {
               Review and manage all candidate applications
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            className="flex items-center gap-2 border-gray-300 hover:border-orange-400 hover:text-orange-600 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
         </div>
 
         {/* ── Stats Cards ── */}
@@ -407,6 +422,109 @@ const Applications = () => {
         </div>
 
         {/* ── Main Card ── */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[330px_1fr] gap-4 items-stretch">
+            <div className="rounded-xl border border-orange-100 bg-orange-50/30 p-4 flex flex-col justify-between">
+              <div>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center flex-shrink-0">
+                  <Archive className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold leading-6 text-gray-900">
+                    Government Handover Exports
+                  </h2>
+                  <p className="mt-1 text-sm leading-5 text-gray-500">
+                    Select a job for official hard-copy and digital handover.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <label className="text-xs font-bold uppercase tracking-normal text-gray-500">
+                  Handover Scope
+                </label>
+                <select
+                  value={exportJobId}
+                  onChange={(event) => setExportJobId(event.target.value)}
+                  className="w-full h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                >
+                  <option value="">All jobs / current filters</option>
+                  {Array.isArray(exportJobs) &&
+                    exportJobs.map((job) => (
+                      <option key={job._id || job.id} value={job._id || job.id}>
+                        {job.title || "Untitled Job"}
+                        {job.postCode || job.code
+                          ? ` - ${job.postCode || job.code}`
+                          : ""}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs leading-5 text-gray-500">
+                  {selectedExportJob
+                    ? `Exports will include only candidates for ${selectedExportJob.title || "the selected job"}.`
+                    : "Choose a job when sharing a printed register with the department."}
+                </p>
+              </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRepairManifests}
+                className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-orange-600 hover:text-orange-700"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Repair old storage manifests
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+              {exportActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.type}
+                    type="button"
+                    onClick={() => handleExport(action.type)}
+                    className={`group text-left rounded-xl border p-4 h-[124px] transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                      action.featured
+                        ? "border-orange-500 bg-orange-50 text-orange-700 md:col-span-2 2xl:col-span-1"
+                        : "border-gray-200 bg-white text-gray-800 hover:border-orange-200"
+                    }`}
+                  >
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-start justify-between gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            action.featured
+                              ? "bg-orange-100 text-orange-600"
+                              : "bg-gray-50 text-gray-500"
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <Download className="w-4 h-4 text-gray-400 group-hover:text-orange-500" />
+                      </div>
+                      <p className="mt-3 text-sm font-bold leading-5">
+                        {action.title}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="text-xs leading-5 text-gray-500">
+                          {action.description}
+                        </p>
+                        {action.featured && (
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-normal text-orange-700">
+                            ZIP
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Tabs */}
           <div className="border-b border-gray-200 px-6">

@@ -112,7 +112,7 @@ const TechnicalSupport = () => {
           id: 11,
           title: "Cannot see payment confirmation",
           solution:
-            "Check your email for payment confirmation. Log in to your dashboard to verify payment status. Contact support if payment shows as pending after 24 hours.",
+            "Check your email for payment confirmation. Use the public application status page with your registration number and mobile OTP to verify payment status. Contact support if payment shows as pending after 24 hours.",
         },
         {
           id: 12,
