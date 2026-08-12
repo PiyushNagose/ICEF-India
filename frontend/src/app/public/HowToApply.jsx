@@ -1,5 +1,5 @@
 ﻿import { Link } from "react-router-dom";
-import { CheckCircle2, CreditCard, FileCheck2, UserPlus } from "lucide-react";
+import { CheckCircle2, CreditCard, FileCheck2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   HelpPanel,
@@ -20,10 +20,10 @@ const fadeUp = {
 
 const steps = [
   {
-    icon: UserPlus,
-    title: "Register or Login",
+    icon: ShieldCheck,
+    title: "Verify Your Contact",
     description:
-      "Create a candidate account, verify OTP, and keep your profile details updated.",
+      "Start from an active job and verify your email and mobile OTP. No candidate account is required.",
   },
   {
     icon: FileCheck2,
@@ -41,7 +41,7 @@ const steps = [
     icon: CreditCard,
     title: "Submit and Track",
     description:
-      "Pay the applicable fee, submit the form, and track status from the dashboard.",
+      "Pay the applicable fee, submit the form, and track status using registration number plus mobile OTP.",
   },
 ];
 
@@ -50,7 +50,7 @@ const HowToApply = () => (
     <PageHero
       eyebrow="Candidate Guide"
       title="How to Apply"
-      description="Follow the official application flow from registration to final submission. The same steps are used by every active job published on this portal."
+      description="Follow the official application flow from OTP verification to final submission. The same steps are used by every active job published on this portal."
     />
 
     <section className={`${publicContainer} py-8 lg:py-10`}>

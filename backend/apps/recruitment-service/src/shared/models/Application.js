@@ -319,5 +319,6 @@ applicationSchema.index({ paymentStatus: 1 });
 applicationSchema.index({ submittedAt: -1 });
 applicationSchema.index({ isPublicApplication: 1 });
 applicationSchema.index({ contactMobile: 1 });
+applicationSchema.index({ jobId: 1, contactEmail: 1, contactMobile: 1, status: 1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

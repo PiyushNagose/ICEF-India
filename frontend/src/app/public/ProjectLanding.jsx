@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { publicService } from "../../services/public.service";
 import PublicLayout from "../../components/layouts/PublicLayout";
-import { applicationService } from "../../services/application.service";
+import { candidateService } from "../../services/candidate.service";
 import { isCandidateUser, useAuth } from "../../hooks/useAuth";
 import {
   getApplicationAction,
@@ -234,7 +234,7 @@ export default function ProjectLanding() {
 
   const { data: myAppsData } = useQuery({
     queryKey: ["public-project-applications", slug, user?._id],
-    queryFn: () => applicationService.getMyApplications(),
+    queryFn: () => candidateService.getMyApplications(),
     enabled: isCandidate,
     staleTime: 30 * 1000,
   });

@@ -276,7 +276,7 @@ export default function PublicApplyEntry() {
     } catch (err) {
       if (err.status === 409) {
         const duplicate = err.errors?.[0] || {};
-        toast("Application already exists. Please check your status.", {
+        toast("Already applied. Use registration number and mobile OTP to check status.", {
           icon: "i",
         });
         navigate("/check-status", {

@@ -16,7 +16,6 @@ export const ROUTES = {
   EMPLOYEE_LOGIN: "/auth/employee-login",
   ADMIN_FORGOT_PASSWORD: "/auth/admin/forgot-password", // Super Admin forgot password
   EMPLOYEE_FORGOT_PASSWORD: "/auth/employee/forgot-password", // Employee forgot password
-  RESET_PASSWORD: "/auth/reset-password",
 
   // Public candidate service routes
   VIEW_APPLICATION: "/check-status",

@@ -23,7 +23,6 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import Button from "../../components/ui/Button";
 import { jobService } from "../../services/job.service";
 import { candidateService } from "../../services/candidate.service";
-import { applicationService } from "../../services/application.service";
 import { useAuth, isCandidateUser } from "../../hooks/useAuth";
 import { publicContainer } from "./PublicPageShell";
 import {
@@ -162,7 +161,7 @@ const ApplySidebar = ({
                 className="w-full h-[50px] bg-orange-600 hover:bg-orange-700 text-white gap-2"
               >
                 <PlayCircle className="w-5 h-5" />
-                {action.canClick ? "Resume Application" : action.label}
+                {action.label}
               </Button>
             </>
           ) : (
@@ -349,7 +348,7 @@ const JobDetails = () => {
   const existingApp = myApps.find((a) => (a.jobId?._id || a.jobId) === id);
 
   const applyMutation = useMutation({
-    mutationFn: () => applicationService.createApplication(id),
+    mutationFn: () => candidateService.createApplication(id),
     onSuccess: (result) => {
       toast.success("Application started!");
       const application = result?.application;
@@ -361,7 +360,7 @@ const JobDetails = () => {
     onError: (err) => {
       if (err.status === 409) {
         // Already applied — refresh applications list and show correct state
-        toast("You have already applied for this job", { icon: "â„¹ï¸" });
+        toast("Already applied. Use registration number and mobile OTP to check status.", { icon: "i" });
         navigate("/check-status");
       } else {
         toast.error(err.message || "Failed to start application");
@@ -729,8 +728,8 @@ const JobDetails = () => {
                     Need Help?
                   </p>
                   <p className="text-xs text-orange-700 leading-relaxed">
-                    For queries about this job, raise a support ticket from your
-                    dashboard after logging in.
+                    For queries about this job, use the public support page and
+                    keep your application or registration number ready.
                   </p>
                   <Link
                     to="/contact"

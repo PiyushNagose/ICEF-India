@@ -112,7 +112,7 @@ const PublicLayout = ({ children }) => {
 
             {/* DESKTOP NAV */}
 
-            <nav className="hidden lg:flex items-center gap-8">
+            <nav className="hidden lg:flex items-center gap-10 xl:gap-12 2xl:gap-14">
               {navItems.map((item) => {
                 const active = location.pathname === item.path;
 

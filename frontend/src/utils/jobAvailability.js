@@ -86,8 +86,8 @@ export const getApplicationAction = (job = {}, application = null) => {
       };
     }
     return {
-      type: "view",
-      label: "View Application",
+      type: "already_applied",
+      label: "Already Applied",
       canClick: true,
       tone:
         status === "rejected"
@@ -95,7 +95,7 @@ export const getApplicationAction = (job = {}, application = null) => {
           : status === "approved" || status === "verified"
             ? "green"
             : "blue",
-      reason: "Application already exists for this recruitment.",
+      reason: "Use your registration number and registered mobile OTP to check status.",
     };
   }
 
@@ -120,4 +120,3 @@ export const getActionButtonClass = (action) => {
   if (action.tone === "red") return `${base} bg-red-600 hover:bg-red-700 text-white`;
   return `${base} bg-[#f97316] hover:bg-orange-600 text-white`;
 };
-

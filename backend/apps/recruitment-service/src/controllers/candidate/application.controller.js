@@ -83,6 +83,13 @@ const isEarlyPaymentApplication = (app = {}) =>
       app?.paymentConfig?.paymentTiming,
   );
 
+const normalizePublicContact = (candidate = {}) => ({
+  email: candidate.email ? String(candidate.email).trim().toLowerCase() : "",
+  mobile: candidate.registeredMobile
+    ? String(candidate.registeredMobile).replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "")
+    : "",
+});
+
 const getCustomFormSections = (job) =>
   Array.isArray(job?.formSections)
     ? job.formSections.filter(
@@ -251,10 +258,28 @@ const createApplication = asyncHandler(async (req, res) => {
     candidate?.accountType === "ghost" ||
     candidate?.createdVia === "public_application";
 
-  const existing = await Application.findOne({ candidateId, jobId }).populate(
+  const contact = normalizePublicContact(candidate);
+  const publicContactFilter =
+    isPublicApplySession && contact.email && contact.mobile
+      ? {
+          jobId,
+          contactEmail: contact.email,
+          contactMobile: contact.mobile,
+        }
+      : null;
+
+  let existing = await Application.findOne({ candidateId, jobId }).populate(
     "jobId",
     "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
   );
+
+  if (!existing && publicContactFilter) {
+    existing = await Application.findOne(publicContactFilter).populate(
+      "jobId",
+      "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
+    );
+  }
+
   if (existing && existing.status !== "draft")
     throw new ApiError(
       StatusCodes.CONFLICT,
@@ -271,46 +296,19 @@ const createApplication = asyncHandler(async (req, res) => {
       ],
     );
 
-  if (!existing && isPublicApplySession) {
-    const duplicateContactFilters = [];
-    if (candidate.email) duplicateContactFilters.push({ contactEmail: candidate.email });
-    if (candidate.registeredMobile)
-      duplicateContactFilters.push({ contactMobile: candidate.registeredMobile });
-
-    const contactDuplicate = duplicateContactFilters.length
-      ? await Application.findOne({
-          jobId,
-          status: { $ne: "draft" },
-          $or: duplicateContactFilters,
-        }).select("_id applicationId status registrationNumber")
-      : null;
-
-    if (contactDuplicate) {
-      throw new ApiError(
-        StatusCodes.CONFLICT,
-        "You have already applied for this job",
-        [
-          {
-            field: "jobId",
-            message: "Application already exists for this recruitment",
-            applicationId: contactDuplicate._id,
-            publicApplicationId: contactDuplicate.applicationId,
-            status: contactDuplicate.status,
-            registrationNumber: contactDuplicate.registrationNumber,
-          },
-        ],
-      );
-    }
-  }
-
   assertApplicationWindowOpen(job);
 
   if (existing?.status === "draft") {
-    if (isPublicApplySession && !existing.isPublicApplication) {
+    if (isPublicApplySession) {
       existing.isPublicApplication = true;
-      existing.contactEmail = existing.contactEmail || candidate.email;
-      existing.contactMobile =
-        existing.contactMobile || candidate.registeredMobile || "";
+      existing.candidateId = candidateId;
+      existing.contactEmail = contact.email || existing.contactEmail;
+      existing.contactMobile = contact.mobile || existing.contactMobile || "";
+      existing.personalDetails = {
+        ...(existing.personalDetails || {}),
+        registeredMobile:
+          existing.personalDetails?.registeredMobile || contact.mobile || "",
+      };
       await existing.save();
     }
     return res.status(StatusCodes.OK).json(
@@ -325,9 +323,9 @@ const createApplication = asyncHandler(async (req, res) => {
     candidateId,
     jobId,
     isPublicApplication: isPublicApplySession,
-    contactEmail: isPublicApplySession ? candidate.email : undefined,
+    contactEmail: isPublicApplySession ? contact.email : undefined,
     contactMobile: isPublicApplySession
-      ? candidate.registeredMobile || ""
+      ? contact.mobile || ""
       : undefined,
     paymentTiming: job.paymentConfig?.paymentTiming || "final",
     personalDetails: {

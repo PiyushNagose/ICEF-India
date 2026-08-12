@@ -22,7 +22,6 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicContainer } from "./PublicPageShell";
 import { jobService } from "../../services/job.service";
 import { candidateService } from "../../services/candidate.service";
-import { applicationService } from "../../services/application.service";
 import { useAuth, isCandidateUser } from "../../hooks/useAuth";
 import {
   getFirstApplicationRoute,
@@ -370,7 +369,7 @@ const Jobs = () => {
   const departments = deptData?.departments || deptData || [];
 
   const applyMutation = useMutation({
-    mutationFn: (jobId) => applicationService.createApplication(jobId),
+    mutationFn: (jobId) => candidateService.createApplication(jobId),
     onSuccess: (result, jobId) => {
       setApplyingId(null);
       toast.success("Application started!");
@@ -386,7 +385,7 @@ const Jobs = () => {
     onError: (err, jobId) => {
       setApplyingId(null);
       if (err.status === 409) {
-        toast("You have already applied for this job", { icon: "â„¹ï¸" });
+        toast("Already applied. Use registration number and mobile OTP to check status.", { icon: "i" });
         navigate("/check-status");
       } else {
         toast.error(err.message || "Failed to start application");
