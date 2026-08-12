@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils'
  *   disabled     — boolean
  *   minDate      — Date object (optional)
  *   maxDate      — Date object (optional)
+ *   initialViewDate — Date object used when no value is selected
  */
 
 const MONTHS = [
@@ -88,13 +89,19 @@ const AppDatePicker = ({
   disabled = false,
   minDate,
   maxDate,
+  initialViewDate,
 }) => {
   const selected = parseISO(value)
   const today = new Date()
+  const fallbackViewDate =
+    selected ||
+    (initialViewDate instanceof Date && !isNaN(initialViewDate.getTime())
+      ? initialViewDate
+      : today)
 
   const [open, setOpen] = useState(false)
-  const [viewYear, setViewYear] = useState((selected || today).getFullYear())
-  const [viewMonth, setViewMonth] = useState((selected || today).getMonth())
+  const [viewYear, setViewYear] = useState(fallbackViewDate.getFullYear())
+  const [viewMonth, setViewMonth] = useState(fallbackViewDate.getMonth())
   const [pickerStyle, setPickerStyle] = useState({})
   const [mode, setMode] = useState('day') // 'day' | 'month' | 'year'
 
@@ -125,11 +132,10 @@ const AppDatePicker = ({
 
   const handleOpen = () => {
     if (disabled) return
-    // Sync view to selected date when opening
-    if (selected) {
-      setViewYear(selected.getFullYear())
-      setViewMonth(selected.getMonth())
-    }
+    // Sync view to selected date, or a caller-provided sensible default.
+    const openDate = selected || fallbackViewDate
+    setViewYear(openDate.getFullYear())
+    setViewMonth(openDate.getMonth())
     setMode('day')
     calcPosition()
     setOpen(true)

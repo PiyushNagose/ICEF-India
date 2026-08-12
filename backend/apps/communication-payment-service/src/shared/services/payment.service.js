@@ -189,6 +189,37 @@ const finalizePaidApplicationForPayment = async (payment, transactionId) => {
 // Docs: https://docs.cashfree.com/docs/payment-gateway
 // ─────────────────────────────────────────────────────────────
 
+const buildPaymentInitiationResponse = ({
+  payment,
+  application,
+  applicationFee,
+  processingFee,
+  processingPercent,
+  gateway,
+  gatewayKeyId = null,
+  gatewayData = {},
+  alreadyPaid = false,
+  reused = false,
+}) => ({
+  transactionId: payment.transactionId,
+  paymentId: payment._id,
+  amount: Number(payment.amount || 0),
+  currency: payment.currency || "INR",
+  gateway,
+  gatewayOrderId: payment.gatewayOrderId || null,
+  gatewayKeyId,
+  gatewayData,
+  alreadyPaid,
+  reused,
+  feeBreakdown: {
+    applicationFee,
+    processingFee,
+    processingPercent,
+    totalFee: Number(payment.amount || 0),
+  },
+  applicationId: application.applicationId,
+});
+
 const createCashfreeOrder = async (config, amount, orderId, candidateId) => {
   const { Cashfree } = require("cashfree-pg");
   // Set environment based on mode
@@ -397,9 +428,6 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
     .populate("jobId", "paymentConfig applicationDeadline applicationFee")
     .populate("appliedPosts");
   if (!application) throw new ApiError(404, "Application not found");
-  if (application.paymentStatus === "paid")
-    throw new ApiError(400, "Payment already completed");
-  assertPaymentWindowOpen(application.jobId);
 
   let applicationFee = application.totalFee || 0;
   if (!applicationFee && application.appliedPosts?.length > 0)
@@ -433,6 +461,70 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
   const normalizedGateway = resolvedGateway
     ? resolvedGateway.toLowerCase()
     : "simulation";
+
+  if (application.paymentStatus === "paid") {
+    const existingSuccess = await Payment.findOne({
+      applicationId,
+      candidateId,
+      status: "success",
+    }).sort({ paidAt: -1, updatedAt: -1 });
+
+    const paidPayment =
+      existingSuccess ||
+      new Payment({
+        transactionId:
+          application.transactionId ||
+          `PAID-${application.applicationId || applicationId}`,
+        applicationId,
+        candidateId,
+        amount: totalFee,
+        gateway:
+          normalizedGateway === "simulation" ? "razorpay" : normalizedGateway,
+        status: "success",
+        paidAt: application.submittedAt || application.updatedAt || new Date(),
+      });
+
+    return buildPaymentInitiationResponse({
+      payment: paidPayment,
+      application,
+      applicationFee,
+      processingFee,
+      processingPercent,
+      gateway: normalizedGateway,
+      alreadyPaid: true,
+      reused: Boolean(existingSuccess),
+    });
+  }
+
+  assertPaymentWindowOpen(application.jobId);
+
+  const reusablePayment = await Payment.findOne({
+    applicationId,
+    candidateId,
+    amount: totalFee,
+    gateway:
+      normalizedGateway === "simulation" ? "razorpay" : normalizedGateway,
+    status: { $in: ["initiated", "pending"] },
+    gatewayOrderId: { $exists: true, $ne: null },
+    createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) },
+  }).sort({ createdAt: -1 });
+
+  if (reusablePayment) {
+    const config =
+      normalizedGateway === "razorpay" ? await getRazorpayConfig() : null;
+
+    return buildPaymentInitiationResponse({
+      payment: reusablePayment,
+      application,
+      applicationFee,
+      processingFee,
+      processingPercent,
+      gateway: normalizedGateway,
+      gatewayKeyId: config?.apiKey || null,
+      reused: true,
+    });
+  }
+
   const transactionId = `TXN-${Date.now()}-${generateUUID().slice(0, 8).toUpperCase()}`;
 
   const payment = await Payment.create({
@@ -516,23 +608,16 @@ const initiatePayment = async (applicationId, candidateId, gatewayName) => {
     }
   }
 
-  return {
-    transactionId,
-    paymentId: payment._id,
-    amount: totalFee,
-    currency: "INR",
+  return buildPaymentInitiationResponse({
+    payment,
+    application,
+    applicationFee,
+    processingFee,
+    processingPercent,
     gateway: normalizedGateway,
-    gatewayOrderId,
     gatewayKeyId,
     gatewayData,
-    feeBreakdown: {
-      applicationFee,
-      processingFee,
-      processingPercent,
-      totalFee,
-    },
-    applicationId: application.applicationId,
-  };
+  });
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -550,6 +635,18 @@ const verifyPayment = async ({
   if (!payment) throw new ApiError(404, "Transaction not found");
   if (payment.status === "success") {
     await finalizePaidApplicationForPayment(payment, transactionId);
+    return payment;
+  }
+
+  const existingPaidApplication = await Application.findById(payment.applicationId);
+  if (existingPaidApplication?.paymentStatus === "paid") {
+    payment.status = "success";
+    payment.paidAt =
+      payment.paidAt || existingPaidApplication.submittedAt || new Date();
+    if (gatewayPaymentId) payment.gatewayPaymentId = gatewayPaymentId;
+    if (gatewaySignature) payment.gatewaySignature = gatewaySignature;
+    if (gatewayOrderId) payment.gatewayOrderId = gatewayOrderId;
+    await payment.save();
     return payment;
   }
 

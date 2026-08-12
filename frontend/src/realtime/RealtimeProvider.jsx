@@ -86,7 +86,20 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
   }
 
   if (eventName.startsWith("project:")) {
-    addRoots("admin-projects", "public-projects", "public-jobs");
+    addRoots(
+      "admin-projects",
+      "public-project",
+      "public-projects",
+      "public-home-projects",
+      "public-state-projects",
+      "public-jobs",
+      "public-downloads",
+      "public-results",
+      "public-notices",
+      "public-about-stats",
+      "public-faq-stats",
+      "eligible-jobs",
+    );
     if (projectId) {
       addExact(["admin-project", projectId], ["public-project", projectId]);
     }
@@ -97,7 +110,19 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "admin-jobs",
       "candidate-jobs",
       "public-jobs",
+      "public-project",
       "public-projects",
+      "public-home-projects",
+      "public-state-projects",
+      "public-project-applications",
+      "public-downloads",
+      "public-results",
+      "public-notices",
+      "public-about-stats",
+      "public-faq-stats",
+      "eligible-jobs",
+      "departments",
+      "job-departments",
     );
     if (jobId) {
       addExact(["admin-job", jobId], ["public-job", jobId], ["job-details-review", jobId]);
@@ -112,7 +137,12 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "admin-cms-page",
       "admin-cms-pages",
       "public-cms-page",
+      "public-cms-banner",
+      "public-state-cms",
+      "public-project",
       "public-projects",
+      "public-home-projects",
+      "public-state-projects",
       "public-jobs",
     );
   }
@@ -125,6 +155,10 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "exam-schedule-stats",
       "public-admit-cards",
       "public-jobs",
+      "public-project",
+      "public-home-projects",
+      "public-state-projects",
+      "public-projects",
       "admin-applications",
     );
     if (scheduleId) {
@@ -169,6 +203,9 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "exam-schedules",
       "public-jobs",
       "public-projects",
+      "public-home-projects",
+      "public-state-projects",
+      "eligible-jobs",
     );
   }
 

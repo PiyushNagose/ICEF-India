@@ -25,6 +25,7 @@ export const REALTIME_SOCKET_URLS = splitUrls(
 
 export const REALTIME_ENABLED =
   import.meta.env.VITE_REALTIME_ENABLED === "true" ||
+  REALTIME_SOCKET_URLS.length > 0 ||
   (!import.meta.env.PROD && import.meta.env.VITE_REALTIME_ENABLED !== "false");
 
 const gatewaySocketBase =

@@ -9,6 +9,7 @@ import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
+import AppDatePicker from "../../components/ui/AppDatePicker";
 
 const APP_KEY = "app_draft";
 
@@ -173,6 +174,8 @@ const PersonalDetails = () => {
   const inputClass = (field) =>
     `w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[field] ? "border-red-400" : "border-gray-300"}`;
 
+  const dobInitialViewDate = new Date(new Date().getFullYear() - 22, 0, 1);
+
   if (loadingApp && !dataLoaded) {
     return (
       <ApplicationLayout currentStep={1} title="Personal Details">
@@ -308,11 +311,14 @@ const PersonalDetails = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Date of Birth <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    className={inputClass("dateOfBirth")}
+                  <AppDatePicker
                     value={formData.dateOfBirth}
-                    onChange={(e) => set("dateOfBirth", e.target.value)}
+                    onChange={(value) => set("dateOfBirth", value)}
+                    placeholder="Select date of birth"
+                    className={`!h-[54px] !min-h-0 !px-4 !py-0 rounded-lg text-base font-normal ${errors.dateOfBirth ? "border-red-400" : "border-gray-300"}`}
+                    error={Boolean(errors.dateOfBirth)}
+                    maxDate={new Date()}
+                    initialViewDate={dobInitialViewDate}
                   />
                   {errors.dateOfBirth && (
                     <p className="text-red-500 text-xs mt-1">

@@ -2,7 +2,6 @@ import { BrowserRouter as Router, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import AppRoutes from './routes'
-import DevNavigation from './components/common/DevNavigation'
 import GlobalPageLoader from './components/common/GlobalPageLoader'
 
 const ScrollToTop = () => {
@@ -72,7 +71,7 @@ const GlobalNavigationLoader = () => {
 
       if (
         !trigger ||
-        trigger.closest('[data-no-global-loader], .dev-navigation, .DevNavigation') ||
+        trigger.closest('[data-no-global-loader]') ||
         trigger.getAttribute('aria-disabled') === 'true'
       ) {
         return
@@ -149,10 +148,7 @@ function App() {
         <ScrollToTop />
         <GlobalNavigationLoader />
         <AppRoutes />
-        
-        {/* Development Navigation - Remove in production */}
-        {import.meta.env.DEV && <DevNavigation />}
-        
+
         <Toaster 
           position="top-right"
           toastOptions={{

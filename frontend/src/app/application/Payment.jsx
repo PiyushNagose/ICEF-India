@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -89,6 +89,7 @@ const Payment = () => {
   const [method, setMethod] = useState("upi");
   const [processing, setProcessing] = useState(false);
   const [qrUrl, setQrUrl] = useState(null);
+  const paymentRequestRef = useRef(false);
 
   useEffect(() => {
     if (!applicationId) {
@@ -97,7 +98,7 @@ const Payment = () => {
     }
   }, [applicationId, navigate]);
 
-  const { data: appData, isLoading } = useQuery({
+  const { data: appData, isLoading, refetch: refetchApplication } = useQuery({
     queryKey: ["application-payment", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
@@ -127,6 +128,9 @@ const Payment = () => {
   const paidTransactionId =
     application?.transactionId || `PAID-${application?.applicationId || applicationId || Date.now()}`;
   const paidAmount = Number(application?.totalFee || grandTotal || 0);
+  const paymentAttemptKey = applicationId
+    ? `payment_attempt_${applicationId}`
+    : null;
 
   // Map UI method to Razorpay prefill method
   const getRazorpayMethod = () => {
@@ -177,6 +181,7 @@ const Payment = () => {
     }
 
     sessionStorage.removeItem(APP_KEY);
+    if (paymentAttemptKey) sessionStorage.removeItem(paymentAttemptKey);
     toast.success("Payment successful! Application submitted.");
     navigate("/application/success", {
       state: buildSuccessState({
@@ -188,6 +193,7 @@ const Payment = () => {
   };
 
   const continueAfterPayment = (transactionId, amount) => {
+    if (paymentAttemptKey) sessionStorage.removeItem(paymentAttemptKey);
     toast.success("Payment successful. Continue your application.");
     navigate(nextStep?.path || "/application/education", {
       state: { applicationId, transactionId, amount },
@@ -252,7 +258,15 @@ const Payment = () => {
   };
 
   const handlePay = async () => {
+    if (processing || paymentRequestRef.current) return;
+
+    if (isPaymentCompleted) {
+      await handleContinueFromCompletedPayment();
+      return;
+    }
+
     if (grandTotal === 0) {
+      paymentRequestRef.current = true;
       // Free application — submit directly
       setProcessing(true);
       try {
@@ -279,17 +293,61 @@ const Payment = () => {
       } catch (err) {
         toast.error(err.message || "Submission failed");
       } finally {
+        paymentRequestRef.current = false;
         setProcessing(false);
       }
       return;
     }
 
+    paymentRequestRef.current = true;
     setProcessing(true);
     try {
+      const latestData = await refetchApplication();
+      const latestApplication =
+        latestData?.data?.application || latestData?.data || application;
+      if (latestApplication?.paymentStatus === "paid") {
+        if (isEarlyPayment) {
+          continueAfterPayment(
+            latestApplication?.transactionId || paidTransactionId,
+            Number(latestApplication?.totalFee || grandTotal || 0),
+          );
+          return;
+        }
+        navigate("/application/success", {
+          state: buildSuccessState({
+            finalized: { application: latestApplication },
+            amount: Number(latestApplication?.totalFee || grandTotal || 0),
+            transactionId: latestApplication?.transactionId || paidTransactionId,
+            submittedAt: latestApplication?.submittedAt,
+          }),
+        });
+        sessionStorage.removeItem(APP_KEY);
+        if (paymentAttemptKey) sessionStorage.removeItem(paymentAttemptKey);
+        return;
+      }
+
       // Step 1: Initiate payment — get gateway order from backend
       const initData = await candidateService.initiatePayment(applicationId, method === "upi_qr" ? "razorpay" : "razorpay");
       const { transactionId, gatewayOrderId, gatewayKeyId, gatewayData, amount, gateway, feeBreakdown } = initData;
       const payableAmount = Number(amount ?? feeBreakdown?.totalFee ?? grandTotal);
+
+      if (initData?.alreadyPaid) {
+        await completePaymentStep(transactionId, payableAmount);
+        return;
+      }
+
+      if (paymentAttemptKey) {
+        sessionStorage.setItem(
+          paymentAttemptKey,
+          JSON.stringify({
+            transactionId,
+            gatewayOrderId,
+            amount: payableAmount,
+            gateway,
+            createdAt: Date.now(),
+          }),
+        );
+      }
 
       // ── RAZORPAY ──────────────────────────────────────────
       if (gateway === "razorpay" || !gateway) {
@@ -434,6 +492,7 @@ const Payment = () => {
         }
       }
     } finally {
+      paymentRequestRef.current = false;
       setProcessing(false);
     }
   };
