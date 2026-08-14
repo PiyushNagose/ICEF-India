@@ -181,7 +181,7 @@ const CustomSelect = ({
         </span>
         <ChevronDown
           className={cn(
-            'w-4 h-4 flex-shrink-0 text-orange-500 transition-transform duration-200 ease-out',
+            'mr-1 w-4 h-4 flex-shrink-0 text-orange-500 transition-transform duration-200 ease-out',
             open && 'rotate-180',
           )}
         />

@@ -253,10 +253,16 @@ const CmsEdit = () => {
                   {Object.entries(form.quickLinks).map(([key, val]) => {
                     const labels = { applyNow: 'Apply Now', latestNotifications: 'Latest Notifications', admitCards: 'Admit Cards', results: 'Results', support: 'Support' }
                     return (
-                      <div key={key} className="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-xl">
-                        <span className="text-sm text-gray-700">{labels[key]}</span>
-                        <button type="button" onClick={() => setQL(key, !val)} className={`w-10 h-5 rounded-full transition-colors ${val ? 'bg-orange-500' : 'bg-gray-200'} relative`}>
-                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${val ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      <div key={key} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-orange-200 hover:bg-orange-50/30">
+                        <span className="min-w-0 text-sm font-medium text-gray-900">{labels[key]}</span>
+                        <button
+                          type="button"
+                          aria-pressed={val}
+                          aria-label={`${val ? 'Disable' : 'Enable'} ${labels[key]}`}
+                          onClick={() => setQL(key, !val)}
+                          className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:ring-offset-2 ${val ? 'bg-orange-500' : 'bg-gray-200'}`}
+                        >
+                          <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${val ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
                       </div>
                     )

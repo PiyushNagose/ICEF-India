@@ -3,9 +3,17 @@ const router = express.Router();
 const rateLimit = require("express-rate-limit");
 const ctrl = require("../../controllers/public/status.controller");
 
+const skipPublicLimiter = () =>
+  process.env.DISABLE_RATE_LIMITS === "true" ||
+  (process.env.NODE_ENV !== "production" &&
+    process.env.ENABLE_DEV_RATE_LIMITS !== "true");
+
 const statusLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 30,
+  skip: skipPublicLimiter,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: {
     success: false,
     message: "Too many requests. Please try again later.",
@@ -15,6 +23,9 @@ const statusLimiter = rateLimit({
 const correctionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
+  skip: skipPublicLimiter,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: "Too many correction requests." },
 });
 

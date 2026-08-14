@@ -4,7 +4,9 @@ const env = require("../shared/config/env");
 
 const shouldExposeOtp = () =>
   process.env.NODE_ENV === "development" ||
-  process.env.PUBLIC_OTP_EXPOSE_IN_RESPONSE === "true";
+  process.env.PUBLIC_OTP_EXPOSE_IN_RESPONSE === "true" ||
+  process.env.EXPOSE_TEST_OTP === "true" ||
+  process.env.RAZORPAY_TEST_MODE === "true";
 
 /**
  * Send OTP to email or mobile

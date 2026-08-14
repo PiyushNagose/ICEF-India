@@ -18,6 +18,12 @@ const {
 router.use(authenticate, authorize("admin", "employee"));
 
 router.get(
+  "/ops/summary",
+  checkPermission("admitCards", "view"),
+  examController.getOpsSummary,
+);
+
+router.get(
   "/centers",
   checkPermission("admitCards", "view"),
   examController.listCenters,

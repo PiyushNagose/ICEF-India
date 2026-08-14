@@ -37,8 +37,8 @@
            transition-colors cursor-pointer appearance-none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e46a1d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 40px;
+    background-position: right 18px center;
+    padding-right: 48px;
   }
   .admin-select:hover {
     @apply border-orange-400;
@@ -429,6 +429,88 @@
   transition-duration: 700ms;
 }
 
+.admin-page-root,
+.public-content-root,
+.candidate-page-root,
+.application-page-root {
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-page-root :where(h1, h2, h3, h4),
+.public-content-root :where(h1, h2, h3, h4),
+.candidate-page-root :where(h1, h2, h3, h4),
+.application-page-root :where(h1, h2, h3, h4) {
+  letter-spacing: 0;
+}
+
+.admin-page-root :where(.font-black, .font-extrabold),
+.public-content-root :where(.font-black, .font-extrabold),
+.candidate-page-root :where(.font-black, .font-extrabold),
+.application-page-root :where(.font-black, .font-extrabold) {
+  font-weight: 700;
+}
+
+.admin-page-root :where(.text-2xl, .text-3xl),
+.public-content-root :where(.text-2xl, .text-3xl),
+.candidate-page-root :where(.text-2xl, .text-3xl),
+.application-page-root :where(.text-2xl, .text-3xl) {
+  line-height: 1.18;
+}
+
+.admin-page-root :where(.text-4xl, .text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl),
+.public-content-root :where(.text-4xl, .text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl),
+.candidate-page-root :where(.text-4xl, .text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl),
+.application-page-root :where(.text-4xl, .text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl) {
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.admin-page-root :where(label),
+.public-content-root :where(label),
+.candidate-page-root :where(label),
+.application-page-root :where(label) {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.admin-page-root :where(.uppercase),
+.public-content-root :where(.uppercase),
+.candidate-page-root :where(.uppercase),
+.application-page-root :where(.uppercase) {
+  letter-spacing: 0.12em;
+}
+
+.admin-page-root [class*="tracking-[0.2"],
+.public-content-root [class*="tracking-[0.2"],
+.candidate-page-root [class*="tracking-[0.2"],
+.application-page-root [class*="tracking-[0.2"],
+.admin-page-root [class*="tracking-[0.24"],
+.public-content-root [class*="tracking-[0.24"],
+.candidate-page-root [class*="tracking-[0.24"],
+.application-page-root [class*="tracking-[0.24"],
+.admin-page-root [class*="tracking-[0.28"],
+.public-content-root [class*="tracking-[0.28"],
+.candidate-page-root [class*="tracking-[0.28"],
+.application-page-root [class*="tracking-[0.28"] {
+  letter-spacing: 0.14em !important;
+}
+
+.admin-page-root :where(.font-mono),
+.public-content-root :where(.font-mono),
+.candidate-page-root :where(.font-mono),
+.application-page-root :where(.font-mono) {
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-page-root [class*="tracking-[-"],
+.public-content-root [class*="tracking-[-"],
+.candidate-page-root [class*="tracking-[-"],
+.application-page-root [class*="tracking-[-"] {
+  letter-spacing: 0 !important;
+}
+
 .admin-page-root :where(.space-y-3 > :not([hidden]) ~ :not([hidden])),
 .public-content-root :where(.space-y-3 > :not([hidden]) ~ :not([hidden])) {
   --tw-space-y-reverse: 0;
@@ -441,4 +523,13 @@
   --tw-space-y-reverse: 0;
   margin-top: calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(1.25rem * var(--tw-space-y-reverse));
+}
+
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e46a1d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  padding-right: 44px !important;
 }

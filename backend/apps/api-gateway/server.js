@@ -20,9 +20,13 @@ const RECRUITMENT_URL =
 const COMMUNICATION_URL =
   process.env.COMMUNICATION_SERVICE_URL || `http://localhost:${CM_PORT}`;
 const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
-const parsedOrigins = process.env.CLIENT_URL?.split(",")
-  .map(normalizeOrigin)
-  .filter(Boolean) || ["http://localhost:5173"];
+const parsedOrigins = Array.from(
+  new Set([
+    ...(process.env.CLIENT_URL?.split(",").map(normalizeOrigin).filter(Boolean) || []),
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ]),
+);
 const requestTimeoutMs = 45000;
 const frameAncestors = ["'self'", ...parsedOrigins];
 

@@ -24,6 +24,9 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
     payload.schedule?._id ||
     payload.schedule?.id;
   const ticketId = payload.ticketId || payload.ticket?._id || payload.ticket?.id;
+  const employeeId =
+    payload.employeeId || payload.employee?._id || payload.employee?.id;
+  const roleId = payload.roleId || payload.role?._id || payload.role?.id;
 
   const roots = new Set();
   const exactKeys = [];
@@ -47,6 +50,63 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
     );
   }
 
+  if (eventName === "realtime:connected") {
+    addRoots(
+      "admin-activity-logs",
+      "admin-analytics-funnel",
+      "admin-analytics-overview",
+      "admin-analytics-top-jobs",
+      "admin-application-stats",
+      "admin-applications",
+      "admin-cms-activity",
+      "admin-cms-pages",
+      "admin-dashboard",
+      "admin-employee-stats",
+      "admin-employees",
+      "admin-job-stats",
+      "admin-jobs",
+      "admin-jobs-cms",
+      "admin-jobs-export-list",
+      "admin-jobs-for-exams",
+      "admin-jobs-list",
+      "admin-notifications",
+      "admin-notifications-count",
+      "admin-payment-analytics",
+      "admin-payment-gateways",
+      "admin-payment-stats",
+      "admin-project-stats",
+      "admin-projects",
+      "admin-projects-for-job-create",
+      "admin-roles",
+      "admin-support-stats",
+      "admin-support-tickets",
+      "admin-support-tickets-kanban",
+      "candidate-applications-ids",
+      "departments",
+      "eligible-jobs",
+      "exam-centers",
+      "exam-schedule-stats",
+      "exam-schedules",
+      "job-departments",
+      "public-about-stats",
+      "public-admit-cards",
+      "public-apply-entry",
+      "public-cms-banner",
+      "public-downloads",
+      "public-faq-stats",
+      "public-home-projects",
+      "public-home-stats",
+      "public-jobs",
+      "public-notices",
+      "public-project",
+      "public-project-applications",
+      "public-projects",
+      "public-results",
+      "public-state-cms",
+      "public-state-projects",
+    );
+  }
+
   if (
     eventName.startsWith("application:") ||
     eventName.startsWith("correction:") ||
@@ -54,10 +114,25 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
     eventName === "admin:application:new"
   ) {
     addRoots(
+      "admin-application-stats",
       "admin-applications",
+      "admin-dashboard",
+      "admin-jobs",
+      "admin-job-stats",
+      "admin-jobs-export-list",
       "candidate-dashboard",
       "candidate-applications",
+      "candidate-applications-ids",
+      "application-address",
+      "application-additional",
+      "application-documents",
+      "application-dynamic-form",
+      "application-education",
+      "application-layout",
+      "application-payment",
+      "application-personal",
       "public-application-status",
+      "public-apply-entry",
     );
     if (applicationId) {
       addExact(
@@ -66,20 +141,38 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
         ["application-success", applicationId],
         ["application-review", applicationId],
         ["application-post-selection", applicationId],
+        ["application-address", applicationId],
+        ["application-additional", applicationId],
+        ["application-documents", applicationId],
+        ["application-dynamic-form", applicationId],
+        ["application-education", applicationId],
+        ["application-layout", applicationId],
+        ["application-payment", applicationId],
+        ["application-personal", applicationId],
       );
     }
   }
 
   if (eventName.startsWith("payment:")) {
     addRoots(
+      "admin-application-stats",
       "admin-applications",
+      "admin-dashboard",
       "admin-payment-stats",
+      "admin-payment-analytics",
       "candidate-dashboard",
       "candidate-payments",
+      "candidate-applications-ids",
+      "application-layout",
+      "application-payment",
+      "public-application-status",
+      "public-apply-entry",
     );
     if (applicationId) {
       addExact(
         ["admin-application", applicationId],
+        ["application-layout", applicationId],
+        ["application-payment", applicationId],
         ["application-success", applicationId],
       );
     }
@@ -87,10 +180,21 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
 
   if (eventName.startsWith("project:")) {
     addRoots(
+      "admin-dashboard",
+      "admin-job-stats",
+      "admin-jobs",
+      "admin-jobs-cms",
+      "admin-jobs-export-list",
+      "admin-jobs-for-exams",
+      "admin-jobs-list",
+      "admin-project-stats",
       "admin-projects",
+      "admin-projects-for-job-create",
       "public-project",
+      "public-project-applications",
       "public-projects",
       "public-home-projects",
+      "public-home-stats",
       "public-state-projects",
       "public-jobs",
       "public-downloads",
@@ -108,13 +212,24 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
   if (eventName.startsWith("job:")) {
     addRoots(
       "admin-jobs",
+      "admin-job-stats",
+      "admin-jobs-cms",
+      "admin-jobs-export-list",
+      "admin-jobs-for-exams",
+      "admin-jobs-list",
+      "admin-project-stats",
+      "admin-projects",
+      "admin-projects-for-job-create",
       "candidate-jobs",
+      "candidate-applications-ids",
       "public-jobs",
       "public-project",
       "public-projects",
       "public-home-projects",
+      "public-home-stats",
       "public-state-projects",
       "public-project-applications",
+      "public-apply-entry",
       "public-downloads",
       "public-results",
       "public-notices",
@@ -135,7 +250,9 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
   if (eventName.startsWith("cms:")) {
     addRoots(
       "admin-cms-page",
+      "admin-cms-activity",
       "admin-cms-pages",
+      "admin-jobs-cms",
       "public-cms-page",
       "public-cms-banner",
       "public-state-cms",
@@ -149,10 +266,13 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
 
   if (eventName.startsWith("exam:")) {
     addRoots(
+      "admin-dashboard",
       "exam-centers",
       "exam-rooms",
       "exam-schedules",
       "exam-schedule-stats",
+      "schedule-admit-cards",
+      "exam-bulk-job",
       "public-admit-cards",
       "public-jobs",
       "public-project",
@@ -160,6 +280,7 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "public-state-projects",
       "public-projects",
       "admin-applications",
+      "admin-application-stats",
     );
     if (scheduleId) {
       addExact(
@@ -181,9 +302,31 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
       "admin-support-tickets",
       "admin-support-tickets-kanban",
       "admin-support-stats",
+      "admin-dashboard",
     );
     if (ticketId) {
       addExact(["candidate-ticket", ticketId], ["admin-support-ticket", ticketId]);
+    }
+  }
+
+  if (eventName.startsWith("employee:") || eventName.startsWith("role:")) {
+    addRoots(
+      "admin-activity-logs",
+      "admin-dashboard",
+      "admin-employees",
+      "admin-employee-stats",
+      "admin-roles",
+      "admin-my-profile",
+      "employee-activity-logs",
+    );
+    if (employeeId) {
+      addExact(
+        ["admin-employee", employeeId],
+        ["admin-activity-logs", employeeId],
+      );
+    }
+    if (roleId) {
+      addExact(["admin-role", roleId]);
     }
   }
 
@@ -193,18 +336,48 @@ const invalidateForRealtimeEvent = (queryClient, eventName, payload = {}) => {
   ) {
     addRoots(
       "admin-analytics",
+      "admin-analytics-funnel",
+      "admin-analytics-overview",
+      "admin-analytics-top-jobs",
+      "admin-application-stats",
       "admin-applications",
       "admin-dashboard",
+      "admin-employee-stats",
       "admin-employees",
+      "admin-job-stats",
       "admin-jobs",
+      "admin-jobs-cms",
+      "admin-jobs-export-list",
+      "admin-jobs-for-exams",
+      "admin-jobs-list",
+      "admin-notifications",
+      "admin-notifications-count",
+      "admin-payment-analytics",
+      "admin-payment-stats",
+      "admin-project-stats",
       "admin-projects",
+      "admin-projects-for-job-create",
       "admin-roles",
+      "admin-support-stats",
       "candidate-dashboard",
+      "candidate-applications-ids",
+      "exam-centers",
+      "exam-schedule-stats",
       "exam-schedules",
+      "job-departments",
+      "public-about-stats",
+      "public-apply-entry",
+      "public-cms-banner",
+      "public-downloads",
+      "public-faq-stats",
+      "public-home-stats",
       "public-jobs",
       "public-projects",
       "public-home-projects",
       "public-state-projects",
+      "public-project-applications",
+      "public-results",
+      "public-state-cms",
       "eligible-jobs",
     );
   }
@@ -282,7 +455,11 @@ const RealtimeProvider = ({ children }) => {
 
     const cleanupSockets = createRealtimeSockets({
       onEvent: scheduleTargetedRefresh,
-      onStatusChange: () => {},
+      onStatusChange: (status) => {
+        if (status?.connected) {
+          scheduleTargetedRefresh({ eventName: "realtime:connected" });
+        }
+      },
     });
 
     return () => {

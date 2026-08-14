@@ -574,6 +574,7 @@ const getScheduleStats = async (id) => {
     admitCards,
     totalCapacityResult,
     centerCount,
+    pendingCorrections,
   ] = await Promise.all([
     Application.countDocuments({
       jobId: schedule.jobId._id,
@@ -607,6 +608,14 @@ const getScheduleStats = async (id) => {
       active: true,
       ...(selectedCenterIds.length && { _id: { $in: selectedCenterIds } }),
     }),
+    Application.countDocuments({
+      jobId: schedule.jobId._id,
+      $or: [
+        { status: "clarification_required" },
+        { "correction.status": { $in: ["requested", "in_progress", "submitted"] } },
+        { "corrections.status": { $in: ["pending", "more_info_needed"] } },
+      ],
+    }),
   ]);
 
   const totalCapacity = totalCapacityResult[0]?.total || 0;
@@ -621,6 +630,7 @@ const getScheduleStats = async (id) => {
       ),
       totalCapacity,
       activeCenters: centerCount,
+      pendingCorrections,
       admitCards,
     },
   };
@@ -803,14 +813,25 @@ const getApplicationMobile = (application) =>
   );
 
 const hasPendingCorrection = (application) => {
-  const correctionStatus = application.correction?.status;
+  const correctionStatus = application.correction?.status || "none";
+  const hasActivePublicRequest = (application.corrections || []).some((item) =>
+    ["pending", "more_info_needed"].includes(item.status),
+  );
+
+  if (["none", "resolved", "approved", "rejected"].includes(correctionStatus)) {
+    return hasActivePublicRequest;
+  }
+
   if (application.status === "clarification_required") return true;
   if (["requested", "in_progress"].includes(correctionStatus)) return true;
   if (correctionStatus !== "submitted") return false;
 
   const issues = application.correction?.issues || [];
   if (!issues.length) return true;
-  return issues.some((issue) => issue.status !== "resolved");
+  return (
+    issues.some((issue) => issue.status !== "resolved") ||
+    hasActivePublicRequest
+  );
 };
 
 const assertApplicationReadyForAdmitCard = (application) => {
@@ -1297,6 +1318,10 @@ const publishAdmitCards = async (id, userId) => {
       "Cancelled schedules cannot publish admit cards",
     );
   }
+  if (schedule.status === "published") {
+    await refreshAllocationSummary(schedule).catch(() => {});
+    return { schedule, publishedCount: 0, alreadyPublished: true };
+  }
   const hasCenters = getSelectedCenterIds(schedule).length > 0;
   if (!hasCenters) {
     throw new ApiError(
@@ -1437,7 +1462,7 @@ const lookupPublicAdmitCard = async ({
         .toUpperCase(),
     })
       .select(
-        "applicationId registrationNumber personalDetails candidateId contactMobile jobId status paymentStatus totalFee correction",
+        "applicationId registrationNumber personalDetails candidateId contactMobile jobId status paymentStatus totalFee correction corrections",
       )
       .populate("candidateId", "email registeredMobile");
 
@@ -1926,6 +1951,130 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
 </html>`;
 };
 
+const getExamOpsSummary = async () => {
+  const eligibleFilter = {
+    status: { $in: ["submitted", "approved", "auto_approved", "verified"] },
+    paymentStatus: "paid",
+  };
+
+  const [
+    totalSchedules,
+    publishedSchedules,
+    activeCenters,
+    roomCapacity,
+    allocations,
+    admitCards,
+    eligibleCandidates,
+    pendingCorrections,
+    centerUtilization,
+    downloadStats,
+  ] = await Promise.all([
+    ExamSchedule.countDocuments({ status: { $ne: "cancelled" } }),
+    ExamSchedule.countDocuments({ status: "published" }),
+    ExamCenter.countDocuments({ active: true }),
+    ExamRoom.aggregate([
+      { $match: { active: true } },
+      {
+        $group: {
+          _id: null,
+          rooms: { $sum: 1 },
+          usableSeats: {
+            $sum: { $ifNull: ["$usableCapacity", "$capacity"] },
+          },
+        },
+      },
+    ]),
+    CandidateAllocation.countDocuments({ status: "allocated" }),
+    AdmitCard.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    Application.countDocuments(eligibleFilter),
+    Application.countDocuments({
+      $or: [
+        { status: "clarification_required" },
+        { "correction.status": { $in: ["requested", "in_progress", "submitted"] } },
+        { "corrections.status": { $in: ["pending", "more_info_needed"] } },
+      ],
+    }),
+    CandidateAllocation.aggregate([
+      { $match: { status: "allocated" } },
+      { $group: { _id: "$centerId", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: "examcenters",
+          localField: "_id",
+          foreignField: "_id",
+          as: "center",
+        },
+      },
+      { $unwind: { path: "$center", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          centerId: "$_id",
+          centerCode: "$center.centerCode",
+          name: "$center.name",
+          allocated: "$count",
+        },
+      },
+    ]),
+    AdmitCard.aggregate([
+      {
+        $group: {
+          _id: null,
+          downloads: { $sum: { $ifNull: ["$downloadCount", 0] } },
+          requested: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+
+  const cardCounts = admitCards.reduce(
+    (acc, item) => ({ ...acc, [item._id || "unknown"]: item.count }),
+    {},
+  );
+  const capacity = roomCapacity[0] || { rooms: 0, usableSeats: 0 };
+  const downloadSummary = downloadStats[0] || { downloads: 0, requested: 0 };
+  const remainingCapacity = Math.max(
+    0,
+    Number(capacity.usableSeats || 0) - Number(allocations || 0),
+  );
+
+  return {
+    generatedAt: new Date(),
+    schedules: {
+      total: totalSchedules,
+      published: publishedSchedules,
+    },
+    capacity: {
+      centers: activeCenters,
+      rooms: capacity.rooms || 0,
+      usableSeats: capacity.usableSeats || 0,
+      allocated: allocations,
+      remaining: remainingCapacity,
+    },
+    candidates: {
+      eligible: eligibleCandidates,
+      pendingCorrections,
+    },
+    admitCards: {
+      generated: cardCounts.generated || 0,
+      published: cardCounts.published || 0,
+      revoked: cardCounts.revoked || 0,
+      downloads: downloadSummary.downloads || 0,
+      requests: downloadSummary.requested || 0,
+    },
+    centerUtilization,
+  };
+};
+
 module.exports = {
   listCenters,
   createCenter,
@@ -1953,4 +2102,5 @@ module.exports = {
   getCandidateAdmitCards,
   renderAdmitCardHtml,
   renderAttendanceSheetHtml,
+  getExamOpsSummary,
 };

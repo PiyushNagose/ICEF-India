@@ -20,11 +20,18 @@ const normalizeOtpIdentifier = (req) => {
 const ipKeyGenerator =
   rateLimit.ipKeyGenerator || ((ip) => String(ip || "unknown"));
 
+const skipOtpLimiter = () =>
+  process.env.DISABLE_RATE_LIMITS === "true" ||
+  process.env.PUBLIC_OTP_DISABLE_RATE_LIMIT === "true" ||
+  (env.NODE_ENV !== "production" &&
+    process.env.ENABLE_DEV_RATE_LIMITS !== "true");
+
 // Public OTP limiter: generous in local/demo, stricter in production, and scoped
 // by requested email/mobile so one tester does not block every OTP screen.
 const otpLimiter = rateLimit({
   windowMs: env.PUBLIC_OTP_IP_WINDOW_MS,
   max: env.PUBLIC_OTP_IP_MAX,
+  skip: skipOtpLimiter,
   keyGenerator: (req) =>
     `${ipKeyGenerator(req.ip)}:${normalizeOtpIdentifier(req) || "unknown"}`,
   message: {

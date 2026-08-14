@@ -164,6 +164,10 @@ export const adminService = {
     const response = await apiClient.get("/admin/exams/schedules", { params });
     return unwrapData(response);
   },
+  async getExamOpsSummary() {
+    const response = await apiClient.get("/admin/exams/ops/summary");
+    return unwrapData(response);
+  },
   async createExamSchedule(data) {
     const response = await apiClient.post("/admin/exams/schedules", data);
     return unwrapData(response);

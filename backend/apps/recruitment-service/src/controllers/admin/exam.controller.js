@@ -201,20 +201,37 @@ const generateAdmitCards = asyncHandler(async (req, res) => {
 
 const publishAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.publishAdmitCards(req.params.id, req.user.id);
-  await saveAuditLog(req, `Published admit cards for exam schedule: ${req.params.id}`);
-  emitExamRealtime(
-    SOCKET_EVENTS.EXAM_ADMIT_CARD_PUBLISHED,
-    {
-      scheduleId: req.params.id,
-      jobId: result.schedule?.jobId?._id || result.schedule?.jobId,
-      publishedCount: result.publishedCount,
-      status: result.schedule?.status,
-    },
-    { public: true },
-  );
+  if (!result.alreadyPublished) {
+    await saveAuditLog(req, `Published admit cards for exam schedule: ${req.params.id}`);
+    emitExamRealtime(
+      SOCKET_EVENTS.EXAM_ADMIT_CARD_PUBLISHED,
+      {
+        scheduleId: req.params.id,
+        jobId: result.schedule?.jobId?._id || result.schedule?.jobId,
+        publishedCount: result.publishedCount,
+        status: result.schedule?.status,
+      },
+      { public: true },
+    );
+  }
   res
     .status(StatusCodes.OK)
-    .json(new ApiResponse(StatusCodes.OK, "Admit cards published", result));
+    .json(
+      new ApiResponse(
+        StatusCodes.OK,
+        result.alreadyPublished
+          ? "Admit-card window already published"
+          : "Admit-card window published",
+        result,
+      ),
+    );
+});
+
+const getOpsSummary = asyncHandler(async (req, res) => {
+  const result = await examService.getExamOpsSummary();
+  res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(StatusCodes.OK, "Exam operations summary fetched", result));
 });
 
 const unpublishAdmitCards = asyncHandler(async (req, res) => {
@@ -418,6 +435,7 @@ module.exports = {
   getSchedule,
   updateSchedule,
   getScheduleStats,
+  getOpsSummary,
   previewAllocation,
   allocateCandidates,
   lockAllocation,

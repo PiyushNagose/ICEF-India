@@ -256,7 +256,7 @@ const AdmitCards = () => {
         allocate: data?.job ? 'Allocation job queued' : 'Candidates allocated',
         lock: 'Allocation locked',
         generate: data?.job ? 'Admit card generation job queued' : 'Admit cards generated',
-        publish: 'Admit cards published',
+        publish: data?.alreadyPublished ? 'Admit-card window already published' : 'Admit-card window published',
         unpublish: 'Admit cards unpublished',
         regenerate: 'Admit cards regenerated',
       }
@@ -284,6 +284,22 @@ const AdmitCards = () => {
 
   const jobs = jobsData?.jobs || jobsData || []
   const stats = statsData?.stats || {}
+  const admitCardCounts = (stats.admitCards || []).reduce(
+    (acc, item) => ({ ...acc, [item._id || 'unknown']: item.count }),
+    {},
+  )
+  const scheduleCapacity = Number(stats.totalCapacity || 0)
+  const scheduleAllocated = Number(stats.allocatedCandidates || 0)
+  const opsCards = [
+    { label: 'Released Windows', value: selectedSchedule?.status === 'published' ? 1 : 0, icon: Send },
+    {
+      label: 'On-demand Cards',
+      value: Number(admitCardCounts.published || 0) + Number(admitCardCounts.generated || 0),
+      icon: FileBadge,
+    },
+    { label: 'Seats Remaining', value: Math.max(0, scheduleCapacity - scheduleAllocated), icon: Users },
+    { label: 'Pending Corrections', value: stats.pendingCorrections || 0, icon: CalendarClock },
+  ]
   const activeCenters = centers.filter((center) => center.active !== false)
   const selectedCenterIds = scheduleForm.selectedCenterIds || []
   const selectedCenters = activeCenters.filter((center) => selectedCenterIds.includes(center._id))
@@ -548,6 +564,33 @@ const AdmitCards = () => {
           <Stat icon={CheckCircle2} label="Allocated" value={stats.allocatedCandidates} />
           <Stat icon={FileBadge} label="Capacity" value={stats.totalCapacity} />
         </div>
+
+        <Card>
+          <CardContent>
+            <div className="grid gap-3 lg:grid-cols-[1.1fr_repeat(4,minmax(0,1fr))]">
+              <div className="flex items-center gap-3 rounded-lg border border-orange-100 bg-orange-50/60 px-4 py-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-orange-600">
+                  <FileBadge className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Production Admit-Card Health</p>
+                  <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                    On-demand allocation uses maximum available center capacity first.
+                  </p>
+                </div>
+              </div>
+              {opsCards.map(({ label, value, icon: Icon }) => (
+                <div key={label} className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">{label}</p>
+                    <Icon className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(380px,440px)_minmax(0,1fr)] xl:items-stretch">
           <div className="space-y-5">

@@ -43,9 +43,13 @@ const candidateAdmitCardRoutes = require("./src/routes/candidate/admitCard.route
 
 const PORT = parseInt(process.env.RECRUITMENT_SERVICE_PORT, 10) || 5002;
 const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
-const parsedOrigins = env.CLIENT_URL?.split(",")
-  .map(normalizeOrigin)
-  .filter(Boolean) || ["http://localhost:5173"];
+const parsedOrigins = Array.from(
+  new Set([
+    ...(env.CLIENT_URL?.split(",").map(normalizeOrigin).filter(Boolean) || []),
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ]),
+);
 const frameAncestors = ["'self'", ...parsedOrigins];
 
 const app = express();

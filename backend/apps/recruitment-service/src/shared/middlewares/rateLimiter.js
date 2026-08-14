@@ -1,10 +1,16 @@
 const rateLimit = require("express-rate-limit");
 const env = require("../config/env");
 
+const skipRateLimit = () =>
+  process.env.DISABLE_RATE_LIMITS === "true" ||
+  (env.NODE_ENV !== "production" &&
+    process.env.ENABLE_DEV_RATE_LIMITS !== "true");
+
 // General API rate limiter
 const apiLimiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS, // 15 minutes
   max: env.RATE_LIMIT_MAX, // 100 requests per window
+  skip: skipRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -18,6 +24,7 @@ const apiLimiter = rateLimit({
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 attempts per window
+  skip: skipRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -31,6 +38,7 @@ const authLimiter = rateLimit({
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 5,
+  skip: skipRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -43,6 +51,7 @@ const otpLimiter = rateLimit({
 const publicAdmitCardLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 30,
+  skip: skipRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
