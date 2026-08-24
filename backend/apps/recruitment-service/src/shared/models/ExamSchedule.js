@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const paperSchema = new mongoose.Schema(
   {
@@ -50,6 +50,12 @@ const examScheduleSchema = new mongoose.Schema(
     instructions: [instructionSchema],
     provisionalNote: { type: String, trim: true },
     selectedCenterIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "ExamCenter" }],
+    admitCardTemplate: { 
+      type: String, 
+      enum: ["standard", "modern", "compact"], 
+      default: "standard" 
+    },
+    admitCardLogoUrl: { type: String, trim: true },
     status: {
       type: String,
       enum: ["draft", "allocation_ready", "allocated", "locked", "published", "cancelled"],

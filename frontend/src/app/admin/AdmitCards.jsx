@@ -62,6 +62,8 @@ const emptySchedule = {
   examEndTime: '',
   provisionalNote: '',
   selectedCenterIds: [],
+  admitCardTemplate: 'standard',
+  admitCardLogoUrl: '',
   papers: [{ ...emptyPaper }],
   instructions: [{ ...emptyInstruction }],
 }
@@ -1227,6 +1229,62 @@ const AdmitCards = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 border-t border-gray-100 pt-5 mt-2">
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-gray-600">Admit Card Template Layout</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          { id: 'standard', name: 'Standard', desc: 'Classic official layout' },
+                          { id: 'modern', name: 'Modern', desc: 'Softer borders, rounded' },
+                          { id: 'compact', name: 'Compact', desc: 'Tighter spacing, smaller text' }
+                        ].map((tpl) => (
+                          <div 
+                            key={tpl.id}
+                            onClick={() => setScheduleForm({ ...scheduleForm, admitCardTemplate: tpl.id })}
+                            className={`cursor-pointer border rounded-lg p-3 transition-all ${scheduleForm.admitCardTemplate === tpl.id ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500 shadow-sm' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${scheduleForm.admitCardTemplate === tpl.id ? 'border-orange-500 bg-white' : 'border-gray-300 bg-white'}`}>
+                                {scheduleForm.admitCardTemplate === tpl.id && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                              </div>
+                              <span className="font-semibold text-sm text-gray-900">{tpl.name}</span>
+                            </div>
+                            
+                            {/* Wireframe Preview */}
+                            <div className={`w-full h-24 mt-2 border border-gray-200 bg-white flex flex-col gap-1 overflow-hidden pointer-events-none
+                              ${tpl.id === 'modern' ? 'rounded-lg shadow-sm p-2' : 'rounded-sm p-2'}
+                              ${tpl.id === 'compact' ? 'gap-0 p-1.5' : ''}
+                            `}>
+                              <div className={`flex items-start ${tpl.id === 'compact' ? 'gap-1 mb-0.5' : 'gap-2 mb-1'}`}>
+                                <div className={`bg-gray-200 shrink-0 ${tpl.id === 'compact' ? 'w-4 h-4' : 'w-6 h-6'} ${tpl.id === 'modern' ? 'rounded' : 'rounded-full'}`}></div>
+                                <div className="space-y-1 flex-1 mt-0.5">
+                                  <div className={`bg-gray-200 w-3/4 rounded-full ${tpl.id === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
+                                  <div className={`bg-gray-100 w-1/2 rounded-full ${tpl.id === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
+                                </div>
+                                <div className={`bg-gray-200 shrink-0 ${tpl.id === 'compact' ? 'w-6 h-8' : 'w-8 h-10'} ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'}`}></div>
+                              </div>
+                              <div className={`bg-gray-100 w-full ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'} ${tpl.id === 'compact' ? 'h-4 mt-0.5' : 'h-5 mt-1'}`}></div>
+                              <div className={`bg-gray-100 w-full ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'} ${tpl.id === 'compact' ? 'h-4' : 'h-5'}`}></div>
+                            </div>
+                            
+                            <p className="text-[11px] text-gray-500 mt-2 text-center font-medium">{tpl.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <label className="block">
+                      <span className="text-xs font-semibold text-gray-600">Admit Card Logo URL (Optional)</span>
+                      <input
+                        type="url"
+                        value={scheduleForm.admitCardLogoUrl}
+                        onChange={(e) => setScheduleForm({ ...scheduleForm, admitCardLogoUrl: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                        className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </label>
                   </div>
 
                   <label className="block">

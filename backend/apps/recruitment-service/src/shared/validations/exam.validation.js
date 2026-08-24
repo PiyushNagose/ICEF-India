@@ -90,6 +90,8 @@ const createScheduleSchema = z.object({
   instructions: z.array(instructionSchema).min(1),
   provisionalNote: z.string().min(10).max(1000),
   selectedCenterIds: z.array(objectId).min(1, "Select at least one exam center"),
+  admitCardTemplate: z.enum(["standard", "modern", "compact"]).optional(),
+  admitCardLogoUrl: z.string().url("Must be a valid URL").optional().or(z.literal('')),
 });
 
 const updateScheduleSchema = createScheduleSchema

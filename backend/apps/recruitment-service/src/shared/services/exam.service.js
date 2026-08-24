@@ -1,4 +1,4 @@
-﻿const { StatusCodes } = require("http-status-codes");
+const { StatusCodes } = require("http-status-codes");
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 const ExamCenter = require("../models/ExamCenter");
@@ -1818,9 +1818,23 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .actions { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; }
     .actions button { border: 0; background: #ea580c; color: #fff; padding: 8px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; }
     @media print { .actions { display: none; } .page { margin: 0; } }
+    /* Template styles */
+    body.template-modern { font-family: "Segoe UI", Roboto, sans-serif; }
+    body.template-modern table { border-color: #334155; }
+    body.template-modern th { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+    body.template-modern td { border-color: #cbd5e1; }
+    body.template-compact .page { padding: 15px 20px 10px; }
+    body.template-compact table { font-size: 10px; }
+    body.template-compact th, body.template-compact td { padding: 2px 4px; }
+    body.template-compact .photo-box { height: 50px; }
+    body.template-compact .photo-box img { max-height: 46px; max-width: 46px; }
+    body.template-compact .paste-text { height: 80px; font-size: 9px; }
+    body.template-compact .candidate td { height: 26px; }
+    .logo-container { margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; height: 50px; }
+    .logo-container img { max-width: 50px; max-height: 50px; object-fit: contain; }
   </style>
 </head>
-<body>
+<body class="template-${schedule.admitCardTemplate || 'standard'}">
   ${
     options.embed
       ? ""
@@ -1837,7 +1851,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   <section class="page">
     <div class="sheet">
       <div class="header">
-        <div class="seal">JSSC</div>
+        ${schedule.admitCardLogoUrl ? `<div class="logo-container"><img src="${escapeHtml(schedule.admitCardLogoUrl)}" alt="Logo" /></div>` : `<div class="seal">JSSC</div>`}
         <div class="commission">${escapeHtml(schedule.commissionName)}</div>
         <div class="local">${escapeHtml(localCommission)}</div>
         <div class="exam">${escapeHtml(schedule.advertisementNo || "")}</div>
