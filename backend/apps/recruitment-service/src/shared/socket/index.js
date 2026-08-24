@@ -1,6 +1,5 @@
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-const { createAdapter } = require("@socket.io/redis-adapter");
 const env = require("../config/env");
 const logger = require("../utils/logger");
 const { getRedis } = require("../config/redis");
@@ -17,15 +16,29 @@ const parsedOrigins = env.CLIENT_URL?.split(",")
   .map(normalizeOrigin)
   .filter(Boolean) || ["http://localhost:5173"];
 
+const getRedisAdapter = () => {
+  try {
+    return require("@socket.io/redis-adapter").createAdapter;
+  } catch (err) {
+    logger.warn(
+      `Socket.IO Redis adapter unavailable; continuing without clustered socket adapter: ${err.message}`,
+    );
+    return null;
+  }
+};
+
 /**
  * Initialize Socket.IO on the HTTP server.
  * Called once from server.js
  */
 const initSocket = (httpServer) => {
   const redisClient = getRedis();
+  const createAdapter = redisClient ? getRedisAdapter() : null;
 
   io = new Server(httpServer, {
-    adapter: redisClient ? createAdapter(redisClient, redisClient.duplicate()) : undefined,
+    adapter: redisClient && createAdapter
+      ? createAdapter(redisClient, redisClient.duplicate())
+      : undefined,
     cors: {
       origin: parsedOrigins.length > 1 ? parsedOrigins : parsedOrigins[0],
       methods: ["GET", "POST"],
