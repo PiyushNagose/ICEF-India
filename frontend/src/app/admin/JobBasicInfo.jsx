@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -14,8 +15,10 @@ import {
   Users,
   IndianRupee,
   Plus,
+  Save,
   X,
 } from "lucide-react";
+import { saveJobDraftProgress } from "../../utils/jobDraft";
 
 const STORAGE_KEY = "job_draft";
 
@@ -171,6 +174,26 @@ const JobBasicInfo = () => {
     )
       e.totalPosts = "At least 1 vacancy is required";
     if (
+      formData.applicationFee.general === "" ||
+      formData.applicationFee.general === null ||
+      formData.applicationFee.general === undefined
+    ) {
+      e["applicationFee.general"] = "General application fee is required";
+    } else if (Number(formData.applicationFee.general) < 0) {
+      e["applicationFee.general"] = "Fee cannot be negative";
+    }
+    [
+      ["applicationStartDate", "Application start date is required"],
+      ["applicationDeadline", "Application deadline is required"],
+      ["correctionStartDate", "Correction start date is required"],
+      ["correctionDeadline", "Correction deadline is required"],
+      ["admitCardReleaseDate", "Admit card release date is required"],
+      ["examDate", "Tentative exam date is required"],
+      ["resultDate", "Result publish date is required"],
+    ].forEach(([field, message]) => {
+      if (!formData[field]) e[field] = message;
+    });
+    if (
       formData.applicationStartDate &&
       formData.applicationDeadline &&
       formData.applicationStartDate > formData.applicationDeadline
@@ -212,6 +235,14 @@ const JobBasicInfo = () => {
         i === index ? { ...post, [field]: value } : post,
       ),
     }));
+    setErrors((prev) => {
+      const key = `posts.${index}.${field}`;
+      if (!prev[key] && !(field === "vacancies" && prev.totalPosts)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      if (field === "vacancies") delete next.totalPosts;
+      return next;
+    });
   };
 
   const addPost = () => {
@@ -238,10 +269,16 @@ const JobBasicInfo = () => {
       ...prev,
       posts: prev.posts.filter((_, i) => i !== index),
     }));
+    setErrors((prev) => {
+      const next = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        if (!key.startsWith("posts.")) next[key] = value;
+      });
+      return next;
+    });
   };
 
-  const handleNext = () => {
-    if (!validate()) return;
+  const buildDraftPatch = () => {
     const posts = formData.posts.map((post) => ({
       postCode: post.postCode?.trim() || "",
       title: post.title.trim(),
@@ -254,51 +291,59 @@ const JobBasicInfo = () => {
       status: "active",
     }));
     const totalPosts = posts.reduce((sum, post) => sum + post.vacancies, 0);
-    // Save to sessionStorage
-    const existing = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...existing,
-        projectId,
-        title: formData.jobTitle.trim(),
-        postCode: formData.postCode.trim(),
-        department: formData.department.trim(),
-        category: formData.category,
-        totalPosts,
-        posts,
-        postSelectionMode: formData.postSelectionMode || "single",
-        reservedPosts: {
-          sc: Number(formData.reservedPosts.sc) || 0,
-          st: Number(formData.reservedPosts.st) || 0,
-          obc: Number(formData.reservedPosts.obc) || 0,
-          ews: Number(formData.reservedPosts.ews) || 0,
-          pwd: Number(formData.reservedPosts.pwd) || 0,
-        },
-        jobType: formData.jobType,
-        applicationFee: {
-          general: Number(formData.applicationFee.general) || 0,
-          obc:
-            Number(formData.applicationFee.obc) ||
-            Number(formData.applicationFee.general) ||
-            0,
-          scSt: Number(formData.applicationFee.scSt) || 0,
-          ews:
-            Number(formData.applicationFee.ews) ||
-            Number(formData.applicationFee.general) ||
-            0,
-          pwd: Number(formData.applicationFee.pwd) || 0,
-        },
-        applicationDeadline: formData.applicationDeadline || undefined,
-        applicationStartDate: formData.applicationStartDate || undefined,
-        correctionStartDate: formData.correctionStartDate || undefined,
-        correctionDeadline: formData.correctionDeadline || undefined,
-        admitCardReleaseDate: formData.admitCardReleaseDate || undefined,
-        examDate: formData.examDate || undefined,
-        resultDate: formData.resultDate || undefined,
-        description: formData.description,
-      }),
-    );
+    return {
+      projectId,
+      title: formData.jobTitle.trim(),
+      postCode: formData.postCode.trim(),
+      department: formData.department.trim(),
+      category: formData.category,
+      totalPosts,
+      posts,
+      postSelectionMode: formData.postSelectionMode || "single",
+      reservedPosts: {
+        sc: Number(formData.reservedPosts.sc) || 0,
+        st: Number(formData.reservedPosts.st) || 0,
+        obc: Number(formData.reservedPosts.obc) || 0,
+        ews: Number(formData.reservedPosts.ews) || 0,
+        pwd: Number(formData.reservedPosts.pwd) || 0,
+      },
+      jobType: formData.jobType,
+      applicationFee: {
+        general: Number(formData.applicationFee.general) || 0,
+        obc:
+          Number(formData.applicationFee.obc) ||
+          Number(formData.applicationFee.general) ||
+          0,
+        scSt: Number(formData.applicationFee.scSt) || 0,
+        ews:
+          Number(formData.applicationFee.ews) ||
+          Number(formData.applicationFee.general) ||
+          0,
+        pwd: Number(formData.applicationFee.pwd) || 0,
+      },
+      applicationDeadline: formData.applicationDeadline || undefined,
+      applicationStartDate: formData.applicationStartDate || undefined,
+      correctionStartDate: formData.correctionStartDate || undefined,
+      correctionDeadline: formData.correctionDeadline || undefined,
+      admitCardReleaseDate: formData.admitCardReleaseDate || undefined,
+      examDate: formData.examDate || undefined,
+      resultDate: formData.resultDate || undefined,
+      description: formData.description,
+    };
+  };
+
+  const handleSaveDraft = () => {
+    const isComplete = validate();
+    saveJobDraftProgress(buildDraftPatch(), {
+      projectId,
+      ...(isComplete ? { completedStep: 1 } : { currentStep: 1 }),
+    });
+    toast.success("Draft saved.");
+  };
+
+  const handleNext = () => {
+    if (!validate()) return;
+    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 1 });
     navigate(
       returnToReview
         ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ""}`
@@ -337,14 +382,7 @@ const JobBasicInfo = () => {
               <div>
                 <p className="text-sm font-semibold">No project selected</p>
                 <p className="text-sm mt-1">
-                  You must select a project before creating an advertisement. Go to{" "}
-                  <button
-                    onClick={() => navigate("/admin/jobs")}
-                    className="underline font-medium"
-                  >
-                    Jobs
-                  </button>{" "}
-                  and click "Create Job" to pick a project first.
+                  Select a project first, then create the advertisement.
                 </p>
               </div>
             </div>
@@ -474,12 +512,12 @@ const JobBasicInfo = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Total Vacancies
                       </label>
-                      <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 font-semibold text-gray-900">
+                      <div className="flex h-11 w-full items-center rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-900">
                         {postVacancyTotal.toLocaleString("en-IN")}
                       </div>
                       {errors.totalPosts && (
@@ -505,10 +543,10 @@ const JobBasicInfo = () => {
                     </div>
                   </div>
                   <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">
                       Candidate Post Selection
                     </label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {[
                         {
                           value: "single",
@@ -527,25 +565,25 @@ const JobBasicInfo = () => {
                           onClick={() =>
                             set("postSelectionMode", option.value)
                           }
-                          className={`text-left rounded-lg border p-3 transition-colors ${
+                          className={`min-h-[90px] rounded-lg border p-3 text-left transition-colors ${
                             formData.postSelectionMode === option.value
                               ? "border-orange-500 bg-white shadow-sm"
                               : "border-orange-100 bg-white/70 hover:border-orange-300"
                           }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-start gap-2">
                             <span
-                              className={`h-4 w-4 rounded-full border ${
+                              className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border ${
                                 formData.postSelectionMode === option.value
                                   ? "border-orange-600 bg-orange-600"
                                   : "border-gray-300"
                               }`}
                             />
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span className="text-sm font-semibold leading-5 text-gray-900">
                               {option.title}
                             </span>
                           </div>
-                          <p className="mt-1 pl-6 text-xs text-gray-600">
+                          <p className="mt-1 pl-6 text-xs leading-5 text-gray-600">
                             {option.desc}
                           </p>
                         </button>
@@ -572,6 +610,7 @@ const JobBasicInfo = () => {
                         onClick={addPost}
                         variant="outline"
                         size="sm"
+                        className="h-9"
                       >
                         <Plus className="w-4 h-4 mr-1" />
                         Add Post
@@ -580,7 +619,7 @@ const JobBasicInfo = () => {
                     {formData.posts.map((post, index) => (
                       <div
                         key={index}
-                        className="p-4 border border-gray-200 rounded-lg space-y-3"
+                        className="space-y-4 rounded-xl border border-gray-200 bg-white p-4"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-gray-700">
@@ -598,7 +637,7 @@ const JobBasicInfo = () => {
                             </Button>
                           )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">
                               Post Code
@@ -608,7 +647,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "postCode", e.target.value)
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                               placeholder="e.g. TC-01"
                             />
                           </div>
@@ -621,7 +660,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "title", e.target.value)
                               }
-                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.title`] ? "border-red-400" : "border-gray-300"}`}
+                              className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.title`] ? "border-red-400" : "border-gray-300"}`}
                               placeholder="e.g. Ticket Collector"
                             />
                             {errors[`posts.${index}.title`] && (
@@ -639,7 +678,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "designation", e.target.value)
                               }
-                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.designation`] ? "border-red-400" : "border-gray-300"}`}
+                              className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.designation`] ? "border-red-400" : "border-gray-300"}`}
                               placeholder="e.g. Commercial Clerk"
                             />
                             {errors[`posts.${index}.designation`] && (
@@ -649,7 +688,7 @@ const JobBasicInfo = () => {
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">
                               Vacancies
@@ -661,7 +700,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "vacancies", e.target.value)
                               }
-                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.vacancies`] ? "border-red-400" : "border-gray-300"}`}
+                              className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.vacancies`] ? "border-red-400" : "border-gray-300"}`}
                               placeholder="100"
                             />
                             {errors[`posts.${index}.vacancies`] && (
@@ -679,7 +718,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "department", e.target.value)
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                               placeholder={formData.department || "Department"}
                             />
                           </div>
@@ -692,7 +731,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "payLevel", e.target.value)
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                               placeholder="Level 5"
                             />
                           </div>
@@ -705,7 +744,7 @@ const JobBasicInfo = () => {
                               onChange={(e) =>
                                 updatePost(index, "location", e.target.value)
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                               placeholder="Zone/City"
                             />
                           </div>
@@ -717,7 +756,7 @@ const JobBasicInfo = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Reserved Posts
                     </label>
-                    <div className="grid grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                       {["sc", "st", "obc", "ews", "pwd"].map((cat) => (
                         <div key={cat}>
                           <label className="block text-xs text-gray-500 mb-1 uppercase">
@@ -727,7 +766,7 @@ const JobBasicInfo = () => {
                             type="number"
                             min="0"
                             placeholder="0"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                             value={formData.reservedPosts[cat]}
                             onChange={(e) =>
                               set(`reservedPosts.${cat}`, e.target.value)
@@ -777,13 +816,18 @@ const JobBasicInfo = () => {
                           set(`applicationFee.${key}`, e.target.value)
                         }
                       />
+                      {errors[`applicationFee.${key}`] && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors[`applicationFee.${key}`]}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card className="order-4 h-full">
-                <CardHeader>
+              <Card className="order-4 flex h-full flex-col">
+                <CardHeader className="shrink-0">
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-orange-600" />
                     <h3 className="font-semibold text-gray-900">
@@ -791,7 +835,7 @@ const JobBasicInfo = () => {
                     </h3>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Application Start
@@ -801,6 +845,11 @@ const JobBasicInfo = () => {
                       onChange={(val) => set("applicationStartDate", val)}
                       placeholder="Select application start"
                     />
+                    {errors.applicationStartDate && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.applicationStartDate}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -826,6 +875,11 @@ const JobBasicInfo = () => {
                       onChange={(val) => set("correctionStartDate", val)}
                       placeholder="Optional correction start"
                     />
+                    {errors.correctionStartDate && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.correctionStartDate}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -896,13 +950,19 @@ const JobBasicInfo = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Jobs
             </Button>
-            <Button
-              onClick={handleNext}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-8"
-            >
-              {returnToReview ? "Save & Return to Review" : "Next: Eligibility"}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button variant="outline" onClick={handleSaveDraft} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button
+                onClick={handleNext}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-8"
+              >
+                {returnToReview ? "Save & Return to Review" : "Next: Eligibility"}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

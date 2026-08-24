@@ -16,11 +16,9 @@ const {
 const { paginationMeta } = require("../utils/ApiResponse");
 const {
   emitToCandidate,
-  emitToAdmins,
   SOCKET_EVENTS,
 } = require("../socket/index");
 const { sendPaymentSuccessEmail } = require("./email.service");
-const { notifyAdmins } = require("../utils/notifyAdmins");
 const { assertPaymentWindowOpen } = require("../utils/timeline");
 const env = require("../config/env");
 const {
@@ -752,26 +750,16 @@ const verifyPayment = async ({
         amount: payment.amount,
         applicationId: application.applicationId,
       });
-      emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
-        type: "payment_received",
-        amount: payment.amount,
-      });
+      const candidateName = application.candidateId?.fullName || application.personalDetails?.fullName || "Candidate";
       try {
         await sendPaymentSuccessEmail(
-          application.candidateId.email,
-          application.candidateId.fullName,
+          application.candidateId?.email || application.personalDetails?.email,
+          candidateName,
           transactionId,
           payment.amount,
         );
       } catch (_) {}
-      // Notify all admins about the new payment
-      notifyAdmins({
-        type: "payment_success",
-        title: "Payment Received",
-        message: `₹${Number(payment.amount).toLocaleString("en-IN")} received from ${application.candidateId.fullName} for application ${application.applicationId}`,
-        link: `/admin/applications/${application._id}`,
-        metadata: { transactionId, applicationId: application.applicationId },
-      });
+      // (Removed) Notify all admins about the new payment (Too much overhead)
     } else if (!verified && cid) {
       emitToCandidate(cid, SOCKET_EVENTS.PAYMENT_FAILED, {
         transactionId,

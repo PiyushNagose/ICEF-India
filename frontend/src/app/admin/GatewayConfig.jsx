@@ -52,6 +52,7 @@ const GatewayConfig = () => {
   useEffect(() => {
     if (gwData?.gateway) {
       const gw = gwData.gateway
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(f => ({
         ...f,
         status: gw.status || 'INACTIVE',

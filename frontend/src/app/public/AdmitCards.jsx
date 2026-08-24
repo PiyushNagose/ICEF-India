@@ -26,17 +26,9 @@ import {
   ErrorState,
   JobListCard,
   LoadingState,
+  fadeUp,
   formatDate,
 } from "./PublicPageShell";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  visible: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.42, ease: "easeOut", delay: i * 0.05 },
-  }),
-};
 
 const heroContainer = "mx-auto max-w-[1380px] px-4 sm:px-6 lg:px-8";
 
@@ -55,6 +47,15 @@ const DetailTile = ({ label, value }) => (
     <p className="mt-1 text-sm font-black text-[#1f1d1b]">{value || "-"}</p>
   </div>
 );
+
+const isDateReleased = (value) => {
+  if (!value) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return today >= date;
+};
 
 const AdmitCards = () => {
   const { token } = useParams();
@@ -75,9 +76,19 @@ const AdmitCards = () => {
         sortBy: "examDate",
         sortOrder: "asc",
       }),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
-  const jobs = (data?.jobs || []).filter((job) => job.examDate).slice(0, 3);
+  const jobs = (data?.jobs || [])
+    .filter((job) => job.admitCardReleaseDate || job.examDate)
+    .sort(
+      (a, b) =>
+        new Date(a.admitCardReleaseDate || a.examDate) -
+        new Date(b.admitCardReleaseDate || b.examDate),
+    )
+    .slice(0, 4);
 
   const lookupMutation = useMutation({
     mutationFn: jobService.lookupPublicAdmitCard,
@@ -160,14 +171,14 @@ const AdmitCards = () => {
     <PublicLayout>
       <div className="min-h-[calc(100vh-90px)] bg-[#f5efe9]">
         <div className="bg-[#201d1a] text-white">
-          <div className={`${heroContainer} py-9`}>
+          <div className={`${heroContainer} flex min-h-[228px] flex-col justify-center py-9 lg:py-10`}>
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
+            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
               Download Admit Card
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/70">
+            <p className="mt-4 max-w-3xl text-[14px] font-medium leading-[26px] text-white/80">
               No candidate account is required. Verify your registered mobile
               and the system will allocate your seat only when your admit card
               is requested.
@@ -176,7 +187,7 @@ const AdmitCards = () => {
         </div>
 
         <section className={`${heroContainer} py-8 lg:py-10`}>
-          <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
             <div className="space-y-5">
               <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-4 border-b border-[#eadfd2] pb-5">
@@ -189,10 +200,10 @@ const AdmitCards = () => {
                       )}
                     </div>
                     <div>
-                      <h2 className="text-[22px] font-black leading-tight text-[#111827]">
+                      <h2 className="text-[24px] font-black leading-tight text-[#111827]">
                         {token ? "Verify Printed Admit Card" : "Enter Admit Card Details"}
                       </h2>
-                      <p className="mt-1 text-sm font-medium leading-6 text-[#5f6877]">
+                      <p className="mt-1 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                         {token
                           ? "Public verification result from the QR/barcode token."
                           : "Use the registration number issued after payment and your registered mobile."}
@@ -345,7 +356,7 @@ const AdmitCards = () => {
                           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-700">
                             {token ? "Verified Admit Card" : "Admit Card Ready"}
                           </p>
-                          <h3 className="mt-1 text-2xl font-black text-[#111827]">
+                          <h3 className="mt-1 text-2xl font-black text-[#111827] break-words">
                             {result.candidateName || "Candidate"}
                           </h3>
                           <p className="mt-1 text-sm font-medium text-[#6d6761]">
@@ -355,7 +366,7 @@ const AdmitCards = () => {
                         </div>
                       </div>
                       {result.alreadyGenerated && (
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700">
+                        <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-orange-700">
                           Existing card
                         </span>
                       )}
@@ -392,16 +403,16 @@ const AdmitCards = () => {
               </div>
             </div>
 
-            <aside className="space-y-5">
+            <aside className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start">
               <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-[#111827]">
+                <h2 className="text-[24px] font-black leading-tight text-[#111827]">
                   Admit Card Rules
                 </h2>
                 <div className="mt-5 space-y-4">
                   {[
-                    "Admit card is available only after the official release date.",
+                    "Download opens only after the official admit-card release date.",
                     "Applications with pending correction cannot receive admit cards.",
-                    "The first successful request reserves your exam seat permanently.",
+                    "The first successful request reserves the exam seat permanently.",
                     "Re-download always returns the same roll number, center, and seat.",
                   ].map((item) => (
                     <div key={item} className="flex gap-3">
@@ -414,7 +425,7 @@ const AdmitCards = () => {
                 </div>
               </div>
               <div className="rounded-[8px] border border-[#f2c9a9] bg-[#fff8f2] p-6">
-                <h3 className="font-black text-[#9a3d08]">
+                <h3 className="text-[18px] font-black text-[#9a3d08]">
                   Keep Registration Number Safe
                 </h3>
                 <p className="mt-2 text-sm font-medium leading-6 text-[#9a3d08]">
@@ -433,7 +444,7 @@ const AdmitCards = () => {
               <EmptyState
                 icon={Ticket}
                 title="No admit card releases scheduled"
-                description="When departments publish exam schedules, released admit card information will appear here."
+                description="When an admit-card release date or exam schedule is published, it will appear here."
               />
             )}
 
@@ -441,8 +452,8 @@ const AdmitCards = () => {
               <div>
                 <div className="mb-4 flex items-center gap-3">
                   <CalendarCheck2 className="h-5 w-5 text-[#f15a0b]" />
-                  <h2 className="text-xl font-black text-[#111827]">
-                    Recent Admit Card Releases
+                  <h2 className="text-[24px] font-black leading-tight text-[#111827]">
+                    Admit Card Release Schedule
                   </h2>
                 </div>
                 <div className="space-y-4">
@@ -457,7 +468,13 @@ const AdmitCards = () => {
                     >
                       <JobListCard
                         job={job}
-                        meta={`Exam date: ${formatDate(job.examDate)}. Download opens after the official admit-card release.`}
+                        meta={
+                          job.admitCardReleaseDate
+                            ? isDateReleased(job.admitCardReleaseDate)
+                              ? `Download open from ${formatDate(job.admitCardReleaseDate)}. Exam date: ${formatDate(job.examDate)}.`
+                              : `Download opens on ${formatDate(job.admitCardReleaseDate)}. Exam date: ${formatDate(job.examDate)}.`
+                            : `Exam date: ${formatDate(job.examDate)}. Admit-card release date is not published yet.`
+                        }
                         actionLabel="View Job"
                       />
                     </motion.div>

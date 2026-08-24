@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import { adminService } from "../../services/admin.service";
@@ -87,36 +88,6 @@ const SupportTicketDetails = () => {
     onError: (err) => toast.error(err.message || "Failed to send reply"),
   });
 
-  const { mutate: requestCorrection, isPending: isRequestingCorrection } =
-    useMutation({
-      mutationFn: () =>
-        adminService.requestTicketCorrection(id, {
-          note: replyText.trim() || undefined,
-        }),
-      onSuccess: () => {
-        toast.success("Correction requested");
-        setReplyText("");
-        queryClient.invalidateQueries({ queryKey: ["admin-support-ticket", id] });
-        queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
-      },
-      onError: (err) =>
-        toast.error(err.message || "Failed to request correction"),
-    });
-
-  const { mutate: verifyPayment, isPending: isVerifyingPayment } = useMutation({
-    mutationFn: () =>
-      adminService.verifyTicketPayment(id, {
-        note: replyText.trim() || undefined,
-      }),
-    onSuccess: () => {
-      toast.success("Payment verified");
-      setReplyText("");
-      queryClient.invalidateQueries({ queryKey: ["admin-support-ticket", id] });
-      queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
-    },
-    onError: (err) => toast.error(err.message || "Failed to verify payment"),
-  });
-
   const handleStatusChange = (newStatus) => {
     updateTicket({ status: newStatus });
   };
@@ -177,6 +148,21 @@ const SupportTicketDetails = () => {
   const linkedApplication = ticket.linkedApplication;
   const linkedPayment = ticket.linkedPayment;
   const action = ticket.resolutionAction || {};
+  const isCandidateCorrectionRequest =
+    action.type === "application_correction" &&
+    action.status === "requested" &&
+    linkedApplication;
+  const isCorrectionTicket = action.type === "application_correction";
+  const isCandidateTicket = [
+    "web",
+    "candidate_portal",
+    "email",
+    "phone",
+    "whatsapp",
+  ].includes(
+    ticket.source || "candidate_portal",
+  );
+  const showConversation = !isCandidateTicket && !isCorrectionTicket;
 
   return (
     <AdminLayout title="Ticket Details">
@@ -218,17 +204,35 @@ const SupportTicketDetails = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
+        <div
+          className={`grid grid-cols-1 items-start gap-6 ${
+            showConversation
+              ? "lg:grid-cols-[minmax(0,1fr)_380px]"
+              : "lg:grid-cols-1"
+          }`}
+        >
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-5">
             {/* Ticket Info */}
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  {ticket.title}
-                </h2>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  {ticket.description}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+                      {isCorrectionTicket ? "Correction Request" : "Support Ticket"}
+                    </p>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {ticket.title}
+                    </h2>
+                  </div>
+                  {isCorrectionTicket && (
+                    <span className="inline-flex w-fit items-center rounded-full bg-orange-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-orange-700">
+                      Candidate Correction
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                  {ticket.description || "No description provided."}
                 </p>
                 {ticket.attachments?.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -246,7 +250,7 @@ const SupportTicketDetails = () => {
                     ))}
                   </div>
                 )}
-                <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+                <div className="grid grid-cols-1 gap-3 mt-5 pt-5 border-t border-gray-100 sm:grid-cols-3">
                   <div>
                     <p className="text-xs text-gray-500">Category</p>
                     <p className="text-sm font-medium text-gray-800 capitalize">
@@ -270,6 +274,7 @@ const SupportTicketDetails = () => {
             </Card>
 
             {/* Conversation */}
+            {showConversation && (
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -380,17 +385,24 @@ const SupportTicketDetails = () => {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div
+            className={
+              showConversation
+                ? "space-y-6"
+                : "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
+            }
+          >
             {/* Candidate Info */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <User className="w-5 h-5 text-orange-600" />
                   <h3 className="font-semibold text-gray-900">
-                    Candidate Info
+                    Candidate
                   </h3>
                 </div>
               </CardHeader>
@@ -418,7 +430,7 @@ const SupportTicketDetails = () => {
 
             <Card>
               <CardHeader>
-                <h3 className="font-semibold text-gray-900">Public Tracking</h3>
+                <h3 className="font-semibold text-gray-900">Ticket Tracking</h3>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -515,17 +527,19 @@ const SupportTicketDetails = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Priority
                   </label>
-                  <select
+                  <CustomSelect
                     value={ticket.priority || ""}
-                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    onChange={handlePriorityChange}
+                    placeholder="Select priority"
+                    options={[
+                      { value: "Low", label: "Low" },
+                      { value: "Medium", label: "Medium" },
+                      { value: "High", label: "High" },
+                      { value: "Critical", label: "Critical" },
+                    ]}
                     disabled={isUpdating}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
+                    className="w-full"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -596,7 +610,7 @@ const SupportTicketDetails = () => {
                         </p>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-2 pt-2">
+                    <div className="grid grid-cols-1 gap-2 pt-2">
                       <Button
                         variant="outline"
                         className="w-full"
@@ -607,33 +621,28 @@ const SupportTicketDetails = () => {
                         <ExternalLink className="w-4 h-4 mr-2" />
                         View
                       </Button>
-                      <Button
-                        onClick={() => requestCorrection()}
-                        disabled={
-                          isRequestingCorrection ||
-                          action.status === "candidate_action_required"
-                        }
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        {isRequestingCorrection ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          "Request Correction"
-                        )}
-                      </Button>
+                      {isCandidateCorrectionRequest && (
+                        <Button
+                          onClick={() =>
+                            navigate(`/admin/applications/${linkedApplication._id}`)
+                          }
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                          Review Correction
+                        </Button>
+                      )}
                     </div>
                   </>
                 ) : (
                   <p className="text-sm text-gray-500">
-                    No application linked. Ask the candidate to include an
-                    Application ID when creating the ticket.
+                    No application linked. Ask the candidate for the Application ID.
                   </p>
                 )}
               </CardContent>
             </Card>
 
             {/* Payment */}
-            <Card>
+            <Card className={!linkedPayment ? "hidden" : ""}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-orange-600" />
@@ -663,23 +672,10 @@ const SupportTicketDetails = () => {
                         {linkedPayment.status}
                       </span>
                     </div>
-                    <Button
-                      onClick={() => verifyPayment()}
-                      disabled={isVerifyingPayment || linkedPayment.status === "success"}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      {isVerifyingPayment ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <CreditCard className="w-4 h-4 mr-2" />
-                      )}
-                      Verify Payment
-                    </Button>
                   </>
                 ) : (
                   <p className="text-sm text-gray-500">
-                    No payment linked. Payment tickets should include the
-                    transaction ID.
+                    No payment linked. Ask for the transaction ID.
                   </p>
                 )}
               </CardContent>
@@ -708,7 +704,7 @@ const SupportTicketDetails = () => {
                   </div>
                   {ticket.assignedAt && (
                     <div className="flex gap-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-orange-300 mt-1.5 flex-shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-gray-900">
                           Assigned

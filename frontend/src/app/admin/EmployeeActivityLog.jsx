@@ -12,6 +12,7 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import CustomSelect from '../../components/ui/CustomSelect'
 import { adminService } from '../../services/admin.service'
 import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
@@ -34,7 +35,7 @@ const MODULE_ICONS = {
   Employees: Users, Settings: Settings, Support: Headphones,
 }
 
-const BAR_COLORS = ['#f97316','#fb923c','#fdba74','#fcd34d','#86efac','#67e8f9','#a78bfa']
+
 
 // Numbered pagination
 const Pagination = ({ page, totalPages, total, showing, onPage }) => {
@@ -112,7 +113,7 @@ const EmployeeActivityLog = () => {
     const count = logs.filter(l => new Date(l.createdAt).toDateString() === d.toDateString()).length
     return { label, count, isToday: i === 6 }
   })
-  const maxBar = Math.max(...last7.map(d => d.count), 1)
+  // const maxBar = Math.max(...last7.map(d => d.count), 1)
 
   // Stats from aggregation
   const totalChanges = stats.reduce((s, x) => s + (x.count || 0), 0)
@@ -120,6 +121,7 @@ const EmployeeActivityLog = () => {
   const lastLog      = logs[0]
   const lastActivity = lastLog?.createdAt
     ? (() => {
+        // eslint-disable-next-line react-hooks/purity
         const diff = Math.floor((Date.now() - new Date(lastLog.createdAt)) / 60000)
         if (diff < 60) return `${diff} mins ago`
         if (diff < 1440) return `${Math.floor(diff / 60)} hrs ago`
@@ -208,7 +210,7 @@ const EmployeeActivityLog = () => {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal leading-tight">{label}</p>
                 <Icon className="w-4 h-4 text-gray-300 flex-shrink-0" />
               </div>
-              <p className="text-3xl font-bold text-gray-900">{value}</p>
+              <p className="text-2xl font-bold text-gray-900">{value}</p>
               {sub && <p className={`text-xs font-medium mt-0.5 ${subColor || 'text-gray-400'}`}>{sub}</p>}
             </div>
           ))}
@@ -223,20 +225,24 @@ const EmployeeActivityLog = () => {
               <span className="font-semibold text-gray-900">Activity Audit Log</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <select value={moduleFilter} onChange={e => { setModuleFilter(e.target.value); setPage(1) }}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                <option value="">All Modules</option>
-                {['Jobs','Applications','Employees','Roles','Projects','Support','Payments','Settings'].map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <select value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1) }}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                <option value="">Action Type</option>
-                {['CREATE','UPDATE','DELETE','VIEW','DOWNLOAD','LOGIN','LOGOUT','PUBLISH','APPROVE','REJECT'].map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={moduleFilter}
+                onChange={val => { setModuleFilter(val); setPage(1) }}
+                options={[
+                  { value: '', label: 'All Modules' },
+                  ...['Jobs','Applications','Employees','Roles','Projects','Support','Payments','Settings'].map(m => ({ value: m, label: m }))
+                ]}
+                className="w-40 border-gray-200"
+              />
+              <CustomSelect
+                value={actionFilter}
+                onChange={val => { setActionFilter(val); setPage(1) }}
+                options={[
+                  { value: '', label: 'Action Type' },
+                  ...['CREATE','UPDATE','DELETE','VIEW','DOWNLOAD','LOGIN','LOGOUT','PUBLISH','APPROVE','REJECT'].map(a => ({ value: a, label: a }))
+                ]}
+                className="w-44 border-gray-200"
+              />
             </div>
           </div>
 

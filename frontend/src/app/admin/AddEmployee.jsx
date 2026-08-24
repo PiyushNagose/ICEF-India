@@ -255,7 +255,7 @@ const AddEmployee = () => {
                   )
                 }) : (
                   <div className="md:col-span-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-800">
-                    No roles found. Create a role before adding employees.
+                    No roles found. Create a role first.
                   </div>
                 )}
               </div>

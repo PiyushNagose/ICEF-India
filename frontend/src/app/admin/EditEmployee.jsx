@@ -12,7 +12,7 @@ const DEPARTMENTS = [
   'Administration','Public Works','Healthcare','Education','Finance',
   'Information Technology','Home Affairs','Revenue','Agriculture','Transport','Law & Justice','Other',
 ]
-const STATUS_OPTIONS = ['Active','Inactive','On Leave']
+
 
 const inp = (err, disabled) =>
   `w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${disabled ? 'bg-gray-100 cursor-not-allowed border-gray-200 text-gray-500' : err ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'}`
@@ -67,6 +67,7 @@ const EditEmployee = () => {
   useEffect(() => {
     if (employeeData?.employee) {
       const emp = employeeData.employee
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         fullName: emp.fullName || '',
         dateOfBirth: emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : '',

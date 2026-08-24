@@ -191,6 +191,12 @@ export const candidateService = {
     const response = await apiClient.get("/candidate/admit-cards");
     return unwrapData(response);
   },
+  async downloadApplicationReceipt(id) {
+    const response = await apiClient.get(`/candidate/applications/${id}/pdf`, {
+      responseType: "blob",
+    });
+    return response;
+  },
   getAdmitCardHtmlUrl(id) {
     return `${API_BASE_URL}/candidate/admit-cards/${id}/html`;
   },

@@ -13,10 +13,11 @@ import {
   FileText,
   Briefcase,
   AlertTriangle,
-  Settings,
+
   Info,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
+import ConfirmDeleteModal from "../../components/ui/ConfirmDeleteModal";
 import { adminService } from "../../services/admin.service";
 import { REALTIME_ENABLED } from "../../api/config";
 
@@ -53,6 +54,12 @@ const TYPE_CFG = {
   },
   application_updated: {
     icon: FileText,
+    bg: "bg-orange-100",
+    text: "text-orange-700",
+    label: "Correction",
+  },
+  application_correction: {
+    icon: AlertTriangle,
     bg: "bg-orange-100",
     text: "text-orange-700",
     label: "Correction",
@@ -96,6 +103,10 @@ const TYPE_CFG = {
 };
 
 const getCfg = (type) => TYPE_CFG[type] || TYPE_CFG.general;
+const HIGH_VOLUME_ADMIN_TYPES = new Set([
+  "payment_success",
+  "application_submitted",
+]);
 
 const formatTime = (date) => {
   const diff = Date.now() - new Date(date);
@@ -116,8 +127,7 @@ const formatTime = (date) => {
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "unread", label: "Unread" },
-  { id: "payment_success", label: "Payments" },
-  { id: "application_submitted", label: "Applications" },
+  { id: "application_", label: "Applications" },
   { id: "new_job_posted", label: "Jobs" },
   { id: "general", label: "General" },
 ];
@@ -143,12 +153,15 @@ const AdminNotifications = () => {
     staleTime: 30000,
   });
 
-  const notifications = (data?.notifications || []).filter(
-    (n) =>
-      !search ||
-      n.title?.toLowerCase().includes(search.toLowerCase()) ||
-      n.message?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const notifications = (data?.notifications || []).filter((n) => {
+    if (HIGH_VOLUME_ADMIN_TYPES.has(n.type)) return false;
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      n.title?.toLowerCase().includes(term) ||
+      n.message?.toLowerCase().includes(term)
+    );
+  });
   const unreadCount = data?.unreadCount || 0;
 
   const { mutateAsync: markRead } = useMutation({
@@ -170,10 +183,15 @@ const AdminNotifications = () => {
     },
   });
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+
   const { mutate: deleteNotif } = useMutation({
     mutationFn: (id) => adminService.deleteAdminNotification(id),
     onSuccess: () => {
       toast.success("Notification deleted");
+      setDeleteModalOpen(false);
+      setNotificationToDelete(null);
       queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
     },
   });
@@ -183,7 +201,7 @@ const AdminNotifications = () => {
     if (!notification.isRead) {
       try {
         await markRead(notification._id);
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
     if (notification.link) {
       navigate(notification.link);
@@ -275,7 +293,7 @@ const AdminNotifications = () => {
           )}
 
           <div className="hover-scroll max-h-[70vh] overflow-y-auto pr-1">
-            {notifications.map((n, i) => {
+            {notifications.map((n) => {
               const cfg = getCfg(n.type);
               const Icon = cfg.icon;
               return (
@@ -352,7 +370,8 @@ const AdminNotifications = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteNotif(n._id);
+                        setNotificationToDelete(n._id);
+                        setDeleteModalOpen(true);
                       }}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete"
@@ -366,6 +385,17 @@ const AdminNotifications = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setNotificationToDelete(null);
+        }}
+        onConfirm={() => deleteNotif(notificationToDelete)}
+        title="Delete Notification"
+        message="Are you sure you want to delete this notification? This action cannot be undone."
+      />
     </AdminLayout>
   );
 };

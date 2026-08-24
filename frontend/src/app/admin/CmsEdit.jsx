@@ -1,17 +1,32 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { useState, useEffect } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
-  Briefcase, Bell, Link2, Image,
-  Plus, X, ArrowLeft, Loader2, CheckCircle2,
-} from 'lucide-react'
-import AdminLayout from '../../components/layouts/AdminLayout'
-import { adminService } from '../../services/admin.service'
-import BannerImageUpload from '../../components/ui/BannerImageUpload'
+  Briefcase,
+  Bell,
+  Link2,
+  Image,
+  Plus,
+  X,
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+  Download,
+  CircleHelp,
+  Phone,
+  ListChecks,
+  Eye,
+} from "lucide-react";
+import AdminLayout from "../../components/layouts/AdminLayout";
+import { adminService } from "../../services/admin.service";
+import BannerImageUpload from "../../components/ui/BannerImageUpload";
+import ProjectFlowNav from "../../components/admin/ProjectFlowNav";
 
-const Section = ({ icon: Icon, title, children, action }) => (
-  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+const Section = ({ icon: Icon, title, children, action, className = "" }) => (
+  <div
+    className={`flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ${className}`}
+  >
     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -21,299 +36,1036 @@ const Section = ({ icon: Icon, title, children, action }) => (
       </div>
       {action}
     </div>
-    <div className="px-6 py-5">{children}</div>
+    <div className="flex-1 px-6 py-5">{children}</div>
   </div>
-)
+);
 
-const inputCls = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent'
+const inputCls =
+  "w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
 const Label = ({ children }) => (
-  <label className="block text-xs font-semibold text-gray-600 mb-1.5">{children}</label>
-)
+  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+    {children}
+  </label>
+);
+
+const formatProjectDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getProjectDefaults = (project, stateName) => {
+  const projectName = project?.name || "";
+  const state = project?.state || stateName;
+  const department = project?.department || "";
+  const start = formatProjectDate(project?.startDate);
+  const end = formatProjectDate(project?.endDate || project?.closureDate);
+  const duration =
+    start && end ? `${start} to ${end}` : end ? `Open until ${end}` : "";
+  const departmentLine = [department, state].filter(Boolean).join(", ");
+
+  if (!projectName) {
+    return {
+      heroTitle: "",
+      heroSubtitle: "",
+      announcements: [],
+      instructions: [],
+      faqs: [],
+      helpdeskAddress: "Recruitment Portal Helpdesk",
+    };
+  }
+
+  return {
+    heroTitle: projectName,
+    heroSubtitle: [
+      departmentLine
+        ? `${departmentLine} recruitment application portal.`
+        : "Official recruitment application portal.",
+      duration ? `Application window: ${duration}.` : "",
+      "Review the notification, choose an available post, and complete the application from this page.",
+    ]
+      .filter(Boolean)
+      .join(" "),
+    announcements: [
+      {
+        text: `Applications are invited for ${projectName}.`,
+        priority: "high",
+      },
+      {
+        text: "Use the official Apply option on this page for all available posts.",
+        link: "#available-posts",
+        priority: "medium",
+      },
+    ],
+    instructions: [
+      "Read the official notification before applying.",
+      "Keep scanned photo, signature, and required certificates ready.",
+      "Use the same mobile number and email throughout the application.",
+      "Download the submitted application after final payment and submission.",
+    ],
+    faqs: [
+      {
+        question: `Where can I apply for ${projectName}?`,
+        answer:
+          "Use the Apply Now option on this project page and select the eligible post before starting the form.",
+      },
+      {
+        question: "Can I edit my application after payment?",
+        answer:
+          "Editable fields depend on the correction window and recruitment rules configured by the admin.",
+      },
+    ],
+    helpdeskAddress: departmentLine || "Recruitment Portal Helpdesk",
+  };
+};
 
 const CmsEdit = () => {
-  const { state: stateParam } = useParams()
-  const stateName = decodeURIComponent(stateParam)
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const { state: stateParam } = useParams();
+  const stateName = decodeURIComponent(stateParam);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("project");
+  const queryClient = useQueryClient();
 
-  const [form, setForm] = useState(null)
-  const [announcementText, setAnnouncementText] = useState('')
-  const [jobSearch, setJobSearch] = useState('')
+  const [form, setForm] = useState(null);
+  const [announcementText, setAnnouncementText] = useState("");
+  const [announcementLink, setAnnouncementLink] = useState("");
+  const [instructionText, setInstructionText] = useState("");
+  const [downloadDraft, setDownloadDraft] = useState({
+    title: "",
+    url: "",
+    type: "PDF",
+  });
+  const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
+  const [jobSearch, setJobSearch] = useState("");
 
   const { data: pageData, isLoading: pageLoading } = useQuery({
-    queryKey: ['admin-cms-page', stateName],
-    queryFn: () => adminService.getCmsPage(stateName),
-  })
+    queryKey: ["admin-cms-page", stateName, projectId],
+    queryFn: () =>
+      adminService.getCmsPage(stateName, projectId ? { projectId } : {}),
+  });
+
+  const { data: projectData } = useQuery({
+    queryKey: ["admin-project-flow", projectId],
+    queryFn: () => adminService.getProject(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 30000,
+  });
 
   const { data: jobsData } = useQuery({
-    queryKey: ['admin-jobs-cms'],
-    queryFn: () => adminService.getAdminJobs({ limit: 200, status: 'active' }),
-  })
-  const allJobs = jobsData?.jobs || []
+    queryKey: ["admin-jobs-cms", projectId],
+    queryFn: () =>
+      adminService.getAdminJobs({
+        limit: 200,
+        status: "active",
+        ...(projectId ? { projectId } : {}),
+      }),
+  });
+  const project = projectData?.project || projectData;
+  const rawJobs = jobsData?.jobs || [];
+  const allJobs = projectId
+    ? rawJobs.filter(
+        (job) =>
+          String(job.projectId?._id || job.projectId || "") ===
+          String(projectId),
+      )
+    : rawJobs;
+  const nextPath = projectId
+    ? `/admin/jobs/create/basic-info?project=${projectId}`
+    : "/admin/cms";
+  const returnPath = projectId ? `/admin/projects/${projectId}` : "/admin/cms";
+  const projectDetailsPath = projectId
+    ? `/admin/projects/${projectId}`
+    : "/admin/cms";
 
   // Populate form once data loaded
   useEffect(() => {
-    if (!pageData?.page) return
-    const p = pageData.page
+    if (!pageData?.page) return;
+    if (form) return;
+    if (projectId && !project) return;
+    const p = pageData.page;
+    const defaults = getProjectDefaults(project, stateName);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- query data is copied into editable draft form state.
     setForm({
-      heroTitle:     p.heroTitle     || '',
-      heroSubtitle:  p.heroSubtitle  || '',
-      bannerImage:   p.bannerImage   || '',
-      featuredJobs:  p.featuredJobs  || [],
-      announcements: p.announcements || [],
-      quickLinks: p.quickLinks || {
-        applyNow: true, latestNotifications: true,
-        admitCards: true, results: true, support: true,
+      heroTitle: p.heroTitle || defaults.heroTitle,
+      heroSubtitle: p.heroSubtitle || defaults.heroSubtitle,
+      bannerImage: p.bannerImage || "",
+      featuredJobs: p.featuredJobs || [],
+      announcements: p.announcements?.length
+        ? p.announcements
+        : defaults.announcements,
+      instructions: p.instructions?.length
+        ? p.instructions
+        : defaults.instructions,
+      downloads: p.downloads || [],
+      faqs: p.faqs?.length ? p.faqs : defaults.faqs,
+      helpdesk: {
+        phone: p.helpdesk?.phone || "1800-123-4567",
+        email: p.helpdesk?.email || "support@recruitment.gov.in",
+        hours: p.helpdesk?.hours || "Monday to Friday, 9:00 AM to 6:00 PM",
+        address: p.helpdesk?.address || defaults.helpdeskAddress,
       },
-      status: p.status || 'draft',
-    })
-  }, [pageData])
+      sectionVisibility: {
+        notices: p.sectionVisibility?.notices ?? true,
+        quickActions: p.sectionVisibility?.quickActions ?? true,
+        howToApply: p.sectionVisibility?.howToApply ?? true,
+        downloads: p.sectionVisibility?.downloads ?? true,
+        faqs: p.sectionVisibility?.faqs ?? true,
+        helpdesk: p.sectionVisibility?.helpdesk ?? true,
+      },
+      quickLinks: p.quickLinks || {
+        applyNow: true,
+        latestNotifications: true,
+        admitCards: true,
+        results: true,
+        support: true,
+      },
+      status: p.status || "draft",
+    });
+  }, [form, pageData, project, projectId, stateName]);
 
-  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }))
-  const setQL = (key, val) => setForm((p) => ({ ...p, quickLinks: { ...p.quickLinks, [key]: val } }))
+  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const setQL = (key, val) =>
+    setForm((p) => ({ ...p, quickLinks: { ...p.quickLinks, [key]: val } }));
+  const setVisibility = (key, val) =>
+    setForm((p) => ({
+      ...p,
+      sectionVisibility: { ...p.sectionVisibility, [key]: val },
+    }));
+  const setHelpdesk = (key, value) =>
+    setForm((p) => ({ ...p, helpdesk: { ...p.helpdesk, [key]: value } }));
+  const projectDefaults = getProjectDefaults(project, stateName);
+
+  const applyProjectText = () => {
+    setForm((p) => ({
+      ...p,
+      heroTitle: projectDefaults.heroTitle || p.heroTitle,
+      heroSubtitle: projectDefaults.heroSubtitle || p.heroSubtitle,
+      helpdesk: {
+        ...p.helpdesk,
+        address: projectDefaults.helpdeskAddress || p.helpdesk.address,
+      },
+    }));
+    toast.success("Project details applied to CMS draft.");
+  };
+
+  const addProjectNotices = () => {
+    const existing = new Set(form.announcements.map((item) => item.text));
+    const nextItems = projectDefaults.announcements.filter(
+      (item) => !existing.has(item.text),
+    );
+    if (!nextItems.length) {
+      toast("Project notices are already added.");
+      return;
+    }
+    set("announcements", [...form.announcements, ...nextItems]);
+  };
+
+  const useDefaultInstructions = () => {
+    set("instructions", projectDefaults.instructions);
+    toast.success("Default instructions added.");
+  };
 
   const filteredJobs = jobSearch.trim()
-    ? allJobs.filter((j) =>
-        (j.title || '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-        (j.postCode || '').toLowerCase().includes(jobSearch.toLowerCase())
+    ? allJobs.filter(
+        (j) =>
+          (j.title || "").toLowerCase().includes(jobSearch.toLowerCase()) ||
+          (j.postCode || "").toLowerCase().includes(jobSearch.toLowerCase()),
       )
-    : allJobs.slice(0, 6)
+    : allJobs.slice(0, 6);
 
   const addJob = (job) => {
     if (!form.featuredJobs.find((j) => j._id === job._id)) {
-      set('featuredJobs', [...form.featuredJobs, job])
+      set("featuredJobs", [...form.featuredJobs, job]);
     }
-    setJobSearch('')
-  }
-  const removeJob = (id) => set('featuredJobs', form.featuredJobs.filter((j) => j._id !== id))
+    setJobSearch("");
+  };
+  const removeJob = (id) =>
+    set(
+      "featuredJobs",
+      form.featuredJobs.filter((j) => j._id !== id),
+    );
 
   const addAnnouncement = () => {
-    if (!announcementText.trim()) return
-    set('announcements', [...form.announcements, { text: announcementText.trim(), priority: 'medium' }])
-    setAnnouncementText('')
-  }
-  const removeAnnouncement = (i) => set('announcements', form.announcements.filter((_, idx) => idx !== i))
+    if (!announcementText.trim()) return;
+    set("announcements", [
+      ...form.announcements,
+      {
+        text: announcementText.trim(),
+        link: announcementLink.trim(),
+        priority: "medium",
+      },
+    ]);
+    setAnnouncementText("");
+    setAnnouncementLink("");
+  };
+  const removeAnnouncement = (i) =>
+    set(
+      "announcements",
+      form.announcements.filter((_, idx) => idx !== i),
+    );
+  const addInstruction = () => {
+    if (!instructionText.trim()) return;
+    set("instructions", [...form.instructions, instructionText.trim()]);
+    setInstructionText("");
+  };
+  const removeInstruction = (i) =>
+    set(
+      "instructions",
+      form.instructions.filter((_, idx) => idx !== i),
+    );
+  const addDownload = () => {
+    if (!downloadDraft.title.trim() || !downloadDraft.url.trim()) return;
+    set("downloads", [
+      ...form.downloads,
+      {
+        title: downloadDraft.title.trim(),
+        url: downloadDraft.url.trim(),
+        type: downloadDraft.type.trim() || "PDF",
+      },
+    ]);
+    setDownloadDraft({ title: "", url: "", type: "PDF" });
+  };
+  const removeDownload = (i) =>
+    set(
+      "downloads",
+      form.downloads.filter((_, idx) => idx !== i),
+    );
+  const addFaq = () => {
+    if (!faqDraft.question.trim() || !faqDraft.answer.trim()) return;
+    set("faqs", [
+      ...form.faqs,
+      {
+        question: faqDraft.question.trim(),
+        answer: faqDraft.answer.trim(),
+      },
+    ]);
+    setFaqDraft({ question: "", answer: "" });
+  };
+  const removeFaq = (i) =>
+    set(
+      "faqs",
+      form.faqs.filter((_, idx) => idx !== i),
+    );
 
   const buildPayload = () => ({
-    heroTitle:     form.heroTitle,
-    heroSubtitle:  form.heroSubtitle,
-    bannerImage:   form.bannerImage,
-    featuredJobs:  form.featuredJobs.map((j) => j._id || j),
+    ...(projectId ? { projectId } : {}),
+    heroTitle: form.heroTitle,
+    heroSubtitle: form.heroSubtitle,
+    bannerImage: form.bannerImage,
+    featuredJobs: form.featuredJobs.map((j) => j._id || j),
     announcements: form.announcements,
-    quickLinks:    form.quickLinks,
-  })
+    quickLinks: form.quickLinks,
+    instructions: form.instructions,
+    downloads: form.downloads,
+    faqs: form.faqs,
+    helpdesk: form.helpdesk,
+    sectionVisibility: form.sectionVisibility,
+  });
 
   const { mutate: saveUpdate, isPending: isSaving } = useMutation({
-    mutationFn: (data) => adminService.updateCmsPage(stateName, data),
+    mutationFn: (data) =>
+      adminService.updateCmsPage(
+        stateName,
+        data,
+        projectId ? { projectId } : {},
+      ),
     onSuccess: () => {
-      toast.success('Page saved as draft')
-      queryClient.invalidateQueries({ queryKey: ['admin-cms-pages'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-cms-page', stateName] })
+      toast.success(projectId ? "Landing page saved." : "Page saved as draft");
+      queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-cms-page", stateName, projectId],
+      });
+      if (projectId) navigate(nextPath);
     },
-    onError: (err) => toast.error(err.message || 'Failed to save'),
-  })
+    onError: (err) => toast.error(err.message || "Failed to save"),
+  });
 
   const { mutate: saveAndPublish, isPending: isPublishing } = useMutation({
     mutationFn: async (data) => {
-      await adminService.updateCmsPage(stateName, data)
-      await adminService.publishCmsPage(stateName)
+      await adminService.updateCmsPage(
+        stateName,
+        data,
+        projectId ? { projectId } : {},
+      );
+      await adminService.publishCmsPage(
+        stateName,
+        projectId ? { projectId } : {},
+      );
     },
     onSuccess: () => {
-      toast.success('Page published')
-      queryClient.invalidateQueries({ queryKey: ['admin-cms-pages'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-cms-page', stateName] })
-      navigate('/admin/cms')
+      toast.success(projectId ? "Landing page published." : "Page published");
+      queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-cms-page", stateName, projectId],
+      });
+      navigate(nextPath);
     },
-    onError: (err) => toast.error(err.message || 'Failed to publish'),
-  })
+    onError: (err) => toast.error(err.message || "Failed to publish"),
+  });
 
   if (pageLoading || !form) {
     return (
-      <AdminLayout title="CMS — Edit State Page">
+      <AdminLayout title="CMS - Edit State Page">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
       </AdminLayout>
-    )
+    );
   }
 
-  const page = pageData?.page
+  const page = pageData?.page;
   const liveSummary = [
-    { label: 'State',             value: stateName },
-    { label: 'Banner Image',      value: form.bannerImage ? '✅ Uploaded' : '—' },
-    { label: 'Featured Projects', value: form.featuredJobs.length },
-    { label: 'Status',            value: (page?.status || 'draft').charAt(0).toUpperCase() + (page?.status || 'draft').slice(1) },
-    { label: 'Last Edited',       value: page?.updatedAt ? new Date(page.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—' },
-  ]
+    { label: "State", value: stateName },
+    { label: "Banner Image", value: form.bannerImage ? "Uploaded" : "-" },
+    { label: "Featured Jobs", value: form.featuredJobs.length },
+    {
+      label: "Status",
+      value:
+        (page?.status || "draft").charAt(0).toUpperCase() +
+        (page?.status || "draft").slice(1),
+    },
+    {
+      label: "Last Edited",
+      value: page?.updatedAt
+        ? new Date(page.updatedAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+          })
+        : "-",
+    },
+  ];
 
   return (
-    <AdminLayout title={`CMS — Edit ${stateName}`}>
+    <AdminLayout
+      title={projectId ? "Project Landing Page CMS" : `CMS - Edit ${stateName}`}
+    >
       <div className="p-6">
         <div className="w-full">
-
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => navigate('/admin/cms')} className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors">
+            <button
+              onClick={() => navigate(projectDetailsPath)}
+              className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Edit State Landing Page</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Manage public portal content for {stateName}</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {projectId
+                  ? "Project Landing Page CMS"
+                  : "Edit State Landing Page"}
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Manage public portal content for {project?.name || stateName}
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
+          {projectId && (
+            <ProjectFlowNav
+              project={project}
+              current="landing"
+              className="mb-6"
+            />
+          )}
 
-            {/* ── LEFT ── */}
-            <div className="lg:col-span-2 space-y-5">
-
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
+            {/* LEFT */}
+            <div className="min-w-0 space-y-5">
               {/* Hero */}
               <Section icon={Image} title="Hero Configuration">
                 <div className="space-y-4">
                   <div>
                     <Label>Hero Title</Label>
-                    <input type="text" placeholder="e.g., Government Jobs in Telangana" value={form.heroTitle} onChange={(e) => set('heroTitle', e.target.value)} className={inputCls} />
+                    <input
+                      type="text"
+                      placeholder="e.g., Government Jobs in Telangana"
+                      value={form.heroTitle}
+                      onChange={(e) => set("heroTitle", e.target.value)}
+                      className={inputCls}
+                    />
                   </div>
                   <div>
                     <Label>Hero Subtitle</Label>
-                    <textarea rows={3} placeholder="Enter a brief description..." value={form.heroSubtitle} onChange={(e) => set('heroSubtitle', e.target.value)} className={`${inputCls} resize-none`} />
+                    <textarea
+                      rows={3}
+                      placeholder="Enter a brief description..."
+                      value={form.heroSubtitle}
+                      onChange={(e) => set("heroSubtitle", e.target.value)}
+                      className={`${inputCls} resize-none`}
+                    />
                   </div>
                   <div>
                     <Label>Banner Image</Label>
                     <BannerImageUpload
                       value={form.bannerImage}
-                      onChange={(url) => set('bannerImage', url)}
+                      onChange={(url) => set("bannerImage", url)}
                     />
                   </div>
                 </div>
               </Section>
 
-              {/* Featured Recruitments */}
-              <Section icon={Briefcase} title="Featured Recruitments">
-                <div className="space-y-3">
-                  <div className="relative">
-                    <input type="text" placeholder="Search and select projects..." value={jobSearch} onChange={(e) => setJobSearch(e.target.value)} className={inputCls} />
-                    {jobSearch && (
-                      <div className="hover-scroll absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
-                        {filteredJobs.length === 0 && <p className="px-4 py-3 text-sm text-gray-400">No jobs found</p>}
-                        {filteredJobs.map((j) => (
-                          <button key={j._id} type="button" onMouseDown={() => addJob(j)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50 text-left transition-colors">
-                            <Briefcase className="w-4 h-4 text-orange-500 shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{j.title}</p>
-                              <p className="text-xs text-gray-400">{j.postCode}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {form.featuredJobs.length > 0 && (
-                    <div className="space-y-2">
+              <div className="grid items-stretch gap-5 xl:grid-cols-2">
+                {/* Featured Recruitments */}
+                <Section
+                  icon={Briefcase}
+                  title="Featured Recruitments"
+                  className="h-full"
+                >
+                  <div className="flex h-full flex-col gap-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search and select recruitments..."
+                        value={jobSearch}
+                        onChange={(e) => setJobSearch(e.target.value)}
+                        className={inputCls}
+                      />
+                      {jobSearch && (
+                        <div className="hover-scroll absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                          {filteredJobs.length === 0 && (
+                            <p className="px-4 py-3 text-sm text-gray-400">
+                              No jobs found
+                            </p>
+                          )}
+                          {filteredJobs.map((j) => (
+                            <button
+                              key={j._id}
+                              type="button"
+                              onMouseDown={() => addJob(j)}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50 text-left transition-colors"
+                            >
+                              <Briefcase className="w-4 h-4 text-orange-500 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {j.title}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {j.postCode}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
                       {form.featuredJobs.map((job) => (
-                        <div key={job._id || job} className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl">
-                          <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          key={job._id || job}
+                          className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl"
+                        >
+                          <div className="flex min-w-0 items-center gap-2.5">
                             <Briefcase className="w-4 h-4 text-orange-500 shrink-0" />
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{job.title || 'Job'}</p>
-                              <p className="text-xs text-gray-400">{job.postCode || ''}</p>
+                              <p className="truncate text-sm font-medium text-gray-900">
+                                {job.title || "Job"}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {job.postCode || ""}
+                              </p>
                             </div>
                           </div>
-                          <button onClick={() => removeJob(job._id || job)} className="text-gray-400 hover:text-red-500 ml-2"><X className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => removeJob(job._id || job)}
+                            className="text-gray-400 hover:text-red-500 ml-2"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       ))}
+                      {form.featuredJobs.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-400">
+                          No featured recruitments selected.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </Section>
+                  </div>
+                </Section>
 
-              {/* Announcements */}
-              <Section icon={Bell} title="Announcements" action={
-                <button type="button" onClick={addAnnouncement} disabled={!announcementText.trim()} className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700 disabled:opacity-40">
-                  <Plus className="w-4 h-4" /> Add Notice
-                </button>
-              }>
-                <div className="space-y-3">
-                  <input type="text" placeholder="Type announcement and press Enter or click Add Notice..." value={announcementText} onChange={(e) => setAnnouncementText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAnnouncement() } }} className={inputCls} />
-                  {form.announcements.map((a, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-2 h-2 rounded-full ${a.priority === 'high' ? 'bg-red-500' : a.priority === 'low' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        <p className="text-sm text-gray-900">{a.text}</p>
-                      </div>
-                      <button onClick={() => removeAnnouncement(i)} className="text-gray-400 hover:text-red-500 ml-2"><X className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* Quick Links */}
-              <Section icon={Link2} title="Quick Links">
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries(form.quickLinks).map(([key, val]) => {
-                    const labels = { applyNow: 'Apply Now', latestNotifications: 'Latest Notifications', admitCards: 'Admit Cards', results: 'Results', support: 'Support' }
-                    return (
-                      <div key={key} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-orange-200 hover:bg-orange-50/30">
-                        <span className="min-w-0 text-sm font-medium text-gray-900">{labels[key]}</span>
-                        <button
-                          type="button"
-                          aria-pressed={val}
-                          aria-label={`${val ? 'Disable' : 'Enable'} ${labels[key]}`}
-                          onClick={() => setQL(key, !val)}
-                          className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:ring-offset-2 ${val ? 'bg-orange-500' : 'bg-gray-200'}`}
+                {/* Announcements */}
+                <Section
+                  icon={Bell}
+                  title="Announcements"
+                  action={
+                    <button
+                      type="button"
+                      onClick={addAnnouncement}
+                      disabled={!announcementText.trim()}
+                      className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700 disabled:opacity-40"
+                    >
+                      <Plus className="w-4 h-4" /> Add Notice
+                    </button>
+                  }
+                  className="h-full"
+                >
+                  <div className="flex h-full flex-col gap-3">
+                    <input
+                      type="text"
+                      placeholder="Type notice and press Enter..."
+                      value={announcementText}
+                      onChange={(e) => setAnnouncementText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addAnnouncement();
+                        }
+                      }}
+                      className={inputCls}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Optional link, e.g. #available-posts or /admit-cards"
+                      value={announcementLink}
+                      onChange={(e) => setAnnouncementLink(e.target.value)}
+                      className={inputCls}
+                    />
+                    <div className="flex-1 space-y-2">
+                      {form.announcements.map((a, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50"
                         >
-                          <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${val ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Section>
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${a.priority === "high" ? "bg-red-500" : a.priority === "low" ? "bg-emerald-500" : "bg-amber-500"}`}
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {a.text}
+                              </p>
+                              {a.link && (
+                                <p className="truncate text-xs font-medium text-orange-600">
+                                  {a.link}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeAnnouncement(i)}
+                            className="text-gray-400 hover:text-red-500 ml-2"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {form.announcements.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-400">
+                          No public notices added.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Section>
+              </div>
+
+              <div className="grid items-stretch gap-5 xl:grid-cols-2">
+                <Section icon={Download} title="Downloads" className="h-full">
+                  <div className="flex h-full flex-col gap-3">
+                    <input
+                      value={downloadDraft.title}
+                      onChange={(e) =>
+                        setDownloadDraft((p) => ({
+                          ...p,
+                          title: e.target.value,
+                        }))
+                      }
+                      placeholder="Document title"
+                      className={inputCls}
+                    />
+                    <input
+                      value={downloadDraft.url}
+                      onChange={(e) =>
+                        setDownloadDraft((p) => ({ ...p, url: e.target.value }))
+                      }
+                      placeholder="PDF / document URL"
+                      className={inputCls}
+                    />
+                    <div className="grid grid-cols-[1fr_auto] gap-3">
+                      <input
+                        value={downloadDraft.type}
+                        onChange={(e) =>
+                          setDownloadDraft((p) => ({
+                            ...p,
+                            type: e.target.value,
+                          }))
+                        }
+                        placeholder="PDF"
+                        className={inputCls}
+                      />
+                      <button
+                        type="button"
+                        onClick={addDownload}
+                        className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {form.downloads.map((item, i) => (
+                        <div
+                          key={`${item.title}-${i}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">
+                              {item.title}
+                            </p>
+                            <p className="truncate text-xs text-gray-400">
+                              {item.type || "PDF"} - {item.url}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeDownload(i)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {form.downloads.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-400">
+                          No public downloads added.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Section>
+
+                <Section icon={CircleHelp} title="FAQs" className="h-full">
+                  <div className="flex h-full flex-col gap-3">
+                    <input
+                      value={faqDraft.question}
+                      onChange={(e) =>
+                        setFaqDraft((p) => ({ ...p, question: e.target.value }))
+                      }
+                      placeholder="Question"
+                      className={inputCls}
+                    />
+                    <textarea
+                      rows={2}
+                      value={faqDraft.answer}
+                      onChange={(e) =>
+                        setFaqDraft((p) => ({ ...p, answer: e.target.value }))
+                      }
+                      placeholder="Answer"
+                      className={`${inputCls} resize-none`}
+                    />
+                    <button
+                      type="button"
+                      onClick={addFaq}
+                      className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-700"
+                    >
+                      Add FAQ
+                    </button>
+                    <div className="flex-1 space-y-2">
+                      {form.faqs.map((item, i) => (
+                        <div
+                          key={`${item.question}-${i}`}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.question}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-gray-500">
+                              {item.answer}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeFaq(i)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {form.faqs.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-400">
+                          Default FAQs will be shown on the public page.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Section>
+              </div>
             </div>
 
-            {/* ── RIGHT ── */}
-            <div className="space-y-4">
+            {/* RIGHT */}
+            <div className="space-y-4 xl:sticky xl:top-6">
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-normal">Live Page Summary</h3>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-normal">
+                    Live Page Summary
+                  </h3>
                 </div>
                 <div className="space-y-2.5">
                   {liveSummary.map(({ label, value }) => (
-                    <div key={label} className="flex items-center justify-between text-sm">
+                    <div
+                      key={label}
+                      className="flex items-center justify-between text-sm"
+                    >
                       <span className="text-gray-500">{label}</span>
-                      <span className={`font-semibold ${value === '—' ? 'text-gray-300' : 'text-gray-900'}`}>{value}</span>
+                      <span
+                        className={`font-semibold ${value === "-" ? "text-gray-300" : "text-gray-900"}`}
+                      >
+                        {value}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
-                <button onClick={() => saveAndPublish(buildPayload())} disabled={isPublishing || isSaving} className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
-                  {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  {isPublishing ? 'Publishing...' : 'Publish Page'}
+                <button
+                  onClick={() => saveAndPublish(buildPayload())}
+                  disabled={isPublishing || isSaving}
+                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  {isPublishing ? "Publishing..." : "Publish Page"}
                 </button>
-                <button onClick={() => saveUpdate({ ...buildPayload(), status: 'draft' })} disabled={isSaving || isPublishing} className="w-full py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
+                <button
+                  onClick={() =>
+                    saveUpdate({ ...buildPayload(), status: "draft" })
+                  }
+                  disabled={isSaving || isPublishing}
+                  className="w-full py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                >
                   {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save as Draft
                 </button>
-                <button onClick={() => navigate('/admin/cms')} className="w-full py-2.5 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
-                  Preview Live
+                <button
+                  onClick={() => navigate(returnPath)}
+                  className="w-full py-2.5 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                >
+                  Back to Project
                 </button>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 text-sm mt-0.5">💡</span>
-                  <div>
-                    <p className="text-xs font-bold text-blue-800 mb-1">Pro Tip</p>
-                    <p className="text-xs text-blue-700 leading-relaxed">
-                      Regularly updating the announcements section improves engagement rates by up to 40% on state landing pages.
-                    </p>
+              {projectId && (
+                <Section icon={ListChecks} title="Project Prefills">
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-orange-100 bg-orange-50/50 p-4">
+                      <p className="text-sm font-bold text-gray-900">
+                        {project?.name || "Project details"}
+                      </p>
+                      <div className="mt-2 space-y-1 text-xs leading-5 text-gray-600">
+                        <p>
+                          {[project?.state, project?.department]
+                            .filter(Boolean)
+                            .join(" | ") || stateName}
+                        </p>
+                        {(project?.startDate ||
+                          project?.endDate ||
+                          project?.closureDate) && (
+                          <p>
+                            {formatProjectDate(project?.startDate) ||
+                              "Start date not set"}
+                            {" - "}
+                            {formatProjectDate(
+                              project?.endDate || project?.closureDate,
+                            ) || "End date not set"}
+                          </p>
+                        )}
+                        {project?.publicSlug && (
+                          <p>/apply/{project.publicSlug}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        onClick={applyProjectText}
+                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                      >
+                        Use title, subtitle, and helpdesk address
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addProjectNotices}
+                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                      >
+                        Add project date notices
+                      </button>
+                      <button
+                        type="button"
+                        onClick={useDefaultInstructions}
+                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                      >
+                        Use standard application instructions
+                      </button>
+                    </div>
                   </div>
+                </Section>
+              )}
+
+              <Section icon={Link2} title="Quick Links">
+                <div className="grid gap-3">
+                  {Object.entries(form.quickLinks).map(([key, val]) => {
+                    const labels = {
+                      applyNow: "Apply Now",
+                      latestNotifications: "Latest Notifications",
+                      admitCards: "Admit Cards",
+                      results: "Results",
+                      support: "Support",
+                    };
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-orange-200 hover:bg-orange-50/30"
+                      >
+                        <span className="min-w-0 text-sm font-medium text-gray-900">
+                          {labels[key]}
+                        </span>
+                        <button
+                          type="button"
+                          aria-pressed={val}
+                          aria-label={`${val ? "Disable" : "Enable"} ${labels[key]}`}
+                          onClick={() => setQL(key, !val)}
+                          className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:ring-offset-2 ${val ? "bg-orange-500" : "bg-gray-200"}`}
+                        >
+                          <span
+                            className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${val ? "translate-x-5" : "translate-x-0"}`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+            </div>
+          </div>
+
+          {/* Bottom row — Instructions, Helpdesk, Visible Sections */}
+          <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-3">
+            <Section
+              icon={ListChecks}
+              title="Application Instructions"
+              className="h-full"
+            >
+              <div className="flex h-full flex-col gap-3">
+                <input
+                  value={instructionText}
+                  onChange={(e) => setInstructionText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addInstruction();
+                    }
+                  }}
+                  placeholder="e.g. Keep scanned documents ready before applying"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={addInstruction}
+                  disabled={!instructionText.trim()}
+                  className="w-full rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  Add Step
+                </button>
+                <div className="flex-1 space-y-2">
+                  {form.instructions.map((item, i) => (
+                    <div
+                      key={`${item}-${i}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5"
+                    >
+                      <span className="text-sm text-gray-900">
+                        {i + 1}. {item}
+                      </span>
+                      <button
+                        onClick={() => removeInstruction(i)}
+                        className="text-gray-400 hover:text-red-500 shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {form.instructions.length === 0 && (
+                    <p className="py-2 text-center text-xs text-gray-400">
+                      Default apply steps will be shown on the public page.
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
+            </Section>
+
+            <Section icon={Phone} title="Helpdesk" className="h-full">
+              <div className="space-y-3">
+                <input
+                  value={form.helpdesk.phone}
+                  onChange={(e) => setHelpdesk("phone", e.target.value)}
+                  placeholder="Helpline number"
+                  className={inputCls}
+                />
+                <input
+                  value={form.helpdesk.email}
+                  onChange={(e) => setHelpdesk("email", e.target.value)}
+                  placeholder="Support email"
+                  className={inputCls}
+                />
+                <input
+                  value={form.helpdesk.hours}
+                  onChange={(e) => setHelpdesk("hours", e.target.value)}
+                  placeholder="Support hours"
+                  className={inputCls}
+                />
+                <textarea
+                  rows={2}
+                  value={form.helpdesk.address}
+                  onChange={(e) => setHelpdesk("address", e.target.value)}
+                  placeholder="Helpdesk address"
+                  className={`${inputCls} resize-none`}
+                />
+              </div>
+            </Section>
+
+            <Section icon={Eye} title="Visible Sections" className="h-full">
+              <div className="grid gap-3">
+                {Object.entries(form.sectionVisibility).map(([key, val]) => {
+                  const labels = {
+                    notices: "Notices",
+                    quickActions: "Quick Actions",
+                    howToApply: "How to Apply",
+                    downloads: "Downloads",
+                    faqs: "FAQs",
+                    helpdesk: "Helpdesk",
+                  };
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3"
+                    >
+                      <span className="text-sm font-medium text-gray-900">
+                        {labels[key] || key}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVisibility(key, !val)}
+                        className={`relative h-5 w-10 rounded-full transition-colors ${val ? "bg-orange-500" : "bg-gray-200"}`}
+                        aria-pressed={val}
+                      >
+                        <span
+                          className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${val ? "translate-x-5" : "translate-x-0"}`}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
           </div>
 
           {/* Bottom bar */}
@@ -323,9 +1075,26 @@ const CmsEdit = () => {
               All changes saved
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/admin/cms')} className="px-5 py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors">Cancel</button>
-              <button onClick={() => saveUpdate({ ...buildPayload(), status: 'draft' })} disabled={isSaving || isPublishing} className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50">Save Draft</button>
-              <button onClick={() => saveAndPublish(buildPayload())} disabled={isSaving || isPublishing} className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center gap-2">
+              <button
+                onClick={() => navigate(returnPath)}
+                className="px-5 py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  saveUpdate({ ...buildPayload(), status: "draft" })
+                }
+                disabled={isSaving || isPublishing}
+                className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+              >
+                Save Draft
+              </button>
+              <button
+                onClick={() => saveAndPublish(buildPayload())}
+                disabled={isSaving || isPublishing}
+                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center gap-2"
+              >
                 {isPublishing && <Loader2 className="w-4 h-4 animate-spin" />}
                 Publish Changes
               </button>
@@ -334,12 +1103,7 @@ const CmsEdit = () => {
         </div>
       </div>
     </AdminLayout>
-  )
-}
+  );
+};
 
-export default CmsEdit
-
-
-
-
-
+export default CmsEdit;

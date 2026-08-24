@@ -6,12 +6,43 @@ const asDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const startOfDay = (value) => {
+  const date = asDate(value);
+  if (!date) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const endOfDay = (value) => {
+  const date = asDate(value);
+  if (!date) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+};
+
+const daysBetweenInclusive = (from, to) => {
+  const start = startOfDay(from);
+  const end = startOfDay(to);
+  if (!start || !end) return null;
+  return Math.max(0, Math.ceil((end - start) / MS_PER_DAY) + 1);
+};
+
 export const getJobAvailability = (job = {}) => {
   if (job.availability) return job.availability;
 
   const now = new Date();
-  const start = asDate(job.applicationStartDate);
-  const deadline = asDate(job.applicationDeadline);
+  const today = startOfDay(now);
+  const start = startOfDay(job.applicationStartDate);
+  const deadline = endOfDay(job.applicationDeadline);
+  const deadlineDay = startOfDay(job.applicationDeadline);
+
+  if (job.status === "closed") {
+    return {
+      status: "closed",
+      label: "Closed",
+      canApply: false,
+      reason: "The application window for this post has ended.",
+      daysLeft: 0,
+    };
+  }
 
   if (job.status && job.status !== "active") {
     return {
@@ -23,14 +54,14 @@ export const getJobAvailability = (job = {}) => {
     };
   }
 
-  if (start && now < start) {
+  if (start && today < start) {
     return {
       status: "not_open",
       label: "Not Open Yet",
       canApply: false,
       reason: "Application window has not opened yet.",
-      daysUntilOpen: Math.max(0, Math.ceil((start - now) / MS_PER_DAY)),
-      daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+      daysUntilOpen: Math.max(0, Math.ceil((start - today) / MS_PER_DAY)),
+      daysLeft: daysBetweenInclusive(today, deadlineDay),
     };
   }
 
@@ -49,7 +80,7 @@ export const getJobAvailability = (job = {}) => {
     label: "Open",
     canApply: true,
     reason: "Applications are open.",
-    daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+    daysLeft: daysBetweenInclusive(today, deadlineDay),
   };
 };
 
@@ -89,12 +120,7 @@ export const getApplicationAction = (job = {}, application = null) => {
       type: "already_applied",
       label: "Already Applied",
       canClick: true,
-      tone:
-        status === "rejected"
-          ? "red"
-          : status === "approved" || status === "verified"
-            ? "green"
-            : "blue",
+      tone: status === "rejected" ? "red" : "green",
       reason: "Use your registration number and registered mobile OTP to check status.",
     };
   }
@@ -115,7 +141,6 @@ export const getActionButtonClass = (action) => {
     return `${base} bg-gray-100 text-gray-400 cursor-not-allowed`;
   }
   if (action.tone === "green") return `${base} bg-green-600 hover:bg-green-700 text-white`;
-  if (action.tone === "blue") return `${base} bg-blue-600 hover:bg-blue-700 text-white`;
   if (action.tone === "amber") return `${base} bg-amber-500 hover:bg-amber-600 text-white`;
   if (action.tone === "red") return `${base} bg-red-600 hover:bg-red-700 text-white`;
   return `${base} bg-[#f97316] hover:bg-orange-600 text-white`;

@@ -4,8 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit2, UserX, Activity, ChevronLeft, ChevronRight, Filter, Users, UserCheck, Building2, AlertCircle, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import CustomSelect from '../../components/ui/CustomSelect'
 import { adminService } from '../../services/admin.service'
-import { hasPermission, useAuth } from '../../hooks/useAuth'
+import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
+import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 
 const STATUS_CFG = {
   Active:   { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -32,6 +34,7 @@ const Employees = () => {
   const [deptFilter, setDeptFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, employee: null })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-employees', page, deptFilter, roleFilter, statusFilter],
@@ -64,8 +67,13 @@ const Employees = () => {
   })
 
   const handleDeactivate = (emp) => {
-    if (window.confirm(`Deactivate ${emp.fullName}? They will be signed out and blocked from employee access.`)) {
-      deactivateEmployee(emp._id)
+    setDeleteModal({ isOpen: true, employee: emp })
+  }
+
+  const confirmDelete = () => {
+    if (deleteModal.employee) {
+      deactivateEmployee(deleteModal.employee._id)
+      setDeleteModal({ isOpen: false, employee: null })
     }
   }
 
@@ -184,27 +192,35 @@ const Employees = () => {
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 flex-shrink-0">
               <Filter className="w-4 h-4" /> Filters:
             </div>
-            <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setPage(1) }}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-              <option value="">All Departments</option>
-              {['Administration','Public Works','Healthcare','Education','Finance','Information Technology','Home Affairs','Revenue','Agriculture','Transport','Law & Justice'].map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-              <option value="">All Roles</option>
-              {roles.map(role => (
-                <option key={role._id} value={role._id}>{role.roleName}</option>
-              ))}
-            </select>
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-              <option value="">Status: All</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="On Leave">On Leave</option>
-            </select>
+            <CustomSelect
+              value={deptFilter}
+              onChange={val => { setDeptFilter(val); setPage(1) }}
+              options={[
+                { value: '', label: 'All Departments' },
+                ...['Administration','Public Works','Healthcare','Education','Finance','Information Technology','Home Affairs','Revenue','Agriculture','Transport','Law & Justice'].map(d => ({ value: d, label: d }))
+              ]}
+              className="w-44 border-gray-200"
+            />
+            <CustomSelect
+              value={roleFilter}
+              onChange={val => { setRoleFilter(val); setPage(1) }}
+              options={[
+                { value: '', label: 'All Roles' },
+                ...roles.map(role => ({ value: role._id, label: role.roleName }))
+              ]}
+              className="w-40 border-gray-200"
+            />
+            <CustomSelect
+              value={statusFilter}
+              onChange={val => { setStatusFilter(val); setPage(1) }}
+              options={[
+                { value: '', label: 'Status: All' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Inactive', label: 'Inactive' },
+                { value: 'On Leave', label: 'On Leave' },
+              ]}
+              className="w-40 border-gray-200"
+            />
             {hasFilters && (
               <button onClick={clearFilters} className="ml-auto text-sm font-semibold text-orange-600 hover:underline">
                 Clear All
@@ -330,6 +346,14 @@ const Employees = () => {
         </div>
 
       </div>
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, employee: null })}
+        onConfirm={confirmDelete}
+        title="Deactivate Employee"
+        message={`Are you sure you want to deactivate employee "${deleteModal.employee?.fullName}"? They will be signed out and blocked from access.`}
+        requireType={isSuperAdminUser(user)}
+      />
     </AdminLayout>
   )
 }

@@ -43,7 +43,6 @@ const getOverview = asyncHandler(async (req, res) => {
     totalProjects,
     applicationsByStatus,
     paymentStats,
-    recentApplications,
   ] = await Promise.all([
     Job.countDocuments({ status: "active" }),
     Application.countDocuments(dateFilter),
@@ -63,12 +62,6 @@ const getOverview = asyncHandler(async (req, res) => {
         },
       },
     ]),
-    Application.find(dateFilter)
-      .populate("candidateId", "fullName email")
-      .populate("jobId", "title department")
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select("applicationId status submittedAt"),
   ]);
 
   res.status(StatusCodes.OK).json(
@@ -82,7 +75,6 @@ const getOverview = asyncHandler(async (req, res) => {
         totalPaidApplications: paymentStats[0]?.totalPaidApplications || 0,
       },
       applicationsByStatus,
-      recentApplications,
     }),
   );
 });

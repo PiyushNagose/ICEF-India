@@ -16,6 +16,8 @@ const {
   emitToCandidate,
   SOCKET_EVENTS,
 } = require("../../shared/socket/index");
+const { startOfDay, endOfDay } = require("../../shared/utils/timeline");
+const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
 
 const getCorrectionDisplayStatus = (correction) => {
   if (!correction || correction.status === "none") {
@@ -33,10 +35,158 @@ const getCorrectionDisplayStatus = (correction) => {
   return correction.status;
 };
 
+const formatOfficialDate = (value) => {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getCorrectionWindowBlockMessage = (job, now = new Date()) => {
+  const start = startOfDay(job?.correctionStartDate);
+  const end = endOfDay(job?.correctionDeadline);
+  if (!start || !end) {
+    return "Correction window has not been released for this recruitment";
+  }
+  if (now < start) {
+    return `Correction window opens on ${formatOfficialDate(start)}`;
+  }
+  if (now > end) {
+    return `Correction window closed on ${formatOfficialDate(end)}`;
+  }
+  return "";
+};
+
 // ─────────────────────────────────────────────────────────────
 // POST /api/public/application/status
 // Check application status by registration number (OTP verified)
 // ─────────────────────────────────────────────────────────────
+const buildCandidateUpdates = ({
+  application,
+  job,
+  correctionDisplayStatus,
+  publishedSchedule,
+  activeCorrectionRequest,
+}) => {
+  const updates = [];
+  const addUpdate = (item) => {
+    if (!item?.title) return;
+    updates.push({
+      type: item.type || "general",
+      title: item.title,
+      message: item.message || "",
+      status: item.status || "info",
+      date: item.date || null,
+    });
+  };
+
+  addUpdate({
+    type: "application",
+    title: "Application submitted",
+    message: `Your application for ${job?.title || "this recruitment"} has been recorded.`,
+    status: "completed",
+    date: application.submittedAt || application.createdAt,
+  });
+
+  if (application.paymentStatus) {
+    addUpdate({
+      type: "payment",
+      title:
+        application.paymentStatus === "paid"
+          ? "Payment verified"
+          : "Payment pending",
+      message:
+        application.paymentStatus === "paid"
+          ? "Application fee has been received."
+          : "Complete the payment before the configured deadline.",
+      status: application.paymentStatus === "paid" ? "completed" : "pending",
+      date: application.payment?.paidAt || application.updatedAt,
+    });
+  }
+
+  if (application.status && application.status !== "draft") {
+    addUpdate({
+      type: "review",
+      title: "Application review status",
+      message: `Current status is ${String(application.status).replace(/_/g, " ")}.`,
+      status:
+        application.status === "rejected"
+          ? "blocked"
+          : ["approved", "shortlisted"].includes(application.status)
+            ? "completed"
+            : "pending",
+      date: application.reviewedAt || application.updatedAt,
+    });
+  }
+
+  if (application.correction && correctionDisplayStatus !== "none") {
+    addUpdate({
+      type: "correction",
+      title:
+        correctionDisplayStatus === "resolved"
+          ? "Correction resolved"
+          : correctionDisplayStatus === "submitted"
+            ? "Correction submitted"
+            : "Correction required",
+      message:
+        application.correction.note ||
+        (correctionDisplayStatus === "resolved"
+          ? "The correction request has been resolved."
+          : "Open Check Status to review the fields marked by admin."),
+      status: correctionDisplayStatus === "resolved" ? "completed" : "pending",
+      date:
+        application.correction.submittedAt ||
+        application.correction.requestedAt ||
+        application.updatedAt,
+    });
+  } else if (activeCorrectionRequest) {
+    addUpdate({
+      type: "correction",
+      title: "Correction request recorded",
+      message:
+        activeCorrectionRequest.reviewComments ||
+        activeCorrectionRequest.reason ||
+        "Your correction request is in review.",
+      status: "pending",
+      date: activeCorrectionRequest.requestedAt,
+    });
+  }
+
+  if (job?.admitCardReleaseDate) {
+    const released =
+      publishedSchedule &&
+      startOfDay(job.admitCardReleaseDate) <= startOfDay(new Date());
+    addUpdate({
+      type: "admit_card",
+      title: released ? "Admit card available" : "Admit card scheduled",
+      message: released
+        ? "Use the Admit Card page with your registration number and mobile."
+        : "Admit card will be available after the official release date.",
+      status: released ? "completed" : "pending",
+      date: job.admitCardReleaseDate,
+    });
+  }
+
+  if (job?.resultDate) {
+    const released = startOfDay(job.resultDate) <= startOfDay(new Date());
+    addUpdate({
+      type: "result",
+      title: released ? "Result window active" : "Result scheduled",
+      message: released
+        ? "Check result updates from the project recruitment page."
+        : "Result will be available after the official publish date.",
+      status: released ? "completed" : "pending",
+      date: job.resultDate,
+    });
+  }
+
+  return updates
+    .filter((item) => item.date || item.type === "review")
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+};
+
 exports.checkStatus = asyncHandler(async (req, res) => {
   const { registrationNumber, dateOfBirth } = req.body;
   const mobile = normalizeOtpIdentifier(req.body.mobile, "mobile");
@@ -97,16 +247,36 @@ exports.checkStatus = asyncHandler(async (req, res) => {
     ? await ExamSchedule.exists({ jobId: job._id, status: "published" })
     : null;
   const now = new Date();
+  const admitCardAvailable =
+    Boolean(publishedSchedule) &&
+    (!job?.admitCardReleaseDate ||
+      startOfDay(job.admitCardReleaseDate) <= startOfDay(now));
+  const resultAvailable =
+    Boolean(job?.resultDate) && startOfDay(job.resultDate) <= startOfDay(now);
   const correctionDisplayStatus = getCorrectionDisplayStatus(
     application.correction,
   );
+  const latestCorrectionRequest = [...(application.corrections || [])].sort(
+    (a, b) =>
+      new Date(b.requestedAt || 0).getTime() -
+      new Date(a.requestedAt || 0).getTime(),
+  )[0];
   const activeCorrectionRequest = [...(application.corrections || [])]
-    .filter((c) => ["pending", "more_info_needed"].includes(c.status))
+    .filter((c) =>
+      ["pending", "more_info_needed"].includes(c.status),
+    )
     .sort(
       (a, b) =>
         new Date(b.requestedAt || 0).getTime() -
         new Date(a.requestedAt || 0).getTime(),
     )[0];
+  const updates = buildCandidateUpdates({
+    application,
+    job,
+    correctionDisplayStatus,
+    publishedSchedule,
+    activeCorrectionRequest,
+  });
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Application status fetched", {
@@ -137,8 +307,8 @@ exports.checkStatus = asyncHandler(async (req, res) => {
         isOpen:
           job?.correctionStartDate &&
           job?.correctionDeadline &&
-          job.correctionStartDate <= now &&
-          job.correctionDeadline >= now,
+          startOfDay(job.correctionStartDate) <= startOfDay(now) &&
+          endOfDay(job.correctionDeadline) >= now,
         startDate: job?.correctionStartDate,
         endDate: job?.correctionDeadline,
       },
@@ -160,18 +330,20 @@ exports.checkStatus = asyncHandler(async (req, res) => {
             })),
           }
         : null,
-      admitCardAvailable: Boolean(publishedSchedule),
+      updates,
+      admitCardAvailable,
+      resultAvailable,
       hasExistingCorrection:
-        Boolean(activeCorrectionRequest),
-      activeCorrectionRequest: activeCorrectionRequest
+        Boolean(latestCorrectionRequest),
+      activeCorrectionRequest: latestCorrectionRequest
         ? {
-            requestId: activeCorrectionRequest.requestId,
-            status: activeCorrectionRequest.status,
-            requestedAt: activeCorrectionRequest.requestedAt,
-            reviewedAt: activeCorrectionRequest.reviewedAt,
-            reviewComments: activeCorrectionRequest.reviewComments,
-            requestedFields: activeCorrectionRequest.requestedFields || [],
-            reason: activeCorrectionRequest.reason,
+            requestId: latestCorrectionRequest.requestId,
+            status: latestCorrectionRequest.status,
+            requestedAt: latestCorrectionRequest.requestedAt,
+            reviewedAt: latestCorrectionRequest.reviewedAt,
+            reviewComments: latestCorrectionRequest.reviewComments,
+            requestedFields: latestCorrectionRequest.requestedFields || [],
+            reason: latestCorrectionRequest.reason,
           }
         : null,
     }),
@@ -208,10 +380,11 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
 
   // Find application
   const application = await Application.findOne({ registrationNumber })
-    .populate(
-      "jobId",
-      "title department postCode correctionStartDate correctionDeadline applicationDeadline",
-    )
+    .populate({
+      path: "jobId",
+      select:
+        "title department postCode applicationDeadline correctionStartDate correctionDeadline projectId",
+    })
     .populate("candidateId", "fullName email registeredMobile _id");
 
   if (!application) {
@@ -237,18 +410,18 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
   // Check correction window
   const now = new Date();
   const job = application.jobId;
+  const correctionStartDate = job?.correctionStartDate;
+  const correctionDeadline = job?.correctionDeadline;
   const windowOpen =
-    job?.correctionStartDate &&
-    job?.correctionDeadline &&
-    job.correctionStartDate <= now &&
-    job.correctionDeadline >= now;
+    correctionStartDate &&
+    correctionDeadline &&
+    startOfDay(correctionStartDate) <= startOfDay(now) &&
+    endOfDay(correctionDeadline) >= now;
 
   if (!windowOpen) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      job?.correctionStartDate
-        ? `Correction window is closed. It was open from ${job.correctionStartDate.toDateString()} to ${job.correctionDeadline.toDateString()}`
-        : "No correction window is configured for this recruitment",
+      getCorrectionWindowBlockMessage(job, now),
     );
   }
 
@@ -257,14 +430,21 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
   const hasAdminMarkedSubmission =
     ["requested", "in_progress"].includes(application.correction?.status) &&
     corrections.some((c) => c.adminIssueId);
-  const existingPending = application.corrections?.find((c) =>
-    ["pending", "more_info_needed"].includes(c.status) ||
-    (!hasAdminMarkedSubmission && c.status === "approved"),
-  );
-  if (existingPending) {
+  const existingPublicRequest = application.corrections
+    ?.filter((c) =>
+      hasAdminMarkedSubmission
+        ? ["pending", "more_info_needed"].includes(c.status)
+        : true,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.requestedAt || 0).getTime() -
+        new Date(a.requestedAt || 0).getTime(),
+    )[0];
+  if (existingPublicRequest) {
     throw new ApiError(
       StatusCodes.CONFLICT,
-      `A correction request (${existingPending.requestId}) already exists for this application`,
+      `A correction request (${existingPublicRequest.requestId}) already exists for this application`,
     );
   }
 
@@ -304,6 +484,7 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
     issue.resolvedAt = now;
     return issue;
   });
+  application.status = "under_review";
 
   await application.save();
 
@@ -380,6 +561,20 @@ exports.requestCorrection = asyncHandler(async (req, res) => {
   } catch {
     // Socket.IO may not be initialized in test/CLI contexts.
   }
+
+  await notifyAdmins({
+    type: "application_correction",
+    title: "Correction Request Submitted",
+    message: `${application.personalDetails?.fullName || application.candidateId?.fullName || "Candidate"} submitted a correction request for ${application.applicationId} (${application.jobId?.title || "recruitment"}).`,
+    link: `/admin/support/ticket/${ticket._id}`,
+    metadata: {
+      applicationId: application.applicationId,
+      registrationNumber: application.registrationNumber,
+      requestId,
+      ticketId: ticket.ticketId,
+      supportTicketId: String(ticket._id),
+    },
+  });
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(

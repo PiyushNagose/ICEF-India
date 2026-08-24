@@ -26,6 +26,7 @@ const projectSchema = new mongoose.Schema(
     totalJobs: { type: Number, default: 0 },
     totalApplicants: { type: Number, default: 0 },
     totalRevenue: { type: Number, default: 0 },
+    isPublished: { type: Boolean, default: false },
 
     // Public landing page slug (NEW)
     publicSlug: {
@@ -42,6 +43,11 @@ const projectSchema = new mongoose.Schema(
       ref: "Employee",
       required: true,
     },
+    
+    // RBAC Soft Delete
+    isSoftDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

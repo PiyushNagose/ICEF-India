@@ -3,9 +3,6 @@ import { lazy, Suspense } from "react";
 import ProtectedRoute from "../components/common/ProtectedRoute";
 import GlobalPageLoader from "../components/common/GlobalPageLoader";
 
-// Import Home directly for better performance
-import Home from "../app/public/Home";
-
 // Lazy load all other components
 const AdminLogin = lazy(() => import("../app/auth/AdminLogin"));
 const EmployeeLogin = lazy(() => import("../app/auth/EmployeeLogin"));
@@ -28,21 +25,12 @@ const Payment = lazy(() => import("../app/application/Payment"));
 const Success = lazy(() => import("../app/application/Success"));
 
 // Public Pages
-const About = lazy(() => import("../app/public/About"));
-const Jobs = lazy(() => import("../app/public/Jobs"));
 const JobDetails = lazy(() => import("../app/public/JobDetails"));
-const EligibleJobs = lazy(() => import("../app/public/EligibleJobs"));
 const Results = lazy(() => import("../app/public/Results"));
-const Notices = lazy(() => import("../app/public/Notices"));
 const AdmitCards = lazy(() => import("../app/public/AdmitCards"));
-const Downloads = lazy(() => import("../app/public/Downloads"));
-const FAQ = lazy(() => import("../app/public/FAQ"));
 const Contact = lazy(() => import("../app/public/Contact"));
 const HowToApply = lazy(() => import("../app/public/HowToApply"));
-const HelpCenter = lazy(() => import("../app/public/HelpCenter"));
-const TechnicalSupport = lazy(() => import("../app/public/TechnicalSupport"));
 const ProjectLanding = lazy(() => import("../app/public/ProjectLanding"));
-const StateLanding = lazy(() => import("../app/public/StateLanding"));
 const PublicApplyEntry = lazy(() => import("../app/public/PublicApplyEntry"));
 const CheckStatus = lazy(() => import("../app/public/CheckStatus"));
 const CorrectionRequest = lazy(() => import("../app/public/CorrectionRequest"));
@@ -63,6 +51,7 @@ const JobFormBuilder = lazy(() => import("../app/admin/JobFormBuilder"));
 const JobDocuments = lazy(() => import("../app/admin/JobDocuments"));
 const JobPayment = lazy(() => import("../app/admin/JobPayment"));
 const JobReview = lazy(() => import("../app/admin/JobReview"));
+const StandardsSettings = lazy(() => import("../app/admin/StandardsSettings"));
 const AdminApplications = lazy(() => import("../app/admin/Applications"));
 const AdminAdmitCards = lazy(() => import("../app/admin/AdmitCards"));
 const ActivityLogs = lazy(() => import("../app/admin/ActivityLogs"));
@@ -79,9 +68,6 @@ const ApplicationDetails = lazy(
 );
 const Analytics = lazy(() => import("../app/admin/Analytics"));
 const FunnelAnalysis = lazy(() => import("../app/admin/FunnelAnalysis"));
-const EmployeeActivityLog = lazy(
-  () => import("../app/admin/EmployeeActivityLog"),
-);
 const AdminSupport = lazy(() => import("../app/admin/Support"));
 const SupportKanban = lazy(() => import("../app/admin/SupportKanban"));
 const SupportTicketDetails = lazy(
@@ -97,12 +83,22 @@ const CmsHome = lazy(() => import("../app/admin/CmsHome"));
 const CmsCreate = lazy(() => import("../app/admin/CmsCreate"));
 const CmsEdit = lazy(() => import("../app/admin/CmsEdit"));
 
+const getStoredProjectPath = () => {
+  if (typeof window === "undefined") return "/check-status";
+  const slug = window.sessionStorage.getItem("lastPublicProjectSlug");
+  return slug ? `/apply/${slug}` : "/check-status";
+};
+
+const PublicContextRedirect = () => (
+  <Navigate to={getStoredProjectPath()} replace />
+);
+
 const AppRoutes = () => {
   return (
     <Suspense fallback={<GlobalPageLoader />}>
       <Routes>
-        {/* Home Route */}
-        <Route path="/" element={<Home />} />
+        {/* Public entry is project-specific; root returns to the last recruitment context. */}
+        <Route path="/" element={<PublicContextRedirect />} />
 
         {/* Auth Routes */}
         <Route path="/auth/admin-login" element={<AdminLogin />} />
@@ -197,24 +193,25 @@ const AppRoutes = () => {
         />
 
         {/* Public Routes */}
-        <Route path="/about" element={<About />} />
-        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs" element={<PublicContextRedirect />} />
         <Route path="/jobs/:id" element={<JobDetails />} />
-        <Route path="/eligible-jobs" element={<EligibleJobs />} />
+        <Route path="/about" element={<PublicContextRedirect />} />
+        <Route path="/eligible-jobs" element={<PublicContextRedirect />} />
         <Route path="/results" element={<Results />} />
-        <Route path="/notices" element={<Notices />} />
+        <Route path="/notices" element={<PublicContextRedirect />} />
         <Route path="/admit-cards" element={<AdmitCards />} />
         <Route path="/admit-cards/verify/:token" element={<AdmitCards />} />
-        <Route path="/downloads" element={<Downloads />} />
-        <Route path="/faq" element={<FAQ />} />
+        <Route path="/downloads" element={<PublicContextRedirect />} />
+        <Route path="/faq" element={<PublicContextRedirect />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/how-to-apply" element={<HowToApply />} />
-        <Route path="/help-center" element={<HelpCenter />} />
-        <Route path="/technical-support" element={<TechnicalSupport />} />
+        <Route path="/help-center" element={<Contact />} />
+        <Route path="/technical-support" element={<Contact />} />
 
         {/* Public project landing + OTP verified application entry */}
         <Route path="/apply/:slug" element={<ProjectLanding />} />
-        <Route path="/state/:stateSlug" element={<StateLanding />} />
+        <Route path="/apply/:slug/jobs/:id" element={<JobDetails />} />
+        <Route path="/state/:stateSlug" element={<Navigate to="/jobs" replace />} />
         <Route path="/apply/:slug/start" element={<PublicApplyEntry />} />
         <Route path="/check-status" element={<CheckStatus />} />
         <Route path="/correction-request" element={<CorrectionRequest />} />
@@ -537,6 +534,14 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/standards-settings"
+          element={
+            <ProtectedRoute role="admin" permission={["jobs", "edit"]}>
+              <StandardsSettings />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Legacy candidate portal routes now resolve to public services */}
         <Route
@@ -553,7 +558,7 @@ const AppRoutes = () => {
         />
         <Route
           path="/candidate/jobs"
-          element={<Navigate to="/jobs" replace />}
+          element={<PublicContextRedirect />}
         />
         <Route
           path="/candidate/applications"
@@ -589,11 +594,11 @@ const AppRoutes = () => {
         />
         <Route
           path="/candidate/notifications"
-          element={<Navigate to="/notices" replace />}
+          element={<PublicContextRedirect />}
         />
 
         {/* Fallback Route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<PublicContextRedirect />} />
       </Routes>
     </Suspense>
   );

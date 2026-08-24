@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { ArrowDown, ArrowUp, Loader2, IndianRupee, Info } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
@@ -48,6 +48,7 @@ const CATEGORY_LABELS = {
 const PostSelection = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const stateId = location.state?.applicationId;
@@ -67,7 +68,9 @@ const PostSelection = () => {
     queryKey: ["application-post-selection", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   const app = appData?.application || appData;
@@ -145,6 +148,7 @@ const PostSelection = () => {
             vacancies: post.vacancies || 0,
             preference: post.preference || index + 1,
           }));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedPosts(allowsPreference ? savedPosts : savedPosts.slice(0, 1));
     }
   }, [allowsPreference, app, job, selectedPosts.length]);
@@ -188,13 +192,20 @@ const PostSelection = () => {
       toast.success(
         allowsPreference ? "Post preferences saved" : "Post selection saved",
       );
+      const latestApplication = result?.application || result || app;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-post-selection", applicationId], {
+        application: latestApplication,
+      });
       const destination = correctionMode
         ? reviewStep?.path || "/application/review"
         : nextStep?.path || "/application/payment";
       navigate(destination, {
         state: {
           applicationId,
-          totalFee: result?.totalFee ?? applicationFee,
+          totalFee: latestApplication?.totalFee ?? result?.totalFee ?? applicationFee,
           selectedPosts,
         },
       });
@@ -472,15 +483,15 @@ const PostSelection = () => {
         )}
 
         {/* Instructions */}
-        <Card className="shadow-sm border-blue-200 bg-blue-50">
+        <Card className="shadow-sm border-orange-200 bg-orange-50">
           <CardContent className="p-4">
-            <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+            <h4 className="font-medium text-orange-800 mb-2 flex items-center gap-2">
               <Info className="w-4 h-4" />
               {correctionMode
                 ? "Correction Mode — Post Selection"
                 : "Important Instructions"}
             </h4>
-            <ul className="text-sm text-blue-700 space-y-1">
+            <ul className="text-sm text-orange-700 space-y-1">
               {correctionMode ? (
                 <>
                   <li>

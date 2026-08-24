@@ -10,14 +10,15 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
 import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
+import CustomSelect from '../../components/ui/CustomSelect'
 
 // ── Action badge config ───────────────────────────────────
 const ACTION_CFG = {
   CREATE:   { bg: 'bg-emerald-500', text: 'text-white' },
   UPDATE:   { bg: 'bg-amber-400',   text: 'text-white' },
   DELETE:   { bg: 'bg-red-500',     text: 'text-white' },
-  VIEW:     { bg: 'bg-blue-500',    text: 'text-white' },
-  DOWNLOAD: { bg: 'bg-purple-500',  text: 'text-white' },
+  VIEW:     { bg: 'bg-orange-500',  text: 'text-white' },
+  DOWNLOAD: { bg: 'bg-orange-600',  text: 'text-white' },
   LOGIN:    { bg: 'bg-orange-500',  text: 'text-white' },
   LOGOUT:   { bg: 'bg-gray-400',    text: 'text-white' },
   PUBLISH:  { bg: 'bg-teal-500',    text: 'text-white' },
@@ -115,14 +116,20 @@ const ActivityLogs = () => {
     }),
   })
 
+  const { data: employeesData } = useQuery({
+    queryKey: ['admin-activity-filter-employees'],
+    queryFn: () => adminService.getEmployees({ limit: 100 }),
+  })
+
   const logs       = data?.logs || []
+  const employees  = employeesData?.employees || employeesData?.data?.employees || []
   const meta       = data?.meta || {}
   const totalPages = meta.totalPages || 1
   const totalItems = meta.total || logs.length
 
   const set = (key, val) => { setFilters(f => ({ ...f, [key]: val })); setPage(1) }
   const clearAll = () => { setFilters({ module: '', action: '', employee: '', dateRange: '30' }); setPage(1) }
-  const hasFilters = filters.module || filters.action || filters.employee
+  const hasFilters = filters.module || filters.action || filters.employee || filters.dateRange !== '30'
   const canDownload = hasPermission(user, 'employees', 'download')
 
   const handleExport = () => {
@@ -130,6 +137,8 @@ const ActivityLogs = () => {
     const params = new URLSearchParams({
       ...(filters.module && { module: filters.module }),
       ...(filters.action && { action: filters.action }),
+      ...(filters.employee && { search: filters.employee }),
+      ...(filters.dateRange && { days: filters.dateRange }),
     })
     const url = `${API_BASE_URL}/admin/activity-logs/export?${params}`
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
@@ -142,7 +151,6 @@ const ActivityLogs = () => {
   }
 
   // Quick stats from logs (approximate from current page)
-  const todayCount  = logs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length
   const uniqueEmps  = new Set(logs.map(l => l.employeeId?._id)).size
   const jobLogs     = logs.filter(l => l.module === 'Jobs').length
   const criticals   = logs.filter(l => ['DELETE','REJECT'].includes(l.action?.toUpperCase())).length
@@ -166,19 +174,6 @@ const ActivityLogs = () => {
                 <Download className="w-4 h-4" /> Download CSV
               </button>
             )}
-            <div className="relative">
-              <select
-                value={filters.dateRange}
-                onChange={e => set('dateRange', e.target.value)}
-                className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              >
-                <option value="7">Last 7 Days</option>
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-                <option value="365">Last 1 Year</option>
-              </select>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
-            </div>
           </div>
         </div>
 
@@ -191,7 +186,7 @@ const ActivityLogs = () => {
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Changes Today</p>
               <p className="text-3xl font-bold text-gray-900">{Number(totalItems).toLocaleString('en-IN')}</p>
-              <p className="text-xs text-emerald-600 font-medium mt-0.5">↑ 12% vs avg</p>
+              <p className="text-xs text-emerald-600 font-medium mt-0.5">Live audit trail</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center gap-4">
@@ -232,33 +227,49 @@ const ActivityLogs = () => {
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 flex-shrink-0">
               <Filter className="w-4 h-4" /> Filters:
             </div>
-            <select
+            <CustomSelect
               value={filters.employee}
-              onChange={e => set('employee', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="">All Employees</option>
-            </select>
-            <select
+              onChange={val => set('employee', val)}
+              className="w-52 border-gray-200"
+              options={[
+                { value: '', label: 'All Employees' },
+                ...employees.map(emp => ({
+                  value: emp.fullName || emp.employeeId || emp.email || emp._id,
+                  label: emp.fullName
+                    ? `${emp.fullName}${emp.employeeId ? ` (${emp.employeeId})` : ''}`
+                    : emp.employeeId || emp.email || 'Employee',
+                })),
+              ]}
+            />
+            <CustomSelect
               value={filters.module}
-              onChange={e => set('module', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="">All Modules</option>
-              {['Jobs','Applications','Employees','Roles','Projects','Support','Payments','Settings'].map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-            <select
+              onChange={val => set('module', val)}
+              className="w-44 border-gray-200"
+              options={[
+                { value: '', label: 'All Modules' },
+                ...['Jobs','Applications','Employees','Roles','Projects','Support','Payments','Settings'].map(m => ({ value: m, label: m }))
+              ]}
+            />
+            <CustomSelect
               value={filters.action}
-              onChange={e => set('action', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="">All Action Types</option>
-              {['CREATE','UPDATE','DELETE','VIEW','DOWNLOAD','LOGIN','LOGOUT','PUBLISH','APPROVE','REJECT'].map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
+              onChange={val => set('action', val)}
+              className="w-44 border-gray-200"
+              options={[
+                { value: '', label: 'All Action Types' },
+                ...['CREATE','UPDATE','DELETE','VIEW','DOWNLOAD','LOGIN','LOGOUT','PUBLISH','APPROVE','REJECT'].map(a => ({ value: a, label: a }))
+              ]}
+            />
+            <CustomSelect
+              value={filters.dateRange}
+              onChange={val => set('dateRange', val)}
+              className="w-40 border-gray-200"
+              options={[
+                { value: '7', label: 'Last 7 Days' },
+                { value: '30', label: 'Last 30 Days' },
+                { value: '90', label: 'Last 90 Days' },
+                { value: '365', label: 'Last 1 Year' },
+              ]}
+            />
             {hasFilters && (
               <button onClick={clearAll} className="ml-auto text-sm font-semibold text-orange-600 hover:underline">
                 Clear All

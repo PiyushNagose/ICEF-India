@@ -23,10 +23,16 @@ import {
   RefreshCw,
   Clock,
   Download,
+  Bell,
 } from "lucide-react";
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
 import { showOtpToast } from "../../utils/otpToast";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
 
 const fmt = (d) =>
   d
@@ -39,12 +45,12 @@ const fmt = (d) =>
 
 const statusColor = (s) => {
   const map = {
-    submitted: "bg-blue-50 text-blue-700 border-blue-200",
+    submitted: "bg-orange-50 text-orange-700 border-orange-200",
     under_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
     clarification_required: "bg-orange-50 text-orange-700 border-orange-200",
     approved: "bg-green-50 text-green-700 border-green-200",
     rejected: "bg-red-50 text-red-700 border-red-200",
-    shortlisted: "bg-purple-50 text-purple-700 border-purple-200",
+    shortlisted: "bg-emerald-50 text-emerald-700 border-emerald-200",
     draft: "bg-gray-50 text-gray-600 border-gray-200",
   };
   return map[s] || "bg-gray-50 text-gray-600 border-gray-200";
@@ -71,6 +77,35 @@ const isCorrectionResolved = (correction) => {
 const getCorrectionDisplayStatus = (correction) =>
   isCorrectionResolved(correction) ? "resolved" : correction?.status || "requested";
 
+const getDateWindowState = ({ startDate, endDate }) => {
+  if (!startDate || !endDate) {
+    return {
+      status: "not_configured",
+      message: "Correction window has not been released for this recruitment.",
+    };
+  }
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  if (now < start) {
+    return {
+      status: "upcoming",
+      message: `Correction window opens on ${fmt(startDate)}.`,
+    };
+  }
+  if (now > end) {
+    return {
+      status: "closed",
+      message: `Correction window closed on ${fmt(endDate)}.`,
+    };
+  }
+  return {
+    status: "open",
+    message: `Correction window is open until ${fmt(endDate)}.`,
+  };
+};
+
 const InfoTile = ({ label, value }) => (
   <div className="rounded border border-[#eadfd2] bg-[#fbf7f1] px-4 py-3">
     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7a7168]">
@@ -79,6 +114,37 @@ const InfoTile = ({ label, value }) => (
     <p className="mt-1 truncate text-sm font-black text-[#1f1d1b]">{value}</p>
   </div>
 );
+
+const updateStatusClass = (status) => {
+  if (status === "completed") {
+    return {
+      wrap: "border-green-200 bg-green-50",
+      icon: "bg-green-100 text-green-700",
+      label: "text-green-700",
+    };
+  }
+  if (status === "blocked") {
+    return {
+      wrap: "border-red-200 bg-red-50",
+      icon: "bg-red-100 text-red-700",
+      label: "text-red-700",
+    };
+  }
+  return {
+    wrap: "border-orange-200 bg-orange-50",
+    icon: "bg-orange-100 text-orange-700",
+    label: "text-orange-700",
+  };
+};
+
+const UpdateIcon = ({ status }) =>
+  status === "completed" ? (
+    <CheckCircle2 className="h-4 w-4" />
+  ) : status === "blocked" ? (
+    <AlertCircle className="h-4 w-4" />
+  ) : (
+    <Clock className="h-4 w-4" />
+  );
 
 export default function CheckStatus() {
   const navigate = useNavigate();
@@ -104,6 +170,9 @@ export default function CheckStatus() {
     !isCorrectionResolved(result?.correction) &&
     result?.correction?.status !== "submitted" &&
     pendingCorrectionIssues.length > 0;
+  const correctionWindowState = result?.correctionWindow
+    ? getDateWindowState(result.correctionWindow)
+    : null;
 
   const handleSendOTP = async () => {
     if (!/^[6-9]\d{9}$/.test(mobile)) {
@@ -167,14 +236,14 @@ export default function CheckStatus() {
       <div className="min-h-[calc(100vh-90px)] bg-[#f5efe9]">
         {/* Hero */}
         <div className="bg-[#201d1a] text-white">
-          <div className="mx-auto max-w-[1380px] px-4 py-9 sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-[228px] max-w-[1380px] flex-col justify-center px-4 py-9 sm:px-6 lg:px-8 lg:py-10">
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
+            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
               Check Application Status
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/70">
+            <p className="mt-4 max-w-3xl text-[14px] leading-[26px] font-medium text-white/80">
               No login required. Enter your registration number to check your
               application status.
             </p>
@@ -182,17 +251,17 @@ export default function CheckStatus() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
             {/* Form */}
             <div className="space-y-5">
               <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
                 <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
                   <div>
-                    <h2 className="flex items-center gap-2 text-[18px] font-black text-[#1f1d1b]">
+                    <h2 className="flex items-center gap-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
                       <FileText className="h-5 w-5 text-[#e46a1d]" />
                       Enter Your Details
                     </h2>
-                    <p className="mt-1 text-sm font-medium text-[#6d6761]">
+                    <p className="mt-1 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                       Use the registration number issued after payment.
                     </p>
                   </div>
@@ -333,7 +402,7 @@ export default function CheckStatus() {
                         <p className="mt-1 text-2xl font-black text-[#1f1d1b] font-mono">
                           {result.registrationNumber}
                         </p>
-                        <p className="mt-1 text-sm text-[#6d6761]">
+                        <p className="mt-1 text-sm text-[#6d6761] break-words line-clamp-2">
                           {result.applicantName}
                         </p>
                       </div>
@@ -370,6 +439,59 @@ export default function CheckStatus() {
                     </div>
                   </div>
 
+                  {result.updates?.length > 0 && (
+                    <motion.div
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="visible"
+                      className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7"
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <h3 className="flex items-center gap-2 font-black text-[#1f1d1b]">
+                          <Bell className="h-4 w-4 text-[#e46a1d]" />
+                          Latest Updates
+                        </h3>
+                        <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-orange-700">
+                          Official
+                        </span>
+                      </div>
+                      <div className="grid gap-3">
+                        {result.updates.map((item, index) => {
+                          const cfg = updateStatusClass(item.status);
+                          return (
+                            <div
+                              key={`${item.type}-${item.title}-${index}`}
+                              className={`flex items-start gap-3 rounded-[8px] border p-4 ${cfg.wrap}`}
+                            >
+                              <span
+                                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${cfg.icon}`}
+                              >
+                                <UpdateIcon status={item.status} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-sm font-black text-[#1f1d1b]">
+                                    {item.title}
+                                  </p>
+                                  <span
+                                    className={`text-[10px] font-black uppercase tracking-[0.14em] ${cfg.label}`}
+                                  >
+                                    {fmt(item.date)}
+                                  </span>
+                                </div>
+                                {item.message && (
+                                  <p className="mt-1 text-sm font-medium leading-6 text-[#6d6761]">
+                                    {item.message}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Applied posts */}
                   {result.appliedPosts?.length > 0 && (
                     <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
@@ -383,7 +505,7 @@ export default function CheckStatus() {
                             key={i}
                             className="flex items-center justify-between gap-4 px-4 py-3"
                           >
-                            <span className="text-sm text-[#1f1d1b] font-semibold">
+                            <span className="text-sm text-[#1f1d1b] font-semibold break-words line-clamp-2" title={p.title}>
                               {p.title}
                             </span>
                             <span className="text-xs text-[#6d6761]">
@@ -475,7 +597,7 @@ export default function CheckStatus() {
                                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e46a1d]">
                                   {issue.section || "Application"}
                                 </p>
-                                <p className="mt-1 text-sm font-black text-[#1f1d1b]">
+                                <p className="mt-1 text-sm font-black text-[#1f1d1b] break-words line-clamp-2">
                                   {issue.fieldLabel || issue.fieldKey}
                                 </p>
                               </div>
@@ -560,13 +682,11 @@ export default function CheckStatus() {
                         Request Correction
                       </button>
                     )}
-                    {result.correctionWindow?.isOpen === false &&
-                      result.correctionWindow?.endDate && (
+                    {correctionWindowState &&
+                      correctionWindowState.status !== "open" && (
                         <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-semibold sm:col-span-2">
                           <Clock className="w-4 h-4 shrink-0" />
-                          Correction window was open{" "}
-                          {fmt(result.correctionWindow.startDate)} –{" "}
-                          {fmt(result.correctionWindow.endDate)}
+                          {correctionWindowState.message}
                         </div>
                       )}
                   </div>
@@ -575,7 +695,7 @@ export default function CheckStatus() {
             </div>
 
             {/* Sidebar */}
-            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:self-start">
               <div>
                 <h3 className="mb-4 text-[18px] font-black text-[#1f1d1b]">
                   Other Services
@@ -598,7 +718,8 @@ export default function CheckStatus() {
                 ))}
               </div>
 
-              <div className="mt-6 rounded-[8px] border border-amber-200 bg-[#fff8e6] p-5">
+              <div className="mt-6">
+                <div className="rounded-[8px] border border-amber-200 bg-[#fff8e6] p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                   <p className="text-sm font-black text-amber-800">
@@ -609,6 +730,7 @@ export default function CheckStatus() {
                   You will need it for admit card download and result checking.
                   It was sent to your registered email and mobile.
                 </p>
+                </div>
               </div>
             </aside>
           </div>

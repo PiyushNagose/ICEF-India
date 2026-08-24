@@ -202,7 +202,7 @@ const CreateRole = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">ACTIVE PERMISSIONS</p>
-                  <p className="text-3xl font-bold text-orange-400">{totalActive}</p>
+                  <p className="text-2xl font-bold text-orange-400">{totalActive}</p>
                   <p className="text-xs text-gray-400">out of {MODULES.length * ACTIONS.length} total</p>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2">

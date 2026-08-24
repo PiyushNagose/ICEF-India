@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Eye, EyeOff, Copy, AlertTriangle, Key,
-  Link, CheckCircle, Loader2, RefreshCw,
+  Link, CheckCircle, Loader2,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
+import CustomSelect from '../../components/ui/CustomSelect'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { adminService } from '../../services/admin.service'
@@ -37,6 +38,7 @@ const RazorpayConfig = () => {
     const gateways = gatewaysData?.gateways || []
     const razorpay = gateways.find(g => g.name === 'Razorpay')
     if (razorpay) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(f => ({
         ...f,
         status: razorpay.status || 'INACTIVE',
@@ -138,15 +140,16 @@ const RazorpayConfig = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
-                  <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                  <CustomSelect
                     value={form.status}
-                    onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="LIMITED">Limited</option>
-                  </select>
+                    onChange={(val) => setForm(f => ({ ...f, status: val }))}
+                    options={[
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'INACTIVE', label: 'Inactive' },
+                      { value: 'LIMITED', label: 'Limited' },
+                    ]}
+                    className="w-full border-gray-300"
+                  />
                 </div>
 
                 <div>

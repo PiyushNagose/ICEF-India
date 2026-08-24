@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
+import CustomSelect from '../../components/ui/CustomSelect'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import JobStepProgress from './JobStepProgress'
@@ -24,7 +25,6 @@ import {
   Hash,
   Mail,
   Phone,
-  MapPin,
   GripVertical
 } from 'lucide-react'
 
@@ -83,18 +83,25 @@ const BUILT_IN_SECTIONS = [
   },
 ]
 
-const CONFIGURABLE_SYSTEM_SECTIONS = new Set(['personal', 'education', 'additional', 'address'])
-
 const makeCustomSection = (section, sectionIndex) => ({
   id: section.id || `custom-${sectionIndex + 1}`,
   title: section.title,
   required: section.required,
   systemSource: section.systemSource,
+  system: Boolean(section.system || section.systemSource),
   fields: (section.fields || []).map((field, fieldIndex) => ({
     id: field.id || Date.now() + sectionIndex * 100 + fieldIndex,
     ...field,
+    systemField: Boolean(field.systemField),
   })),
 })
+
+const stripBuilderFieldMeta = (field = {}) => {
+  const cleanField = { ...field }
+  delete cleanField.id
+  delete cleanField.systemField
+  return cleanField
+}
 
 const JobFormBuilder = () => {
   const navigate = useNavigate()
@@ -116,29 +123,7 @@ const JobFormBuilder = () => {
       fields: section.fields.map(field => ({ ...field, systemField: true })),
     }))
     if (saved.formSections?.length) {
-      const savedSections = saved.formSections.map(makeCustomSection)
-      const mergedSystemSections = systemSections.map(systemSection => {
-        const configured = savedSections.find(
-          section => section.systemSource === systemSection.id || section.title === systemSection.title
-        )
-        return configured
-          ? {
-              ...systemSection,
-              required: configured.required ?? systemSection.required,
-              fields: [
-                ...systemSection.fields,
-                ...configured.fields.map(field => ({ ...field, systemField: false })),
-              ],
-            }
-          : systemSection
-      })
-      const customSections = savedSections.filter(
-        section => !BUILT_IN_SECTIONS.some(system => system.id === section.systemSource || system.title === section.title)
-      )
-      return [
-        ...mergedSystemSections,
-        ...customSections,
-      ]
+      return saved.formSections.map(makeCustomSection)
     }
     return [
       ...systemSections,
@@ -195,24 +180,19 @@ const JobFormBuilder = () => {
     setFormSections(sections => 
       sections.map(section => 
         section.id === sectionId
-          ? {
-              ...section,
-              ...updates,
-              ...(section.system && updates.title !== undefined ? { title: section.title } : {}),
-            }
+          ? { ...section, ...updates }
           : section
       )
     )
   }
 
   const deleteSection = (sectionId) => {
-    const customSections = formSections.filter(section => !section.system)
     const target = formSections.find(section => section.id === sectionId)
-    if (!target?.system && customSections.length > 1) {
+    if (target && formSections.length > 1) {
       const remainingSections = formSections.filter(section => section.id !== sectionId)
       setFormSections(remainingSections)
       if (selectedSection === sectionId) {
-        setSelectedSection(remainingSections.find(section => !section.system)?.id || remainingSections[0]?.id)
+        setSelectedSection(remainingSections[0]?.id)
       }
     }
   }
@@ -236,12 +216,20 @@ const JobFormBuilder = () => {
     const options = ['select', 'radio'].includes(type)
       ? [...new Set(String(newField.optionsText || '').split(/[,\n]/).map(opt => opt.trim()).filter(Boolean))]
       : undefined
-    const validation = type === 'number'
-      ? {
-          ...(newField.validation?.min !== '' && newField.validation?.min !== undefined && { min: Number(newField.validation.min) }),
-          ...(newField.validation?.max !== '' && newField.validation?.max !== undefined && { max: Number(newField.validation.max) }),
-        }
-      : undefined
+    const validation =
+      type === 'number'
+        ? {
+            ...(newField.validation?.min !== '' && newField.validation?.min !== undefined && { min: Number(newField.validation.min) }),
+            ...(newField.validation?.max !== '' && newField.validation?.max !== undefined && { max: Number(newField.validation.max) }),
+          }
+        : type === 'file'
+          ? {
+              ...(newField.validation?.maxSizeKB !== '' &&
+                newField.validation?.maxSizeKB !== undefined && {
+                  maxSizeKB: Math.max(1, Math.round(Number(newField.validation.maxSizeKB))),
+                }),
+            }
+          : undefined
 
     return {
       type,
@@ -261,6 +249,9 @@ const JobFormBuilder = () => {
     }
     if (field.type === 'number' && field.validation?.min !== undefined && field.validation?.max !== undefined && field.validation.min > field.validation.max) {
       return 'Minimum value cannot be greater than maximum value'
+    }
+    if (field.type === 'file' && (!field.validation?.maxSizeKB || field.validation.maxSizeKB < 1)) {
+      return 'File upload max size in KB is required'
     }
     return ''
   }
@@ -308,7 +299,7 @@ const JobFormBuilder = () => {
           ? {
               ...section,
               fields: section.fields.map(field =>
-                field.id === fieldId && !field.systemField ? { ...field, ...updates } : field
+                field.id === fieldId ? { ...field, ...updates } : field
               )
             }
           : section
@@ -322,7 +313,7 @@ const JobFormBuilder = () => {
         section.id === selectedSection
           ? {
               ...section,
-              fields: section.fields.filter(field => field.systemField || field.id !== fieldId)
+              fields: section.fields.filter(field => field.id !== fieldId)
             }
           : section
       )
@@ -330,10 +321,6 @@ const JobFormBuilder = () => {
   }
 
   const openAddFieldModal = () => {
-    if (currentSection?.system && !CONFIGURABLE_SYSTEM_SECTIONS.has(currentSection.id)) {
-      toast.error('Configure this step in its dedicated job setup page.')
-      return
-    }
     setEditingField(null)
     setNewField({
       type: 'text',
@@ -363,55 +350,21 @@ const JobFormBuilder = () => {
 
   const handleNext = () => {
     const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
-    const customSections = formSections.filter(section => !section.system)
-    const configurableSections = formSections
-      .map(section => ({
-        ...section,
-        fields: section.fields.filter(field => !field.systemField),
-      }))
-      .filter(section => section.fields.length > 0)
-    const invalidSection = customSections.find(section => !section.title?.trim())
+    const savedSections = formSections.filter(section => section.title?.trim())
+    const invalidSection = formSections.find(section => !section.title?.trim())
     if (invalidSection) {
       toast.error('Every form section needs a title')
       setSelectedSection(invalidSection.id)
       setShowSectionSettings(true)
       return
     }
-    const reservedTitles = new Set([
-      'personal information',
-      'personal details',
-      'personal info',
-      'candidate details',
-      'educational info',
-      'educational information',
-      'education',
-      'additional information',
-      'additional info',
-      'address details',
-      'address information',
-      'address',
-      'document upload',
-      'documents',
-      'payment',
-      'review',
-      'post selection',
-    ])
-    const duplicateFixedSection = customSections.find(section =>
-      reservedTitles.has(section.title.trim().toLowerCase().replace(/\s+/g, ' '))
-    )
-    if (duplicateFixedSection) {
-      toast.error('This is already available as a built-in section. Add only job-specific custom sections here.')
-      setSelectedSection(duplicateFixedSection.id)
-      setShowSectionSettings(true)
-      return
-    }
     sessionStorage.setItem('job_draft', JSON.stringify({
       ...existing,
-      formSections: configurableSections.map(section => ({
+      formSections: savedSections.map(section => ({
         title: section.title.trim(),
         required: section.required,
-        ...(section.system ? { systemSource: section.id } : {}),
-        fields: section.fields.map(({ id: _id, systemField: _systemField, ...field }) => field),
+        ...(section.system ? { systemSource: section.systemSource || section.id } : {}),
+        fields: section.fields.map(stripBuilderFieldMeta),
       })),
     }))
     navigate(returnToReview
@@ -425,8 +378,6 @@ const JobFormBuilder = () => {
 
 
   const currentSection = formSections.find(section => section.id === selectedSection)
-  const canConfigureCurrentSection =
-    !currentSection?.system || CONFIGURABLE_SYSTEM_SECTIONS.has(currentSection.id)
 
   return (
     <AdminLayout title="Create Job - Form Builder">
@@ -472,12 +423,12 @@ const JobFormBuilder = () => {
                           <div className="font-medium text-sm">{section.title}</div>
                           <div className="text-xs text-gray-500">
                             {section.fields.length} fields
-                            {section.system ? ' - built-in' : ''}
+                            {section.system ? ' - suggested' : ''}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {section.system && (
-                            <Badge className="bg-blue-100 text-blue-700 text-xs">System</Badge>
+                            <Badge className="bg-orange-100 text-orange-700 text-xs">Suggested</Badge>
                           )}
                           {section.required && (
                             <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
@@ -499,24 +450,18 @@ const JobFormBuilder = () => {
                   <div>
                     <h3 className="font-semibold text-gray-900">{currentSection?.title}</h3>
                     <p className="text-sm text-gray-600">
-                      {currentSection?.system
-                        ? canConfigureCurrentSection
-                          ? 'Base fields are fixed. Add job-specific extra fields for candidates here.'
-                          : 'This step is configured in its dedicated setup page.'
-                        : 'Configure form fields for this section'}
+                      Add, edit, remove, or reorder fields for this job form.
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {canConfigureCurrentSection && (
-                      <Button
-                        onClick={openAddFieldModal}
-                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                        size="sm"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Field
-                      </Button>
-                    )}
+                    <Button
+                      onClick={openAddFieldModal}
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Field
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -533,19 +478,17 @@ const JobFormBuilder = () => {
                   <div className="text-center py-8">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No fields added yet</p>
-                    {!currentSection?.system && (
-                      <Button
-                        onClick={openAddFieldModal}
-                        variant="outline"
-                        className="mt-4"
-                      >
-                        Add First Field
-                      </Button>
-                    )}
+                    <Button
+                      onClick={openAddFieldModal}
+                      variant="outline"
+                      className="mt-4"
+                    >
+                      Add First Field
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {currentSection?.fields.map((field, index) => (
+                    {currentSection?.fields.map((field) => (
                       <div key={field.id} className="p-4 border border-gray-200 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-3">
@@ -558,28 +501,27 @@ const JobFormBuilder = () => {
                               <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
                             )}
                           </div>
-                          {!field.systemField && (
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditFieldModal(field)}
-                                title="Edit field"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                onClick={() => deleteField(field.id)}
-                                variant="ghost" 
-                                size="sm"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
-                          {field.systemField && (
-                            <Badge className="bg-blue-100 text-blue-700 text-xs">Base</Badge>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {field.systemField && (
+                              <Badge className="bg-orange-100 text-orange-700 text-xs">Base</Badge>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditFieldModal(field)}
+                              title="Edit field"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              onClick={() => deleteField(field.id)}
+                              variant="ghost"
+                              size="sm"
+                              title="Delete field"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                         
                         {/* Field Preview */}
@@ -595,12 +537,16 @@ const JobFormBuilder = () => {
                               disabled
                             />
                           ) : field.type === 'select' ? (
-                            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white" disabled>
-                              <option>Select an option</option>
-                              {field.options?.map((option, i) => (
-                                <option key={i} value={option}>{option}</option>
-                              ))}
-                            </select>
+                            <CustomSelect
+                              value=""
+                              onChange={() => {}}
+                              options={[
+                                { value: '', label: 'Select an option' },
+                                ...(field.options || []).map(opt => ({ value: opt, label: opt }))
+                              ]}
+                              disabled
+                              className="w-full bg-white border-gray-300"
+                            />
                           ) : field.type === 'radio' ? (
                             <div className="space-y-2">
                               {field.options?.map((option, i) => (
@@ -619,6 +565,11 @@ const JobFormBuilder = () => {
                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                               <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
                               <span className="text-sm text-gray-500">Click to upload or drag and drop</span>
+                              {field.validation?.maxSizeKB ? (
+                                <p className="mt-1 text-xs font-medium text-gray-500">
+                                  Max: {field.validation.maxSizeKB} KB
+                                </p>
+                              ) : null}
                             </div>
                           ) : (
                             <input
@@ -659,7 +610,7 @@ const JobFormBuilder = () => {
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between">
-                      <span>Built-in Sections:</span>
+                      <span>Suggested Sections:</span>
                       <span className="font-medium">
                         {formSections.filter(section => section.system).length}
                       </span>
@@ -688,14 +639,6 @@ const JobFormBuilder = () => {
                   <h3 className="font-semibold text-gray-900">Section Settings</h3>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {currentSection.system ? (
-                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                      {canConfigureCurrentSection
-                        ? 'Base fields in this step are fixed and cannot be deleted. Any extra fields you add here will be saved with this job and shown to candidates during application fill-up.'
-                        : 'This step is configured from its dedicated setup page, so extra fields are not added here.'}
-                    </div>
-                  ) : (
-                    <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Section Title
@@ -719,7 +662,7 @@ const JobFormBuilder = () => {
                       Required Section
                     </label>
                   </div>
-                  {formSections.filter(section => !section.system).length > 1 && (
+                  {formSections.length > 1 && (
                     <Button
                       onClick={() => deleteSection(selectedSection)}
                       variant="outline"
@@ -727,8 +670,6 @@ const JobFormBuilder = () => {
                     >
                       Delete Section
                     </Button>
-                  )}
-                    </>
                   )}
                 </CardContent>
               </Card>
@@ -769,7 +710,12 @@ const JobFormBuilder = () => {
                             type: type.type,
                             options: ['select', 'radio'].includes(type.type) ? newField.options : [],
                             optionsText: ['select', 'radio'].includes(type.type) ? newField.optionsText : '',
-                            validation: type.type === 'number' ? newField.validation || {} : {}
+                            validation:
+                              type.type === 'number'
+                                ? newField.validation || {}
+                                : type.type === 'file'
+                                  ? { maxSizeKB: newField.validation?.maxSizeKB || 512 }
+                                  : {}
                           })}
                           className={`p-3 border rounded-lg text-left transition-colors ${
                             newField.type === type.type
@@ -864,6 +810,32 @@ const JobFormBuilder = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
+                  </div>
+                )}
+
+                {newField.type === 'file' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Max File Size (KB)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={newField.validation?.maxSizeKB ?? ''}
+                      onChange={(e) => setNewField({
+                        ...newField,
+                        validation: {
+                          ...(newField.validation || {}),
+                          maxSizeKB: e.target.value,
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="e.g. 512"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Enter size in KB only.
+                    </p>
                   </div>
                 )}
 

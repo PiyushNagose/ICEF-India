@@ -29,6 +29,7 @@ const notificationSchema = new mongoose.Schema(
         "ticket_resolved",
         "new_job_posted",
         "application_updated",
+        "system_audit",
         "general",
       ],
       required: true,

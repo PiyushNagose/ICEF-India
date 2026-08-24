@@ -49,6 +49,10 @@ const checkPermission = (module, action) => {
           throw new ApiError(403, "Role not found");
         }
 
+        if (role.roleName?.trim().toLowerCase() === "super admin") {
+          return next();
+        }
+
         const hasPermission = role.permissions?.[module]?.[action];
         if (!hasPermission) {
           throw new ApiError(403, `Permission denied: ${action} on ${module}`);

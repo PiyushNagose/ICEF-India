@@ -1,7 +1,10 @@
 const { StatusCodes } = require("http-status-codes");
+const fs = require("fs");
+const { Readable } = require("stream");
 const Application = require("../../shared/models/Application");
 const Job = require("../../shared/models/Job");
 const User = require("../../shared/models/User");
+const SupportTicket = require("../../shared/models/SupportTicket");
 const ApiError = require("../../shared/utils/ApiError");
 const {
   ApiResponse,
@@ -21,6 +24,12 @@ const {
   buildExportContent,
   buildGovernmentBundle,
   writeExportFile,
+  applicationRegisterHeaders,
+  paymentHeaders,
+  correctionHeaders,
+  documentHeaders,
+  flattenDocumentRows,
+  csvEscape
 } = require("../../shared/services/applicationExport.service");
 const {
   applyFileStorageMetadata,
@@ -189,35 +198,83 @@ const sendExportFile = (res, file) => {
 
 const exportApplications = asyncHandler(async (req, res) => {
   const type = normalizeExportType(req.params.type);
-  const applications = await loadExportApplications(req.query);
 
-  if (type === "bundle") {
-    const bundle = await buildGovernmentBundle(applications);
-    await saveAuditLog(
-      req,
-      `Exported government handover bundle for ${applications.length} applications`,
-    );
-    return sendExportFile(res, bundle);
+  // Non-streaming paths (bundle and print HTML)
+  if (type === "bundle" || type === "print") {
+    req.query.limit = Math.min(Number(req.query.limit || 5000), 5000); // 5K limit to prevent OOM
+    const applications = await loadExportApplications(req.query);
+
+    if (type === "bundle") {
+      const bundle = await buildGovernmentBundle(applications);
+      await saveAuditLog(req, `Exported government handover bundle for ${applications.length} applications`);
+      return sendExportFile(res, bundle);
+    }
+
+    const content = buildExportContent(type, applications);
+    const file = await writeExportFile({
+      filename: `application-print-${Date.now()}.html`,
+      content,
+      contentType: "text/html; charset=utf-8",
+    });
+
+    await saveAuditLog(req, `Exported application print register for ${applications.length} applications`);
+    return sendExportFile(res, file);
   }
 
-  const content = buildExportContent(type, applications);
-  const isPrintableRegister = type === "print";
-  const file = await writeExportFile({
-    filename: `application-${type}-${Date.now()}.${
-      isPrintableRegister ? "html" : "csv"
-    }`,
-    content,
-    contentType: isPrintableRegister
-      ? "text/html; charset=utf-8"
-      : "text/csv; charset=utf-8",
+  // Streaming paths for CSV
+  const filter = buildExportFilter(req.query);
+  const limit = Math.min(Number(req.query.limit || 50000), 100000); // 100K limit max
+  const isDocuments = type === "documents";
+
+  let headers = applicationRegisterHeaders;
+  if (type === "payments") headers = paymentHeaders;
+  if (type === "corrections") headers = correctionHeaders;
+  if (isDocuments) headers = documentHeaders;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="application-${type}-${Date.now()}.csv"`);
+
+  // Write headers
+  res.write(headers.map(h => csvEscape(h.label)).join(",") + "\n");
+
+  const cursor = Application.find(filter)
+    .sort({ submittedAt: -1, createdAt: -1 })
+    .limit(limit)
+    .populate("candidateId", "fullName email registeredMobile category")
+    .populate({
+      path: "jobId",
+      select: "title postCode department projectId",
+      populate: { path: "projectId", select: "name publicSlug" },
+    })
+    .cursor({ batchSize: 500 }); // Batch to save memory
+
+  let count = 0;
+
+  cursor.on("data", (doc) => {
+    if (isDocuments) {
+      const rows = flattenDocumentRows([doc]);
+      rows.forEach(row => {
+        res.write(headers.map(h => csvEscape(h.value(row))).join(",") + "\n");
+      });
+    } else {
+      res.write(headers.map(h => csvEscape(h.value(doc))).join(",") + "\n");
+    }
+    count++;
   });
 
-  await saveAuditLog(
-    req,
-    `Exported application ${type} register for ${applications.length} applications`,
-  );
+  cursor.on("end", async () => {
+    await saveAuditLog(req, `Exported application ${type} register as stream for ${count} applications`);
+    res.end();
+  });
 
-  return sendExportFile(res, file);
+  cursor.on("error", (error) => {
+    console.error("Stream export error:", error);
+    if (!res.headersSent) {
+      res.status(500).send("Export failed");
+    } else {
+      res.end();
+    }
+  });
 });
 
 const repairStorageManifests = asyncHandler(async (req, res) => {
@@ -280,9 +337,9 @@ const assertReviewTransitionAllowed = (application, status, reason, issues = [])
  * @access  Private (Admin)
  */
 const getApplications = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Strict limit to prevent DoS via lookup
   const {
-    page = 1,
-    limit = 10,
     status,
     paymentStatus,
     documentStatus,
@@ -379,6 +436,8 @@ const getApplications = asyncHandler(async (req, res) => {
       documentStatus: 1,
       totalFee: 1,
       personalDetails: 1,
+      correction: 1,
+      corrections: 1,
       submittedAt: 1,
       createdAt: 1,
       "job.title": 1,
@@ -513,10 +572,13 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
   });
 
   // Notify all admins about the status change
-  notifyAdmins({
-    type: "application_submitted",
-    title: `Application ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-    message: `${candidateName}'s application ${application.applicationId} for "${application.jobId?.title}" has been ${status}.`,
+    const formattedStatus = status.replace(/_/g, ' ');
+    const isSpecialStatus = status === 'clarification_required';
+
+    notifyAdmins({
+      type: "application_update",
+      title: "Application Updated",
+      message: `${candidateName}'s application ${application.applicationId} for "${application.jobId?.title}" ${isSpecialStatus ? 'requires clarification' : `has been ${formattedStatus}`}.`,
     link: `/admin/applications/${application._id}`,
     metadata: { applicationId: application.applicationId, status },
   });
@@ -669,6 +731,46 @@ const reviewCorrection = asyncHandler(async (req, res) => {
   }
 
   await application.save();
+
+  const linkedTicketId =
+    correction.supportTicketId || application.correction?.supportTicket;
+  if (linkedTicketId) {
+    const ticketUpdate =
+      action === "approve"
+        ? {
+            status: "Resolved",
+            resolvedAt: now,
+            "resolutionAction.status": "admin_completed",
+            "resolutionAction.completedBy": req.user.id,
+            "resolutionAction.completedByModel": "Employee",
+            "resolutionAction.completedAt": now,
+            "resolutionAction.note":
+              notes || "Correction accepted and application updated.",
+          }
+        : {
+            status: "In Progress",
+            "resolutionAction.status": "candidate_action_required",
+            "resolutionAction.requestedBy": req.user.id,
+            "resolutionAction.requestedAt": now,
+            "resolutionAction.note":
+              notes || "Correction rejected. Candidate must resubmit.",
+          };
+
+    await SupportTicket.findByIdAndUpdate(linkedTicketId, {
+      $set: ticketUpdate,
+      $push: {
+        replies: {
+          message:
+            action === "approve"
+              ? notes || "Your correction has been accepted and updated in the application."
+              : notes || "Your correction needs more information. Please update and submit again.",
+          sentBy: req.user.id,
+          sentByModel: "Employee",
+          sentByName: "Verification Team",
+        },
+      },
+    });
+  }
 
   await saveAuditLog(
     req,
@@ -1017,6 +1119,53 @@ const rejectDocument = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Preview an uploaded application document
+ * @route   GET /api/admin/applications/:id/documents/:documentId/preview
+ * @access  Private (Admin/Employee)
+ */
+const previewDocument = asyncHandler(async (req, res) => {
+  const app = await Application.findById(req.params.id);
+  if (!app) throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
+
+  const document = app.documents.id(req.params.documentId);
+  if (!document?.localPath && !document?.cloudinaryUrl) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Document not found");
+  }
+
+  const filename = (document.originalName || document.name || "document").replace(
+    /["\\]/g,
+    "_",
+  );
+
+  res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  if (document.localPath && fs.existsSync(document.localPath)) {
+    res.setHeader(
+      "Content-Type",
+      document.mimeType || "application/octet-stream",
+    );
+    return fs.createReadStream(document.localPath).pipe(res);
+  }
+
+  const response = await fetch(document.cloudinaryUrl);
+  if (!response.ok) {
+    throw new ApiError(
+      StatusCodes.BAD_GATEWAY,
+      "Unable to load document preview. Please re-upload the document or contact support.",
+    );
+  }
+
+  res.setHeader(
+    "Content-Type",
+    response.headers.get("content-type") ||
+      document.mimeType ||
+      "application/octet-stream",
+  );
+  return Readable.fromWeb(response.body).pipe(res);
+});
+
+/**
  * @desc    Get application statistics
  * @route   GET /api/admin/applications/stats
  * @access  Private (Admin)
@@ -1093,5 +1242,6 @@ module.exports = {
   bulkUpdateApplications,
   verifyDocument,
   rejectDocument,
+  previewDocument,
   getApplicationStats,
 };

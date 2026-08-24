@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -14,10 +15,11 @@ import {
 } from 'lucide-react'
 
 import AdminLayout from '../../components/layouts/AdminLayout'
-import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 import { adminService } from '../../services/admin.service'
+import { useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import {
   getProjectLifecycleStatus,
   getProjectStatusBadgeClass,
@@ -26,16 +28,15 @@ import {
 const Projects = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, project: null })
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-projects'],
     queryFn: () => adminService.getProjects({ limit: 50 }),
   })
 
-  const { data: statsData } = useQuery({
-    queryKey: ['admin-project-stats'],
-    queryFn: adminService.getProjectStats,
-  })
+
 
   const { mutate: deleteProject } = useMutation({
     mutationFn: adminService.deleteProject,
@@ -55,13 +56,14 @@ const Projects = () => {
       toast.error(err.message || 'Failed to delete project'),
   })
 
-  const handleDelete = (project) => {
-    if (
-      window.confirm(
-        `Delete project "${project.name}"? This cannot be undone.`
-      )
-    ) {
-      deleteProject(project._id)
+  const handleDeleteClick = (project) => {
+    setDeleteModal({ isOpen: true, project })
+  }
+
+  const confirmDelete = () => {
+    if (deleteModal.project) {
+      deleteProject(deleteModal.project._id)
+      setDeleteModal({ isOpen: false, project: null })
     }
   }
 
@@ -371,7 +373,7 @@ const Projects = () => {
 
                         <button
                           onClick={() =>
-                            handleDelete(project)
+                            handleDeleteClick(project)
                           }
                           className="
                             w-9 h-9 rounded-xl
@@ -395,6 +397,19 @@ const Projects = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, project: null })}
+        onConfirm={confirmDelete}
+        title="Delete Project"
+        message={
+          isSuperAdminUser(user)
+            ? `Are you sure you want to permanently delete "${deleteModal.project?.name}"? This will delete all its jobs and data.`
+            : `Are you sure you want to remove "${deleteModal.project?.name}"? It will be hidden from your portal.`
+        }
+        requireType={isSuperAdminUser(user)}
+      />
     </AdminLayout>
   )
 }

@@ -10,6 +10,9 @@ const {
   emitBroadcast,
   SOCKET_EVENTS,
 } = require("../../shared/socket/index");
+const {
+  invalidatePublicRecruitmentCache,
+} = require("../../shared/utils/publicCache");
 
 const emitExamRealtime = (event, payload = {}, options = {}) => {
   try {
@@ -127,6 +130,7 @@ const getSchedule = asyncHandler(async (req, res) => {
 const updateSchedule = asyncHandler(async (req, res) => {
   const schedule = await examService.updateSchedule(req.params.id, req.body, req.user.id);
   await saveAuditLog(req, `Updated exam schedule: ${schedule.examCode}`);
+  await invalidatePublicRecruitmentCache();
   emitExamRealtime(SOCKET_EVENTS.EXAM_SCHEDULE_UPDATED, {
     scheduleId: schedule._id,
     jobId: schedule.jobId?._id || schedule.jobId,
@@ -203,6 +207,7 @@ const publishAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.publishAdmitCards(req.params.id, req.user.id);
   if (!result.alreadyPublished) {
     await saveAuditLog(req, `Published admit cards for exam schedule: ${req.params.id}`);
+    await invalidatePublicRecruitmentCache();
     emitExamRealtime(
       SOCKET_EVENTS.EXAM_ADMIT_CARD_PUBLISHED,
       {
@@ -241,6 +246,7 @@ const unpublishAdmitCards = asyncHandler(async (req, res) => {
     req.body?.reason,
   );
   await saveAuditLog(req, `Unpublished admit cards for exam schedule: ${req.params.id}`);
+  await invalidatePublicRecruitmentCache();
   emitExamRealtime(
     SOCKET_EVENTS.EXAM_ADMIT_CARD_UNPUBLISHED,
     {
@@ -259,6 +265,7 @@ const unpublishAdmitCards = asyncHandler(async (req, res) => {
 const regenerateAdmitCards = asyncHandler(async (req, res) => {
   const result = await examService.regenerateAdmitCards(req.params.id, req.user.id, req.body || {});
   await saveAuditLog(req, `Regenerated admit cards for exam schedule: ${req.params.id}`);
+  await invalidatePublicRecruitmentCache();
   emitExamRealtime(SOCKET_EVENTS.EXAM_ADMIT_CARD_GENERATED, {
     action: "regenerated",
     scheduleId: req.params.id,

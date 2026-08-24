@@ -46,7 +46,6 @@ const Dashboard = () => {
 
   const overview = data?.overview?.overview || data?.overview || {}
   const applicationsByStatus = data?.overview?.applicationsByStatus || []
-  const recentApplications = data?.overview?.recentApplications || []
   const funnel = data?.funnel?.funnel || data?.funnel || {}
   const topJobs = data?.topJobs || []
   const adminNotifications = data?.notifications?.notifications || []
@@ -114,6 +113,7 @@ const Dashboard = () => {
     document_rejected: { icon: AlertTriangle, border: 'border-red-100', bg: 'bg-red-50', iconColor: 'text-red-500', titleColor: 'text-red-700', bodyColor: 'text-red-600' },
     document_verified: { icon: CheckCircle, border: 'border-emerald-100', bg: 'bg-emerald-50', iconColor: 'text-emerald-600', titleColor: 'text-emerald-700', bodyColor: 'text-emerald-600' },
     application_submitted: { icon: FileText, border: 'border-blue-100', bg: 'bg-blue-50', iconColor: 'text-blue-500', titleColor: 'text-blue-700', bodyColor: 'text-blue-600' },
+    application_update: { icon: FileText, border: 'border-blue-100', bg: 'bg-blue-50', iconColor: 'text-blue-500', titleColor: 'text-blue-700', bodyColor: 'text-blue-600' },
     new_job_posted: { icon: Briefcase, border: 'border-orange-100', bg: 'bg-orange-50', iconColor: 'text-orange-500', titleColor: 'text-orange-700', bodyColor: 'text-orange-600' },
     general: { icon: Bell, border: 'border-gray-100', bg: 'bg-gray-50', iconColor: 'text-gray-500', titleColor: 'text-gray-700', bodyColor: 'text-gray-600' },
   }
@@ -137,7 +137,7 @@ const Dashboard = () => {
     if (!notification.isRead) {
       try {
         await markNotificationRead(notification._id)
-      } catch (_) {}
+      } catch (err) { console.error(err) }
     }
     navigate(notification.link || '/admin/notifications')
   }
@@ -261,14 +261,14 @@ const Dashboard = () => {
         </div>
 
         {/* MAIN GRID */}
-        <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-5 xl:h-[800px]">
 
           {/* LEFT */}
-          <div className="xl:col-span-2 flex min-h-0 flex-col gap-5">
+          <div className="xl:col-span-2 flex h-full min-h-0 flex-col gap-5">
 
             {/* FUNNEL */}
             <div className="
-              flex min-h-[300px] flex-col
+              flex flex-col shrink-0
               rounded-[22px]
               bg-white
               border border-gray-200
@@ -304,10 +304,9 @@ const Dashboard = () => {
                     key={label}
                     className={`
                       rounded-2xl p-4 text-center transition-all duration-200 ease-out
-                      ${
-                        index === funnelItems.length - 1
-                          ? 'bg-[#111827] text-white shadow-xl'
-                          : 'bg-gray-50 border border-gray-100 hover:border-orange-200'
+                      ${index === funnelItems.length - 1
+                        ? 'bg-[#111827] text-white shadow-xl'
+                        : 'bg-gray-50 border border-gray-100 hover:border-orange-200'
                       }
                     `}
                   >
@@ -317,10 +316,9 @@ const Dashboard = () => {
 
                     <p className={`
                       text-xs mt-2 font-bold tracking-normal
-                      ${
-                        index === funnelItems.length - 1
-                          ? 'text-gray-300'
-                          : 'text-gray-500'
+                      ${index === funnelItems.length - 1
+                        ? 'text-gray-300'
+                        : 'text-gray-500'
                       }
                     `}>
                       {label}
@@ -332,6 +330,7 @@ const Dashboard = () => {
 
             {/* TOP JOBS */}
             <div className="
+              flex flex-1 min-h-0 flex-col
               rounded-[22px]
               bg-white
               border border-gray-200
@@ -356,7 +355,7 @@ const Dashboard = () => {
                 </Badge>
               </div>
 
-              <div className="hover-scroll admin-compact-scroll space-y-3 overflow-y-auto pr-1">
+              <div className="hover-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
 
                 {topJobs.map((job, index) => (
                   <div
@@ -400,86 +399,6 @@ const Dashboard = () => {
                         APPLICATIONS
                       </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RECENT APPLICATIONS */}
-            <div className="
-              flex min-h-[360px] flex-col xl:flex-1
-              rounded-[22px]
-              bg-white
-              border border-gray-200
-              shadow-sm
-              p-5
-            ">
-
-              <div className="flex shrink-0 items-center justify-between mb-5">
-
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Recent Applications
-                  </h3>
-
-                  <p className="text-xs text-gray-500 mt-1">
-                    Latest candidate submissions
-                  </p>
-                </div>
-
-                <Badge variant="info">
-                  REAL-TIME
-                </Badge>
-              </div>
-
-              <div className="hover-scroll max-h-[460px] space-y-3 overflow-y-auto pr-1 xl:max-h-none xl:flex-1">
-
-                {recentApplications.map((application) => (
-                  <div
-                    key={application._id}
-                    className="
-                      flex items-start gap-3
-                      p-3 rounded-2xl
-                      border border-gray-100
-                      hover:border-orange-200
-                      hover:bg-orange-50/30
-                      transition-all duration-200 ease-out
-                    "
-                  >
-                    <div className="
-                      w-10 h-10 rounded-xl
-                      bg-gradient-to-br from-orange-100 to-orange-200
-                      flex items-center justify-center
-                      shrink-0
-                    ">
-                      <FileText className="w-4 h-4 text-orange-600" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm text-gray-900 truncate">
-                        {application.applicationId}
-                      </h4>
-
-                      <p className="text-xs text-gray-500 mt-1">
-                        {application.jobId?.title || 'Job'}
-                      </p>
-
-                      <p className="text-xs text-gray-400 mt-1 truncate">
-                        {application.candidateId?.email || 'Candidate'}
-                      </p>
-                    </div>
-
-                    <Badge
-                      variant={
-                        application.status === 'Approved'
-                          ? 'success'
-                          : application.status === 'Rejected'
-                          ? 'error'
-                          : 'warning'
-                      }
-                    >
-                      {application.status}
-                    </Badge>
                   </div>
                 ))}
               </div>
@@ -602,7 +521,7 @@ const Dashboard = () => {
 
             {/* NOTIFICATIONS */}
             <div className="
-              flex min-h-[320px] flex-1 flex-col
+              flex flex-1 min-h-0 flex-col
               rounded-[22px]
               bg-white
               border border-gray-200

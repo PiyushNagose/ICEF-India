@@ -8,7 +8,6 @@ const { generateUUID, getPaginationParams, calculateFee } = require("../utils/he
 const { paginationMeta } = require("../utils/ApiResponse");
 const {
   emitToCandidate,
-  emitToAdmins,
   SOCKET_EVENTS,
 } = require("../socket/index");
 const { sendPaymentSuccessEmail } = require("./email.service");
@@ -155,12 +154,6 @@ const verifyPayment = async ({
         amount: payment.amount,
         applicationId: application.applicationId,
         registrationNumber: application.registrationNumber || null,
-      });
-
-      // Notify admin dashboard
-      emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
-        type: "payment_received",
-        amount: payment.amount,
       });
 
       // Send confirmation email

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import AppDatePicker from "../../components/ui/AppDatePicker";
 import JobStepProgress from "./JobStepProgress";
+import { saveJobDraftProgress } from "../../utils/jobDraft";
 import {
   ArrowRight,
   ArrowLeft,
@@ -15,6 +17,7 @@ import {
   Info,
   CheckCircle,
   FileCheck2,
+  Save,
 } from "lucide-react";
 
 const FeeInput = ({
@@ -23,6 +26,7 @@ const FeeInput = ({
   value,
   onChange,
   hint,
+  error,
   prefix = "Rs.",
   suffix = "",
 }) => (
@@ -46,10 +50,11 @@ const FeeInput = ({
         step={suffix === "%" ? "0.01" : "1"}
         value={value}
         onChange={(e) => onChange(field, e.target.value)}
-        className={`w-full ${prefix ? "pl-12" : "pl-4"} ${suffix ? "pr-9" : "pr-4"} py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm`}
+        className={`w-full ${prefix ? "pl-12" : "pl-4"} ${suffix ? "pr-9" : "pr-4"} py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm ${error ? "border-red-400" : "border-gray-300"}`}
         placeholder="0"
       />
     </div>
+    {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
 );
 
@@ -95,56 +100,89 @@ const JobPayment = () => {
     setConfig((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
-  const setMethod = (method, enabled) =>
+  const setMethod = (method, enabled) => {
     setConfig((prev) => ({
       ...prev,
       paymentMethods: { ...prev.paymentMethods, [method]: enabled },
     }));
+    if (errors.paymentMethods) {
+      setErrors((prev) => ({ ...prev, paymentMethods: "" }));
+    }
+  };
+
+  const buildDraftPatch = () => ({
+    applicationFee: {
+      general: Number(config.general) || 0,
+      obc: Number(config.obc) || Number(config.general) || 0,
+      scSt: Number(config.scSt) || 0,
+      ews: Number(config.ews) || Number(config.general) || 0,
+      pwd: Number(config.pwd) || 0,
+    },
+    paymentConfig: {
+      applicationFee: Number(config.general) || 0,
+      processingFee: Number(config.processingFee) || 0,
+      paymentTiming: config.paymentTiming || "final",
+      paymentMethods: Object.entries(config.paymentMethods)
+        .filter(([, v]) => v)
+        .map(([k]) => k),
+      refundPolicy: config.refundPolicy || undefined,
+      paymentDeadline: config.paymentDeadline || undefined,
+    },
+  })
+
+  const handleSaveDraft = () => {
+    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 5 })
+    toast.success('Draft saved.')
+  }
 
   const handleNext = () => {
-    const nextErrors = {};
+    const nextErrors = {}
+    const feeFields = [
+      ["general", "General fee"],
+      ["obc", "OBC fee"],
+      ["scSt", "SC/ST fee"],
+      ["ews", "EWS fee"],
+      ["pwd", "PwD fee"],
+    ]
+    if (config.general === "" || config.general === null || config.general === undefined) {
+      nextErrors.general = "General application fee is required"
+    }
+    feeFields.forEach(([field, label]) => {
+      if (config[field] !== "" && Number(config[field]) < 0) {
+        nextErrors[field] = `${label} cannot be negative`
+      }
+    })
+    if (!config.paymentTiming) {
+      nextErrors.paymentTiming = "Select when candidates should pay"
+    }
+    if (config.processingFee !== "" && Number(config.processingFee) < 0) {
+      nextErrors.processingFee = "Processing fee cannot be negative"
+    }
+    if (!config.paymentDeadline) {
+      nextErrors.paymentDeadline = "Payment deadline is required"
+    }
+    const selectedMethods = Object.values(config.paymentMethods || {}).some(Boolean)
+    if (!selectedMethods) {
+      nextErrors.paymentMethods = "Select at least one payment method"
+    }
     if (
       savedDraft.applicationDeadline &&
       config.paymentDeadline &&
       config.paymentDeadline < savedDraft.applicationDeadline
     ) {
       nextErrors.paymentDeadline =
-        "Payment deadline cannot be before application deadline";
+        "Payment deadline cannot be before application deadline"
     }
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const existing = JSON.parse(sessionStorage.getItem("job_draft") || "{}");
-    const enabledMethods = Object.entries(config.paymentMethods)
-      .filter(([, v]) => v)
-      .map(([k]) => k);
-
-    sessionStorage.setItem(
-      "job_draft",
-      JSON.stringify({
-        ...existing,
-        // applicationFee stored at top level for the Job model
-        applicationFee: {
-          general: Number(config.general) || 0,
-          obc: Number(config.obc) || Number(config.general) || 0,
-          scSt: Number(config.scSt) || 0,
-          ews: Number(config.ews) || Number(config.general) || 0,
-          pwd: Number(config.pwd) || 0,
-        },
-        paymentConfig: {
-          applicationFee: Number(config.general) || 0, // backward compat
-          processingFee: Number(config.processingFee) || 0,
-          paymentTiming: config.paymentTiming || "final",
-          paymentMethods: enabledMethods,
-          refundPolicy: config.refundPolicy || undefined,
-          paymentDeadline: config.paymentDeadline || undefined,
-        },
-      }),
-    );
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error(Object.values(nextErrors)[0])
+      return
+    }
+    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 5 })
     navigate(
       `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ""}`,
-    );
-  };
+    )
+  }
 
   const generalFee = Number(config.general) || 0;
   const processingPercent = Math.max(0, Number(config.processingFee) || 0);
@@ -187,9 +225,7 @@ const JobPayment = () => {
                     </h3>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
-                    Set different fees for each candidate category. Leave blank
-                    to use General fee. SC/ST and PwD are typically free as per
-                    government norms.
+                    Set category-wise fees. Leave blank to use General.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -200,6 +236,7 @@ const JobPayment = () => {
                       value={config.general}
                       onChange={set}
                       hint="required"
+                      error={errors.general}
                     />
                     <FeeInput
                       label="OBC Category"
@@ -207,6 +244,7 @@ const JobPayment = () => {
                       value={config.obc}
                       onChange={set}
                       hint="leave blank = same as General"
+                      error={errors.obc}
                     />
                     <FeeInput
                       label="SC / ST Category"
@@ -214,6 +252,7 @@ const JobPayment = () => {
                       value={config.scSt}
                       onChange={set}
                       hint="usually Rs.0"
+                      error={errors.scSt}
                     />
                     <FeeInput
                       label="EWS Category"
@@ -221,6 +260,7 @@ const JobPayment = () => {
                       value={config.ews}
                       onChange={set}
                       hint="leave blank = same as General"
+                      error={errors.ews}
                     />
                     <FeeInput
                       label="PwD (Persons with Disability)"
@@ -228,6 +268,7 @@ const JobPayment = () => {
                       value={config.pwd}
                       onChange={set}
                       hint="usually Rs.0"
+                      error={errors.pwd}
                     />
                   </div>
 
@@ -268,9 +309,7 @@ const JobPayment = () => {
                     </h3>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
-                    Choose when candidates pay in the application flow. Early
-                    payment appears after Personal Details so category-wise fee
-                    can be calculated correctly.
+                    Choose when candidates pay in the flow.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -330,6 +369,11 @@ const JobPayment = () => {
                       );
                     })}
                   </div>
+                  {errors.paymentTiming && (
+                    <p className="mt-2 text-xs text-red-500">
+                      {errors.paymentTiming}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -352,6 +396,7 @@ const JobPayment = () => {
                       value={config.processingFee}
                       onChange={set}
                       hint="percentage"
+                      error={errors.processingFee}
                       prefix=""
                       suffix="%"
                     />
@@ -434,6 +479,11 @@ const JobPayment = () => {
                     Payment gateway will be configured by Finance Officer
                     separately.
                   </p>
+                  {errors.paymentMethods && (
+                    <p className="text-xs text-red-500">
+                      {errors.paymentMethods}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -502,13 +552,19 @@ const JobPayment = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back: Documents
             </Button>
-            <Button
-              onClick={handleNext}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-8"
-            >
-              {returnToReview ? "Save & Return to Review" : "Next: Review"}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button variant="outline" onClick={handleSaveDraft} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button
+                onClick={handleNext}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-8"
+              >
+                {returnToReview ? "Save & Return to Review" : "Next: Review"}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

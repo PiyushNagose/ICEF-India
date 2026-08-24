@@ -8,7 +8,7 @@
  *   1. Verifies email + mobile via OTP
  *   2. Calls POST /api/auth/public-apply-login → gets JWT
  *   3. Stores session exactly like a normal candidate login
- *   4. Redirects to the EXISTING /application/post-selection?jobId=...
+ *   4. Redirects to the first step of the existing application wizard.
  *
  * No new form steps are built here — the existing multi-step application
  * flow handles everything after login.
@@ -49,15 +49,21 @@ const OTP_TTL = 300; // 5 minutes
 function OtpTimer({ active, onExpire }) {
   const [remaining, setRemaining] = useState(OTP_TTL);
   const ref = useRef(null);
+  const onExpireRef = useRef(onExpire);
+
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   useEffect(() => {
     if (!active) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- timer state resets whenever a fresh OTP countdown starts.
     setRemaining(OTP_TTL);
     ref.current = setInterval(() => {
       setRemaining((s) => {
         if (s <= 1) {
           clearInterval(ref.current);
-          onExpire?.();
+          onExpireRef.current?.();
           return 0;
         }
         return s - 1;
@@ -133,9 +139,11 @@ export default function PublicApplyEntry() {
   const [proceedLoading, setProceedLoading] = useState(false);
 
   const { data: projectData, isLoading: isCheckingJob } = useQuery({
-    queryKey: ["public-apply-entry", slug],
+    queryKey: ["public-apply-entry", slug, jobId],
     queryFn: () => publicService.getProjectBySlug(slug),
-    staleTime: 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 
@@ -265,7 +273,16 @@ export default function PublicApplyEntry() {
       persistApplicationDraft({ applicationId, jobId });
       sessionStorage.setItem(
         "publicApplyContext",
-        JSON.stringify({ projectSlug: slug, jobId, applicationId, email, mobile }),
+        JSON.stringify({
+          projectId: projectData?.project?._id,
+          projectSlug: slug,
+          projectName: projectData?.project?.name,
+          jobId,
+          jobTitle: selectedJob?.title,
+          applicationId,
+          email,
+          mobile,
+        }),
       );
 
       const destination = getFirstApplicationRoute(application?.jobId || application);
@@ -302,14 +319,14 @@ export default function PublicApplyEntry() {
     <PublicLayout>
       <div className="min-h-[calc(100vh-90px)] bg-[#f5efe9]">
         <div className="bg-[#201d1a] text-white">
-          <div className="mx-auto max-w-[1380px] px-4 py-9 sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-[228px] max-w-[1380px] flex-col justify-center px-4 py-9 sm:px-6 lg:px-8 lg:py-10">
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Secure Application Entry
             </p>
-            <h1 className="text-[30px] font-black leading-tight sm:text-[36px]">
+            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
               Verify Your Identity
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/70">
+            <p className="mt-4 max-w-3xl text-[14px] leading-[26px] font-medium text-white/80">
               Verify your email and mobile before starting the application.
               No candidate account is required.
             </p>
@@ -321,9 +338,9 @@ export default function PublicApplyEntry() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="grid items-stretch gap-7 lg:grid-cols-[420px_minmax(0,1fr)]"
+          className="grid gap-7 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] lg:items-start"
         >
-          <aside className="flex flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+          <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:self-start">
             <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-orange-50 text-[#e46a1d]">
               <ShieldCheck className="h-6 w-6" />
             </div>
@@ -333,7 +350,7 @@ export default function PublicApplyEntry() {
             <h2 className="mt-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
               One-time verification for a secure application session.
             </h2>
-            <p className="mt-3 text-sm font-medium leading-6 text-[#6d6761]">
+            <p className="mt-3 text-[14px] leading-[26px] text-[#5f5752] font-medium">
               Your verified contact details will be attached to the application
               and used for registration number, status, and admit card access.
             </p>
@@ -352,7 +369,7 @@ export default function PublicApplyEntry() {
               ))}
             </div>
 
-            <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
+            <div className="mt-6 rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
               For testing, the OTP appears in the toast when the backend runs in
               development mode.
             </div>
@@ -361,11 +378,11 @@ export default function PublicApplyEntry() {
           <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
             <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
               <div>
-                <h2 className="flex items-center gap-2 text-[18px] font-black text-[#1f1d1b]">
+                <h2 className="flex items-center gap-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
                   <BadgeCheck className="h-5 w-5 text-[#e46a1d]" />
                   Contact Verification
                 </h2>
-                <p className="mt-1 text-sm font-medium text-[#6d6761]">
+                <p className="mt-1 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                   Complete both checks to continue.
                 </p>
               </div>
@@ -393,11 +410,11 @@ export default function PublicApplyEntry() {
 
             {selectedJob && !entryBlocked && (
               <div className="rounded-[6px] border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <p className="flex items-center gap-2 text-sm font-black text-emerald-800">
-                  <FileText className="h-4 w-4" />
+                <p className="flex items-center gap-2 text-sm font-black text-emerald-800 break-words line-clamp-2">
+                  <FileText className="h-4 w-4 shrink-0" />
                   Applying for {selectedJob.title}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-emerald-700/80">
+                <p className="mt-1 text-xs font-semibold text-emerald-700/80 break-words line-clamp-2">
                   {projectData?.project?.name}
                 </p>
               </div>
@@ -563,7 +580,7 @@ export default function PublicApplyEntry() {
             </PrimaryBtn>
             </div>
 
-          <p className="mt-4 text-center text-xs text-[#6d6761]">
+          <p className="mt-5 border-t border-[#f0e8e0] pt-4 text-center text-xs text-[#6d6761]">
             Already applied?{" "}
             <button
               onClick={() => navigate("/check-status")}

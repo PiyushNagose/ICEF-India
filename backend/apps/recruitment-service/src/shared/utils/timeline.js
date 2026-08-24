@@ -13,12 +13,18 @@ const startOfDay = (value) => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 };
 
+const endOfDay = (value) => {
+  const date = parseDate(value);
+  if (!date) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+};
+
 const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
   if (!projectLike) return "Upcoming";
   if (projectLike.status === "Cancelled") return "Cancelled";
 
   const start = startOfDay(projectLike.startDate);
-  const closure = startOfDay(projectLike.closureDate || projectLike.endDate);
+  const closure = startOfDay(projectLike.endDate || projectLike.closureDate);
   const today = startOfDay(now);
 
   if (start && today < start) return "Upcoming";
@@ -29,7 +35,7 @@ const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
 };
 
 const getProjectClosureDate = (project) =>
-  parseDate(project?.closureDate || project?.endDate);
+  parseDate(project?.endDate || project?.closureDate);
 
 const getPaymentDeadline = (job) =>
   parseDate(job?.paymentConfig?.paymentDeadline || job?.applicationDeadline);
@@ -43,11 +49,11 @@ const assertOrder = (left, right, message) => {
 };
 
 const assertWithinProject = (date, project, label) => {
-  const value = parseDate(date);
+  const value = startOfDay(date);
   if (!value || !project) return;
 
-  const start = parseDate(project.startDate);
-  const closure = getProjectClosureDate(project);
+  const start = startOfDay(project.startDate);
+  const closure = endOfDay(getProjectClosureDate(project));
 
   if (start && value < start) {
     throw new ApiError(
@@ -131,8 +137,8 @@ const assertJobTimeline = (jobLike, project) => {
 
 const assertApplicationWindowOpen = (job) => {
   const now = new Date();
-  const start = parseDate(job?.applicationStartDate);
-  const deadline = parseDate(job?.applicationDeadline);
+  const start = startOfDay(job?.applicationStartDate);
+  const deadline = endOfDay(job?.applicationDeadline);
 
   if (start && now < start) {
     throw new ApiError(
@@ -147,8 +153,8 @@ const assertApplicationWindowOpen = (job) => {
 
 const assertCorrectionWindowOpen = (job) => {
   const now = new Date();
-  const start = parseDate(job?.correctionStartDate);
-  const deadline = parseDate(job?.correctionDeadline);
+  const start = startOfDay(job?.correctionStartDate);
+  const deadline = endOfDay(job?.correctionDeadline);
 
   if (start && now < start) {
     throw new ApiError(
@@ -162,14 +168,14 @@ const assertCorrectionWindowOpen = (job) => {
 };
 
 const assertPaymentWindowOpen = (job) => {
-  const deadline = getPaymentDeadline(job);
+  const deadline = endOfDay(getPaymentDeadline(job));
   if (deadline && new Date() > deadline) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Payment deadline has passed");
   }
 };
 
 const assertAdmitCardReleaseOpen = (job) => {
-  const releaseDate = parseDate(job?.admitCardReleaseDate);
+  const releaseDate = startOfDay(job?.admitCardReleaseDate);
   if (releaseDate && new Date() < releaseDate) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -181,6 +187,7 @@ const assertAdmitCardReleaseOpen = (job) => {
 module.exports = {
   parseDate,
   startOfDay,
+  endOfDay,
   getProjectLifecycleStatus,
   getProjectClosureDate,
   getPaymentDeadline,

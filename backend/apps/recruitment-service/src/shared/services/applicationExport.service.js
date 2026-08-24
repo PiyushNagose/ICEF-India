@@ -343,4 +343,12 @@ module.exports = {
   buildGovernmentBundle,
   buildPrintableRegisterHtml,
   writeExportFile,
+  
+  // For streaming
+  applicationRegisterHeaders,
+  paymentHeaders,
+  correctionHeaders,
+  documentHeaders,
+  flattenDocumentRows,
+  csvEscape
 };

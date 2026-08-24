@@ -108,7 +108,7 @@ export const authService = {
         return user;
       }
       return null;
-    } catch (error) {
+    } catch {
       // Refresh failed - clear session
       clearStoredSession();
       return null;

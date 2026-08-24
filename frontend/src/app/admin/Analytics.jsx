@@ -75,7 +75,7 @@ const Analytics = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-500 p-5 shadow-sm">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Total Applications</p>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold text-gray-900">{fmt(total)}</p>
+              <p className="text-2xl font-bold text-gray-900">{fmt(total)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                 <TrendingUp className="w-3 h-3" /> 12%
               </span>
@@ -86,7 +86,7 @@ const Analytics = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Completed Applications</p>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold text-gray-900">{fmt(completed)}</p>
+              <p className="text-2xl font-bold text-gray-900">{fmt(completed)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                 <CheckCircle className="w-3 h-3" /> 73%
               </span>
@@ -97,7 +97,7 @@ const Analytics = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-amber-500 p-5 shadow-sm">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Pending Applications</p>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold text-gray-900">{fmt(pending)}</p>
+              <p className="text-2xl font-bold text-gray-900">{fmt(pending)}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                 <Clock className="w-3 h-3" /> Processing...
               </span>
@@ -108,7 +108,7 @@ const Analytics = () => {
           <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-blue-500 p-5 shadow-sm">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Payment Success Rate</p>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold text-gray-900">{paySuccessRate}{paySuccessRate !== '—' ? '%' : ''}</p>
+              <p className="text-2xl font-bold text-gray-900">{paySuccessRate}{paySuccessRate !== '—' ? '%' : ''}</p>
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                 <Star className="w-3 h-3" /> High
               </span>
@@ -125,7 +125,7 @@ const Analytics = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Dropped</p>
-              <p className="text-3xl font-bold text-gray-900">{Number(dropped).toLocaleString('en-IN')}</p>
+              <p className="text-2xl font-bold text-gray-900">{Number(dropped).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -135,7 +135,7 @@ const Analytics = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Payment Failures</p>
-              <p className="text-3xl font-bold text-gray-900">{Number(payFailed).toLocaleString('en-IN')}</p>
+              <p className="text-2xl font-bold text-gray-900">{Number(payFailed).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -145,7 +145,7 @@ const Analytics = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Raised</p>
-              <p className="text-3xl font-bold text-gray-900">{Number(ticketsRaised).toLocaleString('en-IN')}</p>
+              <p className="text-2xl font-bold text-gray-900">{Number(ticketsRaised).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -155,7 +155,7 @@ const Analytics = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Resolved</p>
-              <p className="text-3xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
+              <p className="text-2xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
             </div>
           </div>
         </div>
@@ -265,7 +265,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Requires immediate attention</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{Number(openTickets).toLocaleString('en-IN')}</p>
+                <p className="text-2xl font-bold text-gray-900">{Number(openTickets).toLocaleString('en-IN')}</p>
               </div>
 
               <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
@@ -278,7 +278,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Solved within 24 hours</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
+                <p className="text-2xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
               </div>
 
               <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
@@ -291,7 +291,7 @@ const Analytics = () => {
                     <p className="text-xs text-gray-400">Awaiting user action</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{Number(pendingResponse).toLocaleString('en-IN')}</p>
+                <p className="text-2xl font-bold text-gray-900">{Number(pendingResponse).toLocaleString('en-IN')}</p>
               </div>
 
             </div>

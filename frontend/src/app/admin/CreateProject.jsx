@@ -111,6 +111,7 @@ const CreateProject = () => {
   useEffect(() => {
     if (!project) return
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFormData({
       name: project.name || '',
       state: project.state || 'Bihar',
@@ -144,8 +145,14 @@ const CreateProject = () => {
       },
 
       onError: (err) => {
+        const message =
+          /publicslug|slug already exists|project with this name already exists/i.test(
+            err.message || "",
+          )
+            ? "A project with this name already exists. Please choose a different project name."
+            : err.message || "Failed to create project"
         toast.error(
-          err.message || 'Failed to create project'
+          message
         )
       },
     })
@@ -232,6 +239,7 @@ const CreateProject = () => {
       return
     }
 
+    delete payload.status
     updateProject(payload)
   }
 
@@ -242,24 +250,17 @@ const CreateProject = () => {
     createdProject?.data?._id ||
     createdProject?.data?.id
 
-  const handleCreateAdvertisement = () => {
+  const handleSetupLandingCms = () => {
     const projectId = getCreatedProjectId()
 
     if (!projectId) {
-      toast.error('Project created, but project ID was not returned. Please open Jobs and select the project manually.')
-      navigate('/admin/jobs/create')
+      toast.error('Project created, but project ID was not returned.')
+      navigate('/admin/projects')
       return
     }
 
-    sessionStorage.removeItem('job_draft')
-    sessionStorage.setItem(
-      'job_draft',
-      JSON.stringify({
-        projectId,
-      })
-    )
-
-    navigate(`/admin/jobs/create/basic-info?project=${projectId}`)
+    const state = encodeURIComponent(createdProject?.state || formData.state || 'All')
+    navigate(`/admin/cms/edit/${state}?project=${projectId}`)
   }
 
   const handleCreateLater = () => {
@@ -562,6 +563,7 @@ const CreateProject = () => {
               </CardContent>
             </Card>
 
+
             {/* INFO CARD */}
             <div className="
               rounded-[24px]
@@ -650,11 +652,11 @@ const CreateProject = () => {
               </p>
 
               <h2 className="max-w-[470px] text-2xl font-bold leading-tight">
-                Create job advertisement under this project now?
+                Set up this project's landing page now?
               </h2>
 
               <p className="mt-2 max-w-[500px] text-sm leading-6 text-white/85">
-                Continue directly to the job form with this project already selected, or finish it later from Job Management.
+                Configure the public page candidates will see first, then continue to the job advertisement and payment setup.
               </p>
             </div>
 
@@ -715,7 +717,7 @@ const CreateProject = () => {
                   Recommended next step
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Create the advertisement, posts, fees, dates, form sections, documents, and publish only after review.
+                  First publish or save this project's landing CMS, then create the advertisement, posts, fees, dates, form sections, documents, and payment setup.
                 </p>
               </div>
 
@@ -732,7 +734,7 @@ const CreateProject = () => {
                 </Button>
 
                 <Button
-                  onClick={handleCreateAdvertisement}
+                  onClick={handleSetupLandingCms}
                   className="
                     h-12 rounded-2xl
                     bg-orange-600 px-6 text-white
@@ -741,7 +743,7 @@ const CreateProject = () => {
                   "
                 >
                   <BriefcaseBusiness className="mr-2 h-4 w-4" />
-                  Create Job Advertisement
+                  Set Landing CMS
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>

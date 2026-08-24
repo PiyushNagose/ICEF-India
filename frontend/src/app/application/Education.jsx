@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
@@ -27,6 +28,7 @@ const YEARS = Array.from(
 const Education = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   // Persist applicationId if passed via state
   useEffect(() => {
@@ -63,14 +65,17 @@ const Education = () => {
     queryKey: ["application-education", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
-    if (appData && !dataLoaded) {
+    if (appData) {
       const app = appData?.application || appData;
       const edu = app?.education || {};
       if (edu && Object.keys(edu).length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFormData({
           tenth: {
             board: edu.tenth?.board || "",
@@ -105,7 +110,7 @@ const Education = () => {
       }
       setDataLoaded(true);
     }
-  }, [appData, dataLoaded]);
+  }, [appData]);
 
   const set = (section, field, value) => {
     setFormData((prev) => ({
@@ -116,12 +121,19 @@ const Education = () => {
 
   const { mutate: saveStep, isPending } = useMutation({
     mutationFn: (data) => candidateService.saveEducation(applicationId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Education details saved");
+      const latestApplication = result?.application || result || appData?.application || appData;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-education", applicationId], {
+        application: latestApplication,
+      });
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else {
-        const app = appData?.application || appData;
+        const app = latestApplication;
         const steps = buildApplicationSteps(app?.jobId, app);
         const educationStep =
           steps.find((step) => step.type === "education")?.id || 2;
@@ -249,18 +261,15 @@ const Education = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Year of Passing
                 </label>
-                <select
+                <CustomSelect
                   className={selectCls}
                   value={formData.tenth.year}
-                  onChange={(e) => set("tenth", "year", e.target.value)}
-                >
-                  <option value="">Select Year</option>
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => set("tenth", "year", val)}
+                  options={[
+                    { value: "", label: "Select Year" },
+                    ...YEARS.map((y) => ({ value: y, label: y }))
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -306,16 +315,17 @@ const Education = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stream
                 </label>
-                <select
+                <CustomSelect
                   className={selectCls}
                   value={formData.twelfth.stream}
-                  onChange={(e) => set("twelfth", "stream", e.target.value)}
-                >
-                  <option value="">Select Stream</option>
-                  <option value="science">Science</option>
-                  <option value="commerce">Commerce</option>
-                  <option value="arts">Arts</option>
-                </select>
+                  onChange={(val) => set("twelfth", "stream", val)}
+                  options={[
+                    { value: "", label: "Select Stream" },
+                    { value: "science", label: "Science" },
+                    { value: "commerce", label: "Commerce" },
+                    { value: "arts", label: "Arts" }
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -345,18 +355,15 @@ const Education = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Year of Passing
                 </label>
-                <select
+                <CustomSelect
                   className={selectCls}
                   value={formData.twelfth.year}
-                  onChange={(e) => set("twelfth", "year", e.target.value)}
-                >
-                  <option value="">Select Year</option>
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => set("twelfth", "year", val)}
+                  options={[
+                    { value: "", label: "Select Year" },
+                    ...YEARS.map((y) => ({ value: y, label: y }))
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -390,27 +397,24 @@ const Education = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Degree Name
                 </label>
-                <select
+                <CustomSelect
                   className={selectCls}
                   value={formData.graduation.degree}
-                  onChange={(e) => set("graduation", "degree", e.target.value)}
-                >
-                  <option value="">Select Degree</option>
-                  {[
-                    "B.A.",
-                    "B.Sc.",
-                    "B.Com.",
-                    "B.Tech.",
-                    "B.E.",
-                    "B.B.A.",
-                    "B.C.A.",
-                    "Other",
-                  ].map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => set("graduation", "degree", val)}
+                  options={[
+                    { value: "", label: "Select Degree" },
+                    ...[
+                      "B.A.",
+                      "B.Sc.",
+                      "B.Com.",
+                      "B.Tech.",
+                      "B.E.",
+                      "B.B.A.",
+                      "B.C.A.",
+                      "Other",
+                    ].map((d) => ({ value: d, label: d }))
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -430,18 +434,15 @@ const Education = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Year of Passing
                 </label>
-                <select
+                <CustomSelect
                   className={selectCls}
                   value={formData.graduation.year}
-                  onChange={(e) => set("graduation", "year", e.target.value)}
-                >
-                  <option value="">Select Year</option>
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => set("graduation", "year", val)}
+                  options={[
+                    { value: "", label: "Select Year" },
+                    ...YEARS.map((y) => ({ value: y, label: y }))
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

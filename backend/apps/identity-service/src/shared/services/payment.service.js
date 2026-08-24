@@ -6,7 +6,6 @@ const { generateUUID, getPaginationParams } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
 const {
   emitToCandidate,
-  emitToAdmins,
   SOCKET_EVENTS,
 } = require("../socket/index");
 const { publishToQueue, QUEUES } = require("../config/rabbitmq");
@@ -87,12 +86,6 @@ const verifyPayment = async ({
         transactionId,
         amount: payment.amount,
         applicationId: application.applicationId,
-      });
-
-      // Notify admin dashboard
-      emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
-        type: "payment_received",
-        amount: payment.amount,
       });
 
       // Queue confirmation email

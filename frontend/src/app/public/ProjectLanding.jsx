@@ -14,8 +14,14 @@ import {
   Loader2,
   MapPin,
   Phone,
+  SearchCheck,
+  ShieldCheck,
   Users,
   XCircle,
+  CircleHelp,
+  Mail,
+  Bell,
+  BookOpen,
   ChevronRight,
 } from "lucide-react";
 import { publicService } from "../../services/public.service";
@@ -26,12 +32,32 @@ import {
   getApplicationAction,
   getJobAvailability,
 } from "../../utils/jobAvailability";
-import {
-  getRouteForApplicationStep,
-  persistApplicationDraft,
-} from "../../utils/applicationFlow";
+import heroBg from "../../assets/herobg.jpg";
 
-/* ── helpers ─────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   ANIMATION VARIANTS
+───────────────────────────────────────────────────────────── */
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: "easeOut", delay: i * 0.06 },
+  }),
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.45, ease: "easeOut" },
+  },
+};
+
+/* ─────────────────────────────────────────────────────────────
+   UTILITY HELPERS
+───────────────────────────────────────────────────────────── */
 const fmt = (d) =>
   d
     ? new Date(d).toLocaleDateString("en-IN", {
@@ -42,7 +68,15 @@ const fmt = (d) =>
     : "Not announced";
 
 const daysLeft = (d) =>
-  d ? Math.max(0, Math.ceil((new Date(d) - Date.now()) / 86400000)) : null;
+  d
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(new Date(d).setHours(23, 59, 59, 999)) - new Date()) /
+            86400000,
+        ),
+      )
+    : null;
 
 const fee = (job, cat = "general") => {
   const f = job?.applicationFee || {};
@@ -53,45 +87,72 @@ const fee = (job, cat = "general") => {
   return f.general ?? 0;
 };
 
-/* ── status badge ───────────────────────────────────────────── */
+const getNoticeText = (notice) =>
+  typeof notice === "string"
+    ? notice
+    : notice?.text || notice?.title || notice?.label || "";
+
+const getNoticeHref = (notice, slug) => {
+  if (typeof notice === "string") return "#available-posts";
+  const raw = notice?.url || notice?.link || notice?.href || "";
+  if (raw) {
+    if (/^https?:\/\//i.test(raw) || raw.startsWith("/") || raw.startsWith("#")) {
+      return raw;
+    }
+    return `/${raw.replace(/^\/+/, "")}`;
+  }
+  if (notice?.jobId) return `/apply/${slug}/jobs/${notice.jobId}`;
+  return "#available-posts";
+};
+
+const normalizeNoticeText = (text = "") =>
+  text.replace(/\s+/g, " ").trim().toLowerCase();
+
+const isGenericDeadlineNotice = (text = "") =>
+  /last date to apply|application deadline|check each post/i.test(text);
+
+const uniqueNotices = (notices) => {
+  const seen = new Set();
+  return notices.filter((notice) => {
+    const text = getNoticeText(notice);
+    const key = normalizeNoticeText(text);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+/* ─────────────────────────────────────────────────────────────
+   STATUS BADGE COMPONENT
+───────────────────────────────────────────────────────────── */
 const StatusBadge = ({ job }) => {
   const availability = getJobAvailability(job);
   const isOpen = availability.status === "open";
   const isUpcoming = availability.status === "not_open";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] shadow-sm ${
         isOpen
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          ? "bg-emerald-500 text-white"
           : isUpcoming
-            ? "bg-blue-50 text-blue-700 border-blue-200"
-            : "bg-gray-50 text-gray-600 border-gray-200"
+            ? "bg-amber-500 text-white"
+            : "bg-gray-400 text-white"
       }`}
     >
       {isOpen ? (
-        <CheckCircle2 className="w-3.5 h-3.5" />
+        <CheckCircle2 className="h-3.5 w-3.5" />
       ) : (
-        <XCircle className="w-3.5 h-3.5" />
+        <XCircle className="h-3.5 w-3.5" />
       )}
       {availability.label}
     </span>
   );
 };
 
-/* ── date row ───────────────────────────────────────────────── */
-const DateRow = ({ label, value, highlight }) => (
-  <div
-    className={`flex items-center justify-between py-2.5 border-b border-[#f0e8e0] last:border-0 ${
-      highlight ? "text-orange-700 font-bold" : "text-[#4a4540]"
-    }`}
-  >
-    <span className="text-[12px] text-[#7a716a]">{label}</span>
-    <span className="text-[12px] font-semibold">{value}</span>
-  </div>
-);
-
-/* ── job card ───────────────────────────────────────────────── */
-const JobCard = ({ job, existingApp, onApply, onStatus }) => {
+/* ─────────────────────────────────────────────────────────────
+   JOB CARD COMPONENT
+───────────────────────────────────────────────────────────── */
+const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
   const availability = getJobAvailability(job);
   const action = getApplicationAction(job, existingApp);
   const dl = availability.daysLeft ?? daysLeft(job.applicationDeadline);
@@ -99,122 +160,188 @@ const JobCard = ({ job, existingApp, onApply, onStatus }) => {
   const scstFee = fee(job, "sc");
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4 }}
-      className="bg-white border border-[#e0d7cd] rounded-[8px] p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+    <motion.article
+      custom={index}
+      variants={fadeUp}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.2 }}
+      className="group relative overflow-hidden rounded-2xl border border-[#e0d7cd] bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
     >
-      {/* top row */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest font-black text-orange-600">
-            {job.department} {job.postCode && `· #${job.postCode}`}
-          </p>
-          <h3 className="mt-1 text-[20px] font-black text-[#1f1d1b] leading-tight">
-            {job.title}
-          </h3>
-        </div>
-        <StatusBadge job={job} />
-      </div>
+      {/* Subtle gradient overlay on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-50/0 to-orange-50/0 transition-all group-hover:from-orange-50/30 group-hover:to-transparent" />
 
-      {/* stats */}
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[#9a8f86] font-black">
-            Posts
-          </p>
-          <p className="mt-1 text-base font-black text-[#1f1d1b] flex items-center gap-1">
-            <Users className="w-4 h-4 text-orange-500" />
-            {(job.totalPosts || 0).toLocaleString("en-IN")}
-          </p>
+      <div className="relative">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-orange-700">
+                <Briefcase className="h-3 w-3" />
+                {job.postCode || "Post"}
+              </span>
+              <span className="text-[12px] font-semibold text-[#9a8f86]">
+                {job.department}
+              </span>
+            </div>
+            <h3
+              className="text-[24px] font-black leading-tight text-[#1f1d1b] transition-colors group-hover:text-orange-600 break-words line-clamp-2"
+              title={job.title}
+            >
+              {job.title}
+            </h3>
+          </div>
+          <StatusBadge job={job} />
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[#9a8f86] font-black">
-            Fee (Gen)
-          </p>
-          <p className="mt-1 text-base font-black text-[#1f1d1b] flex items-center gap-1">
-            <IndianRupee className="w-3.5 h-3.5 text-orange-500" />
-            {generalFee === 0 ? "Free" : `₹${generalFee}`}
-          </p>
+
+        {/* Stats Grid */}
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl bg-[#faf7f2] p-3.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+              Vacancies
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+              <Users className="h-4 w-4 text-orange-500" />
+              {(job.totalPosts || 0).toLocaleString("en-IN")}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[#faf7f2] p-3.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+              Fee (Gen)
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+              <IndianRupee className="h-3.5 w-3.5 text-orange-500" />
+              {generalFee === 0 ? "Free" : generalFee}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[#faf7f2] p-3.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+              Fee (SC/ST)
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+              <IndianRupee className="h-3.5 w-3.5 text-orange-500" />
+              {scstFee === 0 ? "Free" : scstFee}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[#faf7f2] p-3.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+              Last Date
+            </p>
+            <p
+              className={`mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none ${
+                dl !== null && dl <= 7 ? "text-red-600" : "text-[#1f1d1b]"
+              }`}
+            >
+              <Calendar className="h-4 w-4 text-orange-500" />
+              <span>{new Date(job.applicationDeadline).getDate()}</span>
+              <span className="text-[13px] font-bold">
+                {new Date(job.applicationDeadline).toLocaleDateString("en-IN", {
+                  month: "short",
+                })}
+              </span>
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[#9a8f86] font-black">
-            Fee (SC/ST)
-          </p>
-          <p className="mt-1 text-base font-black text-[#1f1d1b] flex items-center gap-1">
-            <IndianRupee className="w-3.5 h-3.5 text-orange-500" />
-            {scstFee === 0 ? "Free" : `₹${scstFee}`}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[#9a8f86] font-black">
-            Last Date
-          </p>
-          <p
-            className={`mt-1 text-base font-black flex items-center gap-1 ${
-              dl !== null && dl <= 7 ? "text-red-600" : "text-[#1f1d1b]"
-            }`}
+
+        {/* Urgency Banner */}
+        {availability.status === "open" && dl !== null && dl <= 7 && dl > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 border-l-4 border-red-500 px-4 py-3 text-red-700"
           >
-            <Calendar className="w-4 h-4 text-orange-500" />
-            {fmt(job.applicationDeadline)}
-          </p>
-        </div>
-      </div>
-
-      {/* days-left banner */}
-      {availability.status === "open" && dl !== null && dl <= 7 && dl > 0 && (
-        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-red-700 text-sm font-semibold flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          Only {dl} day{dl !== 1 ? "s" : ""} left to apply!
-        </div>
-      )}
-
-      {/* important dates */}
-      <div className="mt-4 bg-[#faf7f2] rounded-[8px] p-4">
-        <p className="text-[10px] uppercase tracking-widest font-black text-[#7a716a] mb-3">
-          Important Dates
-        </p>
-        <DateRow label="Application Start" value={fmt(job.applicationStartDate)} />
-        <DateRow
-          label="Application End"
-          value={fmt(job.applicationDeadline)}
-          highlight
-        />
-        {job.correctionStartDate && (
-          <DateRow
-            label="Correction Window"
-            value={`${fmt(job.correctionStartDate)} – ${fmt(job.correctionDeadline)}`}
-          />
+            <Clock className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-bold">
+              Only {dl} day{dl !== 1 ? "s" : ""} left to apply!
+            </span>
+          </motion.div>
         )}
-        <DateRow
-          label="Admit Card"
-          value={fmt(job.admitCardReleaseDate)}
-        />
-        <DateRow label="Exam Date" value={fmt(job.examDate)} />
-        <DateRow label="Result Date" value={fmt(job.resultDate)} />
-      </div>
 
-      {/* apply */}
-      {action.canClick ? (
-        <button
-          onClick={() => (existingApp ? onStatus(existingApp) : onApply(job))}
-          className="mt-5 w-full h-11 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[6px] text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
-        >
-          {existingApp ? action.label : `Apply Now - ${job.title}`}
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      ) : (
-        <div className="mt-5 flex h-11 w-full items-center justify-center rounded-[6px] border border-[#ded4c8] bg-[#faf7f2] px-4 text-center text-xs font-black uppercase tracking-widest text-[#7a716a]">
-          {action.label}
+        {/* Important Dates Accordion */}
+        <details className="group/details mt-5">
+          <summary className="flex cursor-pointer items-center justify-between rounded-xl bg-gradient-to-r from-orange-50 to-transparent px-4 py-3 text-sm font-bold text-[#1f1d1b] transition-colors hover:from-orange-100">
+            <span className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-orange-500" />
+              View Important Dates
+            </span>
+            <ChevronRight className="h-4 w-4 text-orange-500 transition-transform group-open/details:rotate-90" />
+          </summary>
+          <div className="mt-3 space-y-2 rounded-xl border border-[#f0e8e0] bg-[#faf7f2] p-4">
+            {[
+              {
+                label: "Application Start",
+                value: fmt(job.applicationStartDate),
+              },
+              {
+                label: "Application End",
+                value: fmt(job.applicationDeadline),
+                highlight: true,
+              },
+              job.correctionStartDate && {
+                label: "Correction Window",
+                value: `${fmt(job.correctionStartDate)} - ${fmt(job.correctionDeadline)}`,
+              },
+              {
+                label: "Admit Card Release",
+                value: fmt(job.admitCardReleaseDate),
+              },
+              { label: "Exam Date", value: fmt(job.examDate) },
+              { label: "Result Date", value: fmt(job.resultDate) },
+            ]
+              .filter(Boolean)
+              .map((item) => (
+                <div
+                  key={item.label}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+                    item.highlight
+                      ? "bg-orange-100 font-bold text-orange-700"
+                      : "text-[#4a4540]"
+                  }`}
+                >
+                  <span className="font-semibold">{item.label}</span>
+                  <span
+                    className={item.highlight ? "font-black" : "font-semibold"}
+                  >
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </details>
+
+        {/* Action Buttons */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            onClick={() => onDetails(job)}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-orange-200 bg-white px-5 text-sm font-black uppercase tracking-[0.12em] text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-50"
+          >
+            <FileText className="h-4 w-4" />
+            Full Details
+          </button>
+          {action.canClick ? (
+            <button
+              onClick={() =>
+                existingApp ? onStatus(existingApp) : onApply(job)
+              }
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e46a1d] to-[#d85a0d] px-5 text-sm font-black uppercase tracking-[0.12em] text-white shadow-lg shadow-orange-500/25 transition-all hover:shadow-xl hover:shadow-orange-500/40"
+            >
+              {existingApp ? action.label : "Apply Now"}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <div className="flex h-12 items-center justify-center rounded-xl border-2 border-dashed border-[#d8cec4] bg-[#faf7f2] px-4 text-center text-xs font-black uppercase tracking-[0.12em] text-[#9a8f86]">
+              {action.label}
+            </div>
+          )}
         </div>
-      )}
-    </motion.div>
+      </div>
+    </motion.article>
   );
 };
 
-/* ── main page ──────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────────────────────── */
 export default function ProjectLanding() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -224,13 +351,141 @@ export default function ProjectLanding() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["public-project", slug],
     queryFn: () => publicService.getProjectBySlug(slug),
-    staleTime: 15 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 
   const project = data?.project;
+  const cmsPage = data?.cmsPage;
   const jobs = data?.jobs || [];
-  const openJobs = jobs.filter((j) => getJobAvailability(j).canApply);
+  const featuredJobIds = new Set(
+    (cmsPage?.featuredJobs || []).map((job) => String(job._id || job)),
+  );
+  const visibleJobs = featuredJobIds.size
+    ? [
+        ...jobs.filter((job) => featuredJobIds.has(String(job._id))),
+        ...jobs.filter((job) => !featuredJobIds.has(String(job._id))),
+      ]
+    : jobs;
+  const openJobs = visibleJobs.filter((j) => getJobAvailability(j).canApply);
+  const jobsWithDeadlines = visibleJobs.filter((job) => job.applicationDeadline);
+  const candidateDeadlineLabel =
+    openJobs.length === 1
+      ? `Apply by ${fmt(openJobs[0].applicationDeadline)}`
+      : openJobs.length > 1
+        ? "Job-wise deadlines"
+        : jobsWithDeadlines.length === 1
+          ? `Closed on ${fmt(jobsWithDeadlines[0].applicationDeadline)}`
+          : "See post deadlines";
+  const deadlineStatValue =
+    openJobs.length === 1
+      ? `${new Date(openJobs[0].applicationDeadline).getDate()} ${new Date(
+          openJobs[0].applicationDeadline,
+        ).toLocaleDateString("en-IN", { month: "short" })}`
+      : openJobs.length > 1
+        ? "By Post"
+        : "Closed";
+  const activeDeadlineJobs = openJobs.filter((job) => job.applicationDeadline);
+  const uniqueActiveDeadlines = [
+    ...new Set(
+      activeDeadlineJobs.map((job) =>
+        new Date(job.applicationDeadline).toDateString(),
+      ),
+    ),
+  ];
+  const jobDeadlineNotices =
+    activeDeadlineJobs.length > 1 && uniqueActiveDeadlines.length === 1
+      ? [
+          {
+            text: `Applications close on ${fmt(
+              activeDeadlineJobs[0].applicationDeadline,
+            )}. Check post details before applying.`,
+            link: "#available-posts",
+            priority: "high",
+          },
+        ]
+      : activeDeadlineJobs.map((job) => ({
+          text: `${job.title}: Apply by ${fmt(job.applicationDeadline)}`,
+          link: `/apply/${slug}/jobs/${job._id}`,
+          priority: "medium",
+        }));
+  const closedDeadlineNotice =
+    !activeDeadlineJobs.length && jobsWithDeadlines.length
+      ? [
+          {
+            text:
+              jobsWithDeadlines.length === 1
+                ? `Applications closed on ${fmt(
+                    jobsWithDeadlines[0].applicationDeadline,
+                  )}.`
+                : "Applications are closed. Check individual post details for deadlines.",
+            link: "#available-posts",
+            priority: "medium",
+          },
+        ]
+      : [];
+  const cmsTickerNotices = (cmsPage?.announcements || []).filter(
+    (notice) => !isGenericDeadlineNotice(getNoticeText(notice)),
+  );
+  const tickerNotices = uniqueNotices([
+    ...cmsTickerNotices,
+    ...jobDeadlineNotices,
+    ...closedDeadlineNotice,
+  ]);
+  const visibility = {
+    notices: cmsPage?.sectionVisibility?.notices ?? true,
+    quickActions: cmsPage?.sectionVisibility?.quickActions ?? true,
+    howToApply: cmsPage?.sectionVisibility?.howToApply ?? true,
+    downloads: cmsPage?.sectionVisibility?.downloads ?? true,
+    faqs: cmsPage?.sectionVisibility?.faqs ?? true,
+    helpdesk: cmsPage?.sectionVisibility?.helpdesk ?? true,
+  };
+  const instructions = cmsPage?.instructions?.length
+    ? cmsPage.instructions
+    : [
+        "Choose an open post from the list below",
+        "Verify your email and mobile number",
+        "Fill the application form step by step",
+        "Upload required documents (photo, signature, certificates)",
+        "Review all details and make payment",
+        "Download your Registration Number confirmation",
+      ];
+  const downloads = cmsPage?.downloads || [];
+  const faqs = cmsPage?.faqs?.length
+    ? cmsPage.faqs
+    : [
+        {
+          question: "How do I apply for a post?",
+          answer:
+            'Click "Apply Now" on any open post, verify your email/mobile, complete the form, and make payment.',
+        },
+        {
+          question: "Can I edit my application after submission?",
+          answer:
+            "After payment, you can only edit during the correction window if enabled by the admin.",
+        },
+        {
+          question: "When will I receive my admit card?",
+          answer:
+            "Admit cards are released on the dates mentioned in each post. Download from the Check Status page.",
+        },
+      ];
+  const helpdesk = {
+    phone: "1800-123-4567",
+    email: "support@recruitment.gov.in",
+    hours: "Monday to Friday, 9:00 AM to 6:00 PM",
+    address: "Recruitment Portal Helpdesk",
+    ...(cmsPage?.helpdesk || {}),
+  };
+  const quickLinks = {
+    applyNow: cmsPage?.quickLinks?.applyNow ?? true,
+    latestNotifications: cmsPage?.quickLinks?.latestNotifications ?? true,
+    admitCards: cmsPage?.quickLinks?.admitCards ?? true,
+    results: cmsPage?.quickLinks?.results ?? true,
+    support: cmsPage?.quickLinks?.support ?? true,
+  };
 
   const { data: myAppsData } = useQuery({
     queryKey: ["public-project-applications", slug, user?._id],
@@ -248,7 +503,6 @@ export default function ProjectLanding() {
   }, {});
 
   const handleApply = (job) => {
-    // Store the selected job and project in session storage for the application flow
     sessionStorage.setItem(
       "publicApplyContext",
       JSON.stringify({
@@ -262,24 +516,27 @@ export default function ProjectLanding() {
     navigate(`/apply/${slug}/start?jobId=${job._id}`);
   };
 
+  const handleDetails = (job) => {
+    navigate(`/apply/${slug}/jobs/${job._id}`);
+  };
+
   const handleStatus = (application, job) => {
     if (application?.status === "draft") {
-      persistApplicationDraft({
-        applicationId: application._id,
-        jobId: job?._id || application.jobId?._id || application.jobId,
-      });
-      navigate(
-        getRouteForApplicationStep(
-          { ...application, jobId: job || application.jobId },
-          application.currentStep || 1,
-        ),
-        {
-          state: {
-            applicationId: application._id,
-            jobId: job?._id || application.jobId?._id || application.jobId,
-          },
-        },
+      const selectedJob = job || application.jobId || {};
+      const jobId =
+        selectedJob?._id || application.jobId?._id || application.jobId;
+      sessionStorage.setItem(
+        "publicApplyContext",
+        JSON.stringify({
+          projectId: project._id,
+          projectSlug: slug,
+          projectName: project.name,
+          jobId,
+          jobTitle: selectedJob?.title || application.jobTitle || "",
+          applicationId: application._id,
+        }),
       );
+      navigate(`/apply/${slug}/start?jobId=${jobId}&resume=1`);
       return;
     }
 
@@ -292,319 +549,616 @@ export default function ProjectLanding() {
     });
   };
 
-  /* loading */
+  /* ═══════════════════════════════════════════════════════════
+     LOADING STATE
+  ═══════════════════════════════════════════════════════════ */
   if (isLoading) {
     return (
       <PublicLayout>
-        <div className="min-h-screen bg-[#f5efe9] flex items-center justify-center">
-          <div className="flex items-center gap-3 text-[#6d6761]">
-            <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-            <span className="font-semibold">Loading recruitment details...</span>
-          </div>
+        <div className="flex min-h-screen items-center justify-center bg-[#f5efe9]">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
+            <p className="text-sm font-bold text-[#6d6761]">
+              Loading recruitment details...
+            </p>
+          </motion.div>
         </div>
       </PublicLayout>
     );
   }
 
-  /* error / not found */
+  /* ═══════════════════════════════════════════════════════════
+     ERROR / NOT FOUND STATE
+  ═══════════════════════════════════════════════════════════ */
   if (isError || !project) {
     return (
       <PublicLayout>
-        <div className="min-h-screen bg-[#f5efe9] flex items-center justify-center p-6">
-          <div className="bg-white border border-red-200 rounded-xl p-8 text-center max-w-md w-full">
-            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h1 className="text-xl font-black text-[#1f1d1b]">
+        <div className="flex min-h-screen items-center justify-center bg-[#f5efe9] p-6">
+          <motion.div
+            variants={scaleIn}
+            initial="hidden"
+            animate="visible"
+            className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-8 text-center shadow-xl"
+          >
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h1 className="mt-6 text-2xl font-black text-[#1f1d1b]">
               Recruitment Not Found
             </h1>
-            <p className="mt-2 text-sm text-[#6d6761]">
+            <p className="mt-3 text-sm leading-6 text-[#6d6761]">
               {error?.message ||
                 "The recruitment link you visited is invalid or has been removed."}
             </p>
             <button
-              onClick={() => navigate("/")}
-              className="mt-6 px-6 py-3 bg-[#e46a1d] text-white rounded-lg text-sm font-black uppercase tracking-widest"
+              onClick={() => navigate("/jobs")}
+              className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#e46a1d] px-6 text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-[#cb5d16]"
             >
-              Go to Home
+              Browse All Recruitments
+              <ArrowRight className="h-4 w-4" />
             </button>
-          </div>
+          </motion.div>
         </div>
       </PublicLayout>
     );
   }
 
+  const heroImage = cmsPage?.bannerImage || heroBg;
+
   return (
     <PublicLayout>
       <div className="min-h-screen bg-[#f5efe9]">
+        {/* ═══════════════════════════════════════════════════════════
+            HERO SECTION
+        ═══════════════════════════════════════════════════════════ */}
+        <section className="relative overflow-hidden bg-[#1f1d1b]">
+          {/* Background Image with Overlays */}
+          <div className="absolute inset-0">
+            <img
+              src={heroImage}
+              alt=""
+              className="h-full w-full object-cover opacity-90"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-black/20" />
+          </div>
 
-        {/* ── HERO ─────────────────────────────────────────────── */}
-        <section className="bg-[#201d1a] text-white">
-          <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-7 lg:py-8">
-            {/* breadcrumb */}
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-black text-white/40 mb-4">
-              <button onClick={() => navigate("/")} className="hover:text-white/70 transition-colors">
-                Home
-              </button>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span className="text-orange-400">{project.department}</span>
-            </div>
+          <div className="relative mx-auto max-w-[1380px] px-4 py-16 sm:px-6 sm:py-[76px] lg:px-8 lg:py-[84px]">
+            {/* Trust Badges */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="mb-8 flex flex-wrap items-center gap-3"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/20 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300 backdrop-blur-sm">
+                <ShieldCheck className="h-4 w-4" />
+                Official Recruitment
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 backdrop-blur-sm">
+                <MapPin className="h-3.5 w-3.5" />
+                {project.state}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 backdrop-blur-sm">
+                <Briefcase className="h-3.5 w-3.5" />
+                {project.department}
+              </span>
+            </motion.div>
 
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-center">
-              {/* left */}
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+              {/* Left — Title & Description */}
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-orange-400">
-                  Official Recruitment Notification
-                </p>
-                <h1 className="mt-3 max-w-4xl text-3xl sm:text-4xl lg:text-[42px] font-black leading-[1.08] tracking-tight">
-                  {project.name}
-                </h1>
-                {project.description && (
-                  <p className="mt-4 text-white/70 text-sm leading-7 max-w-2xl">
-                    {project.description}
-                  </p>
+                <motion.p
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.45, delay: 0.06 }}
+                  className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-400"
+                >
+                  {project.status === "active"
+                    ? "Applications Open"
+                    : "Recruitment Notice"}
+                </motion.p>
+
+                <motion.h1
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.45, delay: 0.12 }}
+                  className="mt-4 max-w-4xl text-[32px] font-black leading-[1.12] text-white sm:text-[40px] lg:text-[48px]"
+                >
+                  {cmsPage?.heroTitle || project.name}
+                </motion.h1>
+
+                {(cmsPage?.heroSubtitle || project.description) && (
+                  <motion.p
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.45, delay: 0.18 }}
+                    className="mt-5 max-w-2xl text-[14px] leading-[26px] text-white/80 font-medium"
+                  >
+                    {cmsPage?.heroSubtitle || project.description}
+                  </motion.p>
                 )}
-                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/60">
-                  <span className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-orange-400" />
-                    {project.state} — {project.department}
+
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.45, delay: 0.24 }}
+                  className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm"
+                >
+                  <span className="flex items-center gap-2 text-white/70">
+                    <Briefcase className="h-4 w-4 text-orange-400" />
+                    <span className="font-semibold">
+                      {visibleJobs.length} Post
+                      {visibleJobs.length !== 1 ? "s" : ""}
+                    </span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-orange-400" />
-                    {jobs.length} post{jobs.length !== 1 ? "s" : ""} available
+                  <span className="flex items-center gap-2 text-white/70">
+                    <Users className="h-4 w-4 text-orange-400" />
+                    <span className="font-semibold">
+                      {visibleJobs
+                        .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
+                        .toLocaleString("en-IN")}{" "}
+                      Vacancies
+                    </span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-orange-400" />
-                    Application open till {fmt(project.endDate)}
+                  <span className="flex items-center gap-2 text-white/70">
+                    <Calendar className="h-4 w-4 text-orange-400" />
+                    <span className="font-semibold">
+                      {candidateDeadlineLabel}
+                    </span>
                   </span>
-                </div>
+                </motion.div>
+
+                {/* CTA Buttons */}
+                {openJobs.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, delay: 0.3 }}
+                    className="mt-8 flex flex-wrap gap-4"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById("available-posts")
+                          ?.scrollIntoView({ behavior: "smooth" })
+                      }
+                      className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e46a1d] to-[#d85a0d] px-8 text-sm font-black uppercase tracking-[0.14em] text-white shadow-xl shadow-orange-500/30 transition-all hover:shadow-2xl hover:shadow-orange-500/50"
+                    >
+                      View Posts & Apply
+                      <ArrowRight className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/check-status")}
+                      className="inline-flex h-14 items-center justify-center gap-2 rounded-xl border-2 border-white/30 bg-white/10 px-8 text-sm font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/20"
+                    >
+                      <SearchCheck className="h-5 w-5" />
+                      Check Status
+                    </button>
+                  </motion.div>
+                )}
               </div>
 
-              {/* right — stats */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Right — Quick Stats */}
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.45, delay: 0.18 }}
+                className="grid grid-cols-2 gap-3 self-start"
+              >
                 {[
-                  { label: "Total Posts", value: jobs.reduce((a, j) => a + (j.totalPosts || 0), 0).toLocaleString("en-IN") },
-                  { label: "Open Now", value: openJobs.length },
-                  { label: "Department", value: project.department },
-                  { label: "Status", value: project.status },
-                ].map((s) => (
+                  {
+                    label: "Total Vacancies",
+                    value: visibleJobs
+                      .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
+                      .toLocaleString("en-IN"),
+                    icon: Users,
+                  },
+                  {
+                    label: "Open Posts",
+                    value: openJobs.length,
+                    icon: CheckCircle2,
+                  },
+                  {
+                    label: "Deadlines",
+                    value: deadlineStatValue,
+                    icon: Calendar,
+                  },
+                  {
+                    label: "Application Fee",
+                    value: visibleJobs.some((j) => fee(j) === 0)
+                      ? "Free for Some"
+                      : "Varies",
+                    icon: IndianRupee,
+                  },
+                ].map((stat) => (
                   <div
-                    key={s.label}
-                    className="flex min-h-[92px] flex-col justify-between rounded-[8px] border border-white/15 bg-white/10 px-4 py-3.5"
+                    key={stat.label}
+                    className="flex min-h-[110px] flex-col justify-between rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm"
                   >
-                    <p className="text-[10px] uppercase tracking-widest font-black text-white/50">
-                      {s.label}
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/60">
+                        {stat.label}
+                      </p>
+                      <stat.icon className="h-5 w-5 text-orange-400" />
+                    </div>
+                    <p className="mt-3 text-[24px] font-black font-mono leading-none text-white">
+                      {stat.value}
                     </p>
-                    <p className="mt-2 text-xl font-black leading-tight text-white">{s.value}</p>
                   </div>
                 ))}
-              </div>
+              </motion.div>
             </div>
-
-            {/* apply CTA */}
-            {openJobs.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-4">
-                <button
-                  onClick={() => {
-                    document
-                      .getElementById("job-listings")
-                      ?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="inline-flex items-center gap-2 h-11 px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[6px] text-sm font-black uppercase tracking-widest transition-colors"
-                >
-                  View All Posts & Apply
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => navigate("/admit-cards")}
-                  className="inline-flex items-center gap-2 h-11 px-6 bg-white/10 hover:bg-white/20 text-white rounded-[6px] text-sm font-black uppercase tracking-widest transition-colors border border-white/20"
-                >
-                  <Download className="w-4 h-4" />
-                  Download Admit Card
-                </button>
-              </div>
-            )}
           </div>
         </section>
 
-        {/* ── IMPORTANT NOTICE ─────────────────────────────────── */}
-        <div className="bg-amber-50 border-b border-amber-200">
-          <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <p className="text-amber-800 text-xs font-semibold">
-              Verify email and mobile to apply. Your secure application session
-              will be created and your Registration Number will be issued after
-              successful payment.
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 lg:pt-10 lg:pb-6">
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-7">
-
-            {/* ── MAIN — job listings ───────────────────────────── */}
-            <div id="job-listings" className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[24px] font-black text-[#1f1d1b]">
-                  Available Posts
-                </h2>
-                <span className="text-sm text-[#6d6761]">
-                  {openJobs.length} open · {jobs.length - openJobs.length} closed
-                </span>
-              </div>
-
-              {jobs.length === 0 ? (
-                <div className="bg-white border border-[#e0d7cd] rounded-xl p-10 text-center">
-                  <FileText className="w-12 h-12 text-[#c7bdb3] mx-auto mb-4" />
-                  <h3 className="text-lg font-black text-[#1f1d1b]">
-                    No Posts Available
-                  </h3>
-                  <p className="mt-2 text-sm text-[#6d6761]">
-                    No job posts have been published for this recruitment yet.
-                    Check back soon.
-                  </p>
+        {/* ═══════════════════════════════════════════════════════════
+            NOTICE TICKER
+        ═══════════════════════════════════════════════════════════ */}
+        {visibility.notices && tickerNotices.length > 0 && (
+          <div className="border-b border-amber-300 bg-gradient-to-r from-amber-100 to-amber-50">
+            <div className="mx-auto max-w-[1380px] px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-4 py-3">
+                <div className="flex shrink-0 items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white">
+                  <Bell className="h-3.5 w-3.5" />
+                  Notice
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {jobs.map((job) => (
-                    <JobCard
-                      key={job._id}
-                      job={job}
-                      existingApp={appliedMap[job._id]}
-                      onApply={handleApply}
-                    onStatus={(application) => handleStatus(application, job)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex min-h-[292px] flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
-                    Application Checklist
+                <div className="public-notice-ticker min-w-0 flex-1 overflow-hidden">
+                  <div className="animate-public-ticker flex w-max items-center gap-6" aria-hidden="true">
+                    {[...tickerNotices, ...tickerNotices].map(
+                      (notice, index) => {
+                        const text = getNoticeText(notice);
+                        if (!text) return null;
+                        const href = getNoticeHref(notice, slug);
+                        const isExternal = /^https?:\/\//i.test(href);
+                        return (
+                          <a
+                            key={`${text}-${index}`}
+                            href={href}
+                            target={isExternal ? "_blank" : undefined}
+                            rel={isExternal ? "noreferrer" : undefined}
+                            className="inline-flex items-center gap-3 whitespace-nowrap text-sm font-black text-amber-900 transition hover:text-orange-700 max-w-[90vw] overflow-hidden text-ellipsis"
+                            title={text}
+                          >
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
+                            <span className="truncate">{text}</span>
+                          </a>
+                        );
+                      },
+                    )}
+                  </div>
+                  <p className="sr-only">
+                    {tickerNotices
+                      .map((a) => a.text || a.title)
+                      .join(" • ")}
                   </p>
-                  <div className="mt-4 grid gap-3 text-sm text-[#4a4540]">
-                    {[
-                      "Verify email and mobile before starting.",
-                      "Keep category and qualification details ready.",
-                      "Upload clear documents in the allowed format.",
-                      "Review every section before final payment.",
-                    ].map((item) => (
-                      <div key={item} className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
-                    Your application is considered submitted only after the
-                    payment confirmation is received.
-                  </div>
-                </div>
-
-                <div className="flex min-h-[292px] flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
-                    After Submission
-                  </p>
-                  <div className="mt-4 grid gap-3 text-sm text-[#4a4540]">
-                    {[
-                      "Registration number is issued after payment.",
-                      "Track status from the public services section.",
-                      "Admit card is available after the release date.",
-                      "Use correction window only when enabled.",
-                    ].map((item) => (
-                      <div key={item} className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
-                    Keep your registration number safe for admit card,
-                    correction, result, and support requests.
-                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* ── SIDEBAR ──────────────────────────────────────── */}
-            <aside className="space-y-4 pt-[58px] lg:sticky lg:top-6 self-start">
+        {/* ═══════════════════════════════════════════════════════════
+            MAIN CONTENT
+        ═══════════════════════════════════════════════════════════ */}
+        <div className="mx-auto max-w-[1380px] px-4 pb-10 pt-7 sm:px-6 lg:px-8 lg:pb-14 lg:pt-10">
+          {/* Section title — full width above both columns */}
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="mb-6 flex flex-wrap items-center justify-between gap-4"
+          >
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-600">
+                {openJobs.length > 0
+                  ? "Applications Open"
+                  : "Recruitment Posts"}
+              </p>
+              <h2 className="mt-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
+                Available Posts
+              </h2>
+              <p className="mt-1.5 text-[13px] font-semibold text-[#7a716a]">
+                {openJobs.length} open · {visibleJobs.length - openJobs.length}{" "}
+                closed
+              </p>
+            </div>
+            {openJobs.length > 0 && (
+              <button
+                onClick={() =>
+                  document
+                    .getElementById("how-to-apply")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 text-[13px] font-black uppercase tracking-[0.12em] text-orange-600 transition-colors hover:border-orange-300 hover:bg-orange-100"
+              >
+                <BookOpen className="h-4 w-4" />
+                How to Apply
+              </button>
+            )}
+          </motion.div>
 
-              {/* how to apply */}
-              <div className="bg-white border border-[#e0d7cd] rounded-[8px] p-5">
-                <h3 className="text-base font-black text-[#1f1d1b] mb-4">
-                  How to Apply
-                </h3>
-                <ol className="space-y-2.5">
-                  {[
-                    'Click "Apply Now" on any open post',
-                    "Fill the multi-step application form",
-                    "Upload required documents",
-                    "Pay application fee online",
-                    "Receive Registration Number via Email/SMS",
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 text-xs font-black flex items-center justify-center shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-[#4a4540]">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+          <div className="space-y-6">
+            {/* ═══════════════════════════════════════════════════════════
+                LEFT COLUMN — JOBS
+            ═══════════════════════════════════════════════════════════ */}
+            <div id="available-posts" className="grid gap-5 lg:grid-cols-2">
+              {/* No Jobs */}
+              {visibleJobs.length === 0 && (
+                <motion.div
+                  variants={scaleIn}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="rounded-2xl border-2 border-dashed border-[#e0d7cd] bg-white p-12 text-center lg:col-span-2"
+                >
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#faf7f2]">
+                    <FileText className="h-10 w-10 text-[#c7bdb3]" />
+                  </div>
+                  <h3 className="mt-6 text-[24px] font-black leading-tight text-[#1f1d1b]">
+                    No Posts Available
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-[26px] text-[#5f5752] font-medium">
+                    Job posts will be published soon. Check back later.
+                  </p>
+                </motion.div>
+              )}
 
-              {/* public services */}
-              <div className="bg-white border border-[#e0d7cd] rounded-[8px] p-5 space-y-3">
-                <h3 className="text-base font-black text-[#1f1d1b]">
-                  Public Services
-                </h3>
-                {[
-                  {
-                    label: "Check Application Status",
-                    to: "/check-status",
-                    icon: FileText,
-                  },
-                  {
-                    label: "Download Admit Card",
-                    to: "/admit-cards",
-                    icon: Download,
-                  },
-                  {
-                    label: "Request Correction",
-                    to: "/correction-request",
-                    icon: AlertCircle,
-                  },
-                  {
-                    label: "Contact Support",
-                    to: "/contact",
-                    icon: Phone,
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => navigate(item.to)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-[6px] border border-[#e0d7cd] hover:border-orange-300 hover:bg-orange-50 transition-all"
-                  >
-                    <span className="flex items-center gap-3 text-sm font-semibold text-[#1f1d1b]">
-                      <item.icon className="w-4 h-4 text-orange-500" />
-                      {item.label}
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-[#9a8f86]" />
-                  </button>
-                ))}
-              </div>
+              {/* Job Cards */}
+              {visibleJobs.map((job, index) => (
+                <JobCard
+                  key={job._id}
+                  job={job}
+                  index={index}
+                  existingApp={appliedMap[job._id]}
+                  onApply={handleApply}
+                  onDetails={handleDetails}
+                  onStatus={(application) => handleStatus(application, job)}
+                />
+              ))}
 
-              {/* help */}
-              <div className="bg-[#e46a1d] text-white rounded-[8px] p-4">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-6 w-6 shrink-0" />
-                  <h3 className="font-black text-base">Need Help?</h3>
-                </div>
-                <p className="mt-1 text-orange-100 text-xs">
-                  Mon–Fri, 9 AM – 6 PM
-                </p>
-                <p className="mt-2 text-xl font-black">1800-123-4567</p>
-                <p className="mt-1 text-orange-200 text-xs">Toll-free helpline</p>
-              </div>
-            </aside>
+              {/* Downloads Section */}
+              {visibility.downloads && downloads.length > 0 && (
+                <motion.section
+                  variants={fadeUp}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="rounded-2xl border border-[#e0d7cd] bg-white p-6 shadow-sm lg:col-span-2"
+                >
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-600">
+                        Official Documents
+                      </p>
+                      <h3 className="mt-1 text-[18px] font-black text-[#1f1d1b]">
+                        Downloads
+                      </h3>
+                    </div>
+                    <Download className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {downloads.map((item, index) => (
+                      <a
+                        key={`${item.title}-${index}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group flex items-center justify-between gap-3 rounded-xl border border-[#e0d7cd] bg-[#faf7f2] p-4 transition-all hover:border-orange-300 hover:bg-orange-50 hover:shadow-md"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="line-clamp-2 text-[13px] font-bold text-[#1f1d1b] break-words"
+                            title={item.title}
+                          >
+                            {item.title}
+                          </p>
+                          <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#9a8f86]">
+                            {item.type || "PDF"}
+                          </p>
+                        </div>
+                        <Download className="h-4 w-4 shrink-0 text-orange-500 transition-transform group-hover:scale-110" />
+                      </a>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* FAQs Section */}
+              {visibility.faqs && faqs.length > 0 && (
+                <motion.section
+                  variants={fadeUp}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="rounded-2xl border border-[#e0d7cd] bg-white p-6 shadow-sm lg:col-span-2"
+                >
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-600">
+                        Frequently Asked
+                      </p>
+                      <h3 className="mt-1 text-[18px] font-black text-[#1f1d1b]">
+                        Questions
+                      </h3>
+                    </div>
+                    <CircleHelp className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div className="space-y-4">
+                    {faqs.map((item, index) => (
+                      <details
+                        key={`${item.question}-${index}`}
+                        className="group rounded-xl border border-[#f0e8e0] bg-[#faf7f2] transition-all hover:border-orange-200"
+                      >
+                        <summary className="flex cursor-pointer items-start justify-between gap-4 p-4 font-bold text-[#1f1d1b]">
+                          <span className="text-sm">{item.question}</span>
+                          <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-orange-500 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <div className="border-t border-[#f0e8e0] px-4 pb-4 pt-3">
+                          <p className="text-sm leading-6 text-[#6d6761]">
+                            {item.answer}
+                          </p>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════
+                RIGHT SIDEBAR
+            ═══════════════════════════════════════════════════════════ */}
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {/* How to Apply */}
+              {visibility.howToApply && (
+                <motion.div
+                  id="how-to-apply"
+                  variants={fadeUp}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="h-full rounded-2xl border border-[#e0d7cd] bg-gradient-to-br from-white to-orange-50/30 p-6 shadow-sm"
+                >
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-white">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-[24px] font-black leading-tight text-[#1f1d1b]">
+                      How to Apply
+                    </h3>
+                  </div>
+                  <ol className="space-y-3">
+                    {instructions.map((step, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-black text-white">
+                          {i + 1}
+                        </span>
+                        <span className="pt-1 text-sm leading-6 text-[#4a4540]">
+                          {step}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4">
+                    <p className="text-xs font-semibold leading-5 text-amber-800">
+                      <strong>Important:</strong> Your application is only
+                      confirmed after successful payment.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Quick Actions */}
+              {visibility.quickActions && (
+                <motion.div
+                  variants={fadeUp}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="h-full rounded-2xl border border-[#e0d7cd] bg-white p-5 shadow-sm"
+                >
+                  <h3 className="mb-4 text-[24px] font-black leading-tight text-[#1f1d1b]">
+                    Quick Actions
+                  </h3>
+                  <div className="space-y-2">
+                    {[
+                      {
+                        label: "Check Application Status",
+                        to: "/check-status",
+                        icon: SearchCheck,
+                        show: true,
+                      },
+                      {
+                        label: "Download Admit Card",
+                        to: "/admit-cards",
+                        icon: Download,
+                        show: quickLinks.admitCards,
+                      },
+                      {
+                        label: "View Results",
+                        to: "/results",
+                        icon: CheckCircle2,
+                        show: quickLinks.results,
+                      },
+                      {
+                        label: "Request Correction",
+                        to: "/correction-request",
+                        icon: AlertCircle,
+                        show: quickLinks.latestNotifications,
+                      },
+                    ]
+                      .filter((item) => item.show)
+                      .map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => navigate(item.to)}
+                          className="flex w-full items-center gap-3 rounded-xl border border-[#e0d7cd] bg-[#faf7f2] p-3 text-left transition-all hover:border-orange-300 hover:bg-orange-50 hover:shadow-sm"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                            <item.icon className="h-4 w-4" />
+                          </span>
+                          <span className="text-sm font-bold text-[#1f1d1b]">
+                            {item.label}
+                          </span>
+                          <ChevronRight className="ml-auto h-4 w-4 text-[#9a8f86]" />
+                        </button>
+                      ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Helpdesk */}
+              {visibility.helpdesk && (
+                <motion.div
+                  variants={fadeUp}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  className="h-full rounded-2xl border border-[#e0d7cd] bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
+                >
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-[24px] font-black leading-tight text-[#1f1d1b]">
+                      Need Help?
+                    </h3>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start gap-3">
+                      <Phone className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <div>
+                        <p className="font-bold text-[#1f1d1b]">Helpline</p>
+                        <p className="text-[#6d6761]">{helpdesk.phone}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Mail className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <div>
+                        <p className="font-bold text-[#1f1d1b]">Email</p>
+                        <p className="text-[#6d6761]">{helpdesk.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <div>
+                        <p className="font-bold text-[#1f1d1b]">Hours</p>
+                        <p className="text-[#6d6761]">{helpdesk.hours}</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </div>
         </div>
       </div>

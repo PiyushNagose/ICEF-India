@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Building2, CalendarClock, CheckCircle2, Download, FileBadge,
@@ -9,7 +10,11 @@ import {
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import CustomSelect from '../../components/ui/CustomSelect'
+import AppDatePicker from '../../components/ui/AppDatePicker'
+import TimeSelect from '../../components/ui/TimeSelect'
 import DocumentPreviewFrame from '../../components/common/DocumentPreviewFrame'
+import ProjectFlowNav from '../../components/admin/ProjectFlowNav'
 import { adminService } from '../../services/admin.service'
 
 const emptyCenter = {
@@ -89,6 +94,36 @@ const formatTimeForDisplay = (value) => {
   return `${String(displayHours).padStart(2, '0')}:${minutes} ${period}`
 }
 
+const toDateInputValue = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
+
+const normalizeJobRef = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+
+const isJobAdvertisementConfigured = (job) => {
+  if (!job?._id) return false
+  const posts = Array.isArray(job.posts) ? job.posts : []
+  const hasVacancies =
+    Number(job.totalPosts || 0) > 0 ||
+    posts.some((post) => Number(post.vacancies || 0) > 0)
+
+  return Boolean(
+    job.title &&
+      job.postCode &&
+      job.department &&
+      hasVacancies &&
+      job.applicationStartDate &&
+      job.applicationDeadline,
+  )
+}
+
 const statusTone = {
   draft: 'bg-gray-100 text-gray-700',
   allocated: 'bg-blue-50 text-blue-700',
@@ -131,16 +166,22 @@ const Stat = ({ icon: Icon, label, value }) => (
     </div>
     <div>
       <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-3xl font-bold text-gray-900">{value ?? 0}</p>
+      <p className="text-2xl font-bold text-gray-900">{value ?? 0}</p>
     </div>
   </div>
 )
 
 const AdmitCards = () => {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('project')
+  const focus = searchParams.get('focus')
+  const jobParam = searchParams.get('job') || ''
   const [centerForm, setCenterForm] = useState(emptyCenter)
   const [roomForm, setRoomForm] = useState(emptyRoom)
   const [scheduleForm, setScheduleForm] = useState(emptySchedule)
+  const [selectedJobId, setSelectedJobId] = useState(jobParam)
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [selectedAttendanceCenterId, setSelectedAttendanceCenterId] = useState('')
   const [activeBulkJobId, setActiveBulkJobId] = useState('')
@@ -153,20 +194,200 @@ const AdmitCards = () => {
     queryFn: () => adminService.getExamCenters({ limit: 100 }),
   })
 
+  const { data: projectData } = useQuery({
+    queryKey: ['admin-project-flow', projectId],
+    queryFn: () => adminService.getProject(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 30000,
+  })
+
   const { data: jobsData } = useQuery({
-    queryKey: ['admin-jobs-for-exams'],
-    queryFn: () => adminService.getAdminJobs({ limit: 100 }),
+    queryKey: ['admin-jobs-for-exams', projectId],
+    queryFn: () => adminService.getAdminJobs({ limit: 100, ...(projectId ? { projectId } : {}) }),
+  })
+  const { data: selectedJobData } = useQuery({
+    queryKey: ['admin-job-for-exams', selectedJobId],
+    queryFn: () => adminService.getAdminJob(selectedJobId),
+    enabled: Boolean(selectedJobId),
+    staleTime: 30000,
   })
 
   const { data: schedules = [], isLoading: schedulesLoading } = useQuery({
-    queryKey: ['exam-schedules'],
-    queryFn: () => adminService.getExamSchedules({ limit: 100 }),
+    queryKey: ['exam-schedules', projectId],
+    queryFn: () => adminService.getExamSchedules({ limit: 100, ...(projectId ? { projectId } : {}) }),
   })
 
+  const project = projectData?.project || projectData
+  const jobs = useMemo(() => {
+    const rawJobs = jobsData?.jobs || jobsData || []
+    return projectId
+      ? rawJobs.filter((job) => String(job.projectId?._id || job.projectId || '') === String(projectId))
+      : rawJobs
+  }, [jobsData, projectId])
+  const selectedJob = useMemo(() => {
+    const listedJob = jobs.find((job) => String(job._id) === String(selectedJobId))
+    if (listedJob) return listedJob
+    const hydratedJob = selectedJobData?.job || selectedJobData || null
+    if (hydratedJob?._id) {
+      if (!projectId) return hydratedJob
+      const hydratedProjectId = String(hydratedJob.projectId?._id || hydratedJob.projectId || '')
+      if (hydratedProjectId === String(projectId)) return hydratedJob
+    }
+    if (jobs.length > 0) return jobs[0]
+    return hydratedJob
+  }, [jobs, selectedJobData, selectedJobId, projectId])
+  const matchedJobFromDraft = useMemo(() => {
+    const draftJobCode = normalizeJobRef(scheduleForm.examCode || scheduleForm.advertisementNo)
+    const draftJobName = normalizeJobRef(scheduleForm.examName)
+
+    return jobs.find((job) => {
+      const jobCode = normalizeJobRef(job.postCode)
+      const jobName = normalizeJobRef(job.title)
+      return (
+        (draftJobCode && jobCode === draftJobCode) ||
+        (draftJobName && jobName === draftJobName)
+      )
+    }) || null
+  }, [jobs, scheduleForm.advertisementNo, scheduleForm.examCode, scheduleForm.examName])
+  const jobOptions = useMemo(() => {
+    const options = jobs.map((job) => ({
+      value: job._id,
+      label: `${job.title}${job.postCode ? ` (${job.postCode})` : ''}${job.status ? ` - ${job.status}` : ''}`,
+    }))
+    if (
+      selectedJob?._id &&
+      !options.some((option) => String(option.value) === String(selectedJob._id))
+    ) {
+      options.unshift({
+        value: selectedJob._id,
+        label: `${selectedJob.title}${selectedJob.postCode ? ` (${selectedJob.postCode})` : ''}${selectedJob.status ? ` - ${selectedJob.status}` : ''}`,
+      })
+    }
+    return options
+  }, [jobs, selectedJob])
+  const selectedJobSchedules = useMemo(() => {
+    const list = Array.isArray(schedules) ? schedules : []
+    if (!projectId) return list
+    if (!selectedJob?._id) return []
+    return list.filter((schedule) => String(schedule.jobId?._id || schedule.jobId || '') === String(selectedJob._id))
+  }, [schedules, projectId, selectedJob])
+
+  useEffect(() => {
+    if (!projectId) return
+
+    const jobParamInCurrentJobs = jobParam && jobs.some((job) => String(job._id) === String(jobParam))
+      ? jobParam
+      : ''
+    const formJobInCurrentJobs = scheduleForm.jobId && jobs.some((job) => String(job._id) === String(scheduleForm.jobId))
+      ? scheduleForm.jobId
+      : ''
+    const nextJobId =
+      jobParamInCurrentJobs ||
+      (jobs.some((job) => String(job._id) === String(selectedJobId))
+        ? selectedJobId
+        : '') ||
+          formJobInCurrentJobs ||
+          matchedJobFromDraft?._id ||
+          jobs[0]?._id ||
+          ''
+
+    if (nextJobId && nextJobId !== selectedJobId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedJobId(nextJobId)
+    }
+
+    const nextParams = new URLSearchParams(searchParams)
+    if (nextJobId) nextParams.set('job', nextJobId)
+    else nextParams.delete('job')
+    if (nextParams.toString() !== searchParams.toString()) {
+      navigate(
+        {
+          pathname: '/admin/admit-cards',
+          search: nextParams.toString(),
+        },
+        { replace: true },
+      )
+    }
+  }, [jobParam, jobs, matchedJobFromDraft, navigate, projectId, scheduleForm.jobId, searchParams, selectedJobId])
+
+  useEffect(() => {
+    if (!selectedJob?._id) return
+
+    const sameJob = String(scheduleForm.jobId || '') === String(selectedJob._id)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setScheduleForm((prev) => ({
+      ...prev,
+      jobId: selectedJob._id || '',
+      examName: sameJob ? prev.examName || selectedJob.title || '' : selectedJob.title || '',
+      examCode: sameJob ? prev.examCode || selectedJob.postCode || '' : selectedJob.postCode || '',
+      advertisementNo: sameJob ? prev.advertisementNo || selectedJob.postCode || '' : selectedJob.postCode || '',
+      examDate: sameJob ? prev.examDate || toDateInputValue(selectedJob.examDate) : toDateInputValue(selectedJob.examDate),
+      provisionalNote:
+        prev.provisionalNote ||
+        'Admit-card access depends on eligibility checks.',
+      instructions:
+        prev.instructions?.some((instruction) => instruction.text)
+          ? prev.instructions
+          : [
+              { text: 'Carry a printed admit card and valid photo ID.', order: 1 },
+              { text: 'Report before gate closing time.', order: 2 },
+              { text: 'Follow all exam-center instructions.', order: 3 },
+            ],
+    }))
+  }, [selectedJob, scheduleForm.jobId])
+
+  useEffect(() => {
+    if (!selectedJob?._id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedScheduleId('')
+      return
+    }
+
+    const selectedScheduleExists = selectedJobSchedules.some((schedule) => schedule._id === selectedScheduleId)
+    if (!selectedScheduleExists) {
+      setSelectedScheduleId(selectedJobSchedules[0]?._id || '')
+    }
+  }, [selectedJobSchedules, selectedJob, selectedScheduleId])
+
   const selectedSchedule = useMemo(
-    () => schedules.find((item) => item._id === selectedScheduleId) || schedules[0],
-    [schedules, selectedScheduleId],
+    () => selectedJobSchedules.find((item) => item._id === selectedScheduleId) || selectedJobSchedules[0],
+    [selectedJobSchedules, selectedScheduleId],
   )
+  const admitWorkflowProject = useMemo(() => {
+    if (!project) return project
+
+    const landingComplete = Boolean(project?.workflowReadiness?.checks?.find((check) => check.key === 'landing')?.complete || project?.isPublished)
+    const jobComplete = isJobAdvertisementConfigured(selectedJob)
+    const admitFormatComplete = Boolean(
+      selectedSchedule?.examName &&
+      selectedSchedule?.examDate &&
+      Array.isArray(selectedSchedule?.instructions) &&
+      selectedSchedule.instructions.length > 0,
+    )
+    const centersComplete = Boolean(selectedSchedule?.selectedCenterIds?.length)
+    const publishComplete = Boolean(
+      selectedJob?._id &&
+        String(selectedJob.status || '').toLowerCase() === 'active' &&
+        project?.isPublished,
+    )
+    const reviewComplete = publishComplete
+    const checks = [
+      { key: 'landing', label: 'Landing CMS', complete: landingComplete },
+      { key: 'job', label: 'Job Advertisement', complete: jobComplete },
+      { key: 'admit-format', label: 'Admit Format', complete: admitFormatComplete, optional: true },
+      { key: 'centers', label: 'Centers', complete: centersComplete, optional: true },
+      { key: 'review', label: 'Final Review', complete: reviewComplete },
+    ]
+
+    return {
+      ...project,
+      isPublished: publishComplete,
+      workflowReadiness: {
+        complete: checks.every((check) => check.complete),
+        checks,
+      },
+    }
+  }, [project, selectedJob, selectedSchedule])
 
   const activeScheduleId = selectedSchedule?._id
 
@@ -232,6 +453,9 @@ const AdmitCards = () => {
       setScheduleForm(emptySchedule)
       queryClient.invalidateQueries({ queryKey: ['exam-schedules'] })
       setSelectedScheduleId(data?.schedule?._id || '')
+      if (projectId) {
+        navigate(`/admin/admit-cards?project=${projectId}&focus=centers${selectedJob?._id ? `&job=${selectedJob._id}` : ''}`)
+      }
     },
     onError: (err) => toast.error(err.message || 'Failed to create schedule'),
   })
@@ -256,7 +480,7 @@ const AdmitCards = () => {
         allocate: data?.job ? 'Allocation job queued' : 'Candidates allocated',
         lock: 'Allocation locked',
         generate: data?.job ? 'Admit card generation job queued' : 'Admit cards generated',
-        publish: data?.alreadyPublished ? 'Admit-card window already published' : 'Admit-card window published',
+        publish: data?.alreadyPublished ? 'Already published' : 'Admit-card window published',
         unpublish: 'Admit cards unpublished',
         regenerate: 'Admit cards regenerated',
       }
@@ -264,6 +488,9 @@ const AdmitCards = () => {
       queryClient.invalidateQueries({ queryKey: ['exam-schedules'] })
       queryClient.invalidateQueries({ queryKey: ['exam-schedule-stats', vars.id] })
       queryClient.invalidateQueries({ queryKey: ['schedule-admit-cards', vars.id] })
+      if (projectId && vars.type === 'publish') {
+        navigate(`/admin/projects/${projectId}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}`)
+      }
     },
     onError: (err) => toast.error(err.message || 'Action failed'),
   })
@@ -282,7 +509,6 @@ const AdmitCards = () => {
     onError: (err) => toast.error(err.message || 'Bulk job failed'),
   })
 
-  const jobs = jobsData?.jobs || jobsData || []
   const stats = statsData?.stats || {}
   const admitCardCounts = (stats.admitCards || []).reduce(
     (acc, item) => ({ ...acc, [item._id || 'unknown']: item.count }),
@@ -305,6 +531,12 @@ const AdmitCards = () => {
   const selectedCenters = activeCenters.filter((center) => selectedCenterIds.includes(center._id))
   const selectedCapacity = selectedCenters.reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)
   const selectedScheduleCenterIds = selectedSchedule?.selectedCenterIds?.map((id) => String(id?._id || id)) || []
+  const selectedScheduleCenterCount = selectedScheduleCenterIds.length
+  const selectedScheduleCapacity = selectedScheduleCenterIds.length
+    ? activeCenters
+      .filter((center) => selectedScheduleCenterIds.includes(center._id))
+      .reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)
+    : 0
   const managedCenters = activeCenters.filter((center) =>
     selectedScheduleCenterIds.length
       ? selectedScheduleCenterIds.includes(center._id)
@@ -330,11 +562,39 @@ const AdmitCards = () => {
       : 'bg-orange-600'
   const allocationSteps = [
     { type: 'preview', label: 'Preview Capacity', helper: 'Check eligible candidates and available seats.', icon: Search },
-    { type: 'allocate', label: 'Bulk Allocate', helper: 'Optional: allocate all eligible candidates manually.', icon: Play },
-    { type: 'lock', label: 'Lock Bulk List', helper: 'Optional: freeze a bulk allocation list.', icon: Lock },
-    { type: 'generate', label: 'Bulk Generate', helper: 'Optional: create cards for a locked bulk list.', icon: FileBadge },
-    { type: 'publish', label: 'Publish Window', helper: 'Candidates can now generate cards on demand.', icon: Send, primary: true },
+    { type: 'allocate', label: 'Bulk Allocate', helper: 'Allocate eligible candidates.', icon: Play },
+    { type: 'lock', label: 'Lock List', helper: 'Freeze the allocation list.', icon: Lock },
+    { type: 'generate', label: 'Bulk Generate', helper: 'Generate cards for the locked list.', icon: FileBadge },
+    { type: 'publish', label: 'Publish Window', helper: 'Open on-demand admit cards.', icon: Send, primary: true },
   ]
+
+  const handleJobChange = (jobId) => {
+    setSelectedJobId(jobId)
+    setSelectedScheduleId('')
+    setSelectedAttendanceCenterId('')
+    setScheduleForm((prev) => {
+      const job = jobs.find((item) => item._id === jobId)
+      return {
+        ...prev,
+        jobId,
+        examName: jobId === selectedJob?._id ? prev.examName : job?.title || prev.examName,
+        examCode: jobId === selectedJob?._id ? prev.examCode : job?.postCode || prev.examCode,
+        advertisementNo:
+          jobId === selectedJob?._id ? prev.advertisementNo : job?.postCode || prev.advertisementNo,
+      }
+    })
+
+    const nextParams = new URLSearchParams(searchParams)
+    if (jobId) nextParams.set('job', jobId)
+    else nextParams.delete('job')
+    navigate(
+      {
+        pathname: '/admin/admit-cards',
+        search: nextParams.toString(),
+      },
+      { replace: true },
+    )
+  }
 
   const toggleScheduleCenter = (centerId) => {
     setScheduleForm((prev) => {
@@ -409,9 +669,15 @@ const AdmitCards = () => {
       toast.error('Select at least one center for this exam schedule')
       return
     }
+    const scheduleJobId = scheduleForm.jobId || selectedJob?._id
+    if (!scheduleJobId) {
+      toast.error('Select a job before creating the schedule')
+      return
+    }
 
     createSchedule.mutate({
       ...scheduleForm,
+      jobId: scheduleJobId,
       examDate: new Date(scheduleForm.examDate).toISOString(),
       reportingTime: formatTimeForDisplay(scheduleForm.reportingTime),
       gateClosingTime: formatTimeForDisplay(scheduleForm.gateClosingTime) || undefined,
@@ -427,7 +693,7 @@ const AdmitCards = () => {
   const runAction = (type) => {
     if (!activeScheduleId) return toast.error('Select an exam schedule first')
     if (type === 'publish' && selectedSchedule?.status === 'published') {
-      toast('Admit card window is already published')
+      toast('Already published')
       return
     }
     if (type === 'unpublish' && !window.confirm('Unpublish released admit cards for this schedule?')) return
@@ -545,7 +811,9 @@ const AdmitCards = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Admit Cards</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Manage exam centers, schedules, allocation, generation, and publication.
+              {projectId
+                ? 'Configure admit-card template, centers, schedules, and release window for this project.'
+                : 'Manage exam centers, schedules, allocation, generation, and publication.'}
             </p>
           </div>
           <Button
@@ -558,11 +826,58 @@ const AdmitCards = () => {
           </Button>
         </div>
 
+        {projectId && (
+          <ProjectFlowNav
+            project={admitWorkflowProject}
+            current={focus === 'centers' ? 'centers' : 'admit-format'}
+            workflowScope="job"
+            publishComplete={Boolean(
+              selectedJob?._id &&
+                String(selectedJob.status || '').toLowerCase() === 'active' &&
+                project?.isPublished,
+            )}
+            jobId={selectedJob?._id}
+            contextLabel="Current Job"
+            contextValue={selectedJob
+              ? `${selectedJob.title}${selectedJob.postCode ? ` (${selectedJob.postCode})` : ''}`
+              : 'No job selected'}
+          />
+        )}
+
+        {projectId && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
+                    Job Context
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold text-gray-900">
+                    Select the job this admit-card setup should follow
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Centers, schedules, admit-card generation, and publication stay scoped to the selected job.
+                  </p>
+                </div>
+                <div className="w-full lg:w-[420px]">
+                  <CustomSelect
+                    value={selectedJob?._id || ''}
+                    onChange={handleJobChange}
+                    placeholder={jobOptions.length ? 'Select a job' : 'No jobs available'}
+                    options={jobOptions}
+                    disabled={jobOptions.length === 0}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat icon={Building2} label="Centers" value={centers.length} />
+          <Stat icon={Building2} label="Centers" value={selectedScheduleCenterCount || centers.length} />
           <Stat icon={Users} label="Eligible" value={stats.eligibleCandidates} />
           <Stat icon={CheckCircle2} label="Allocated" value={stats.allocatedCandidates} />
-          <Stat icon={FileBadge} label="Capacity" value={stats.totalCapacity} />
+          <Stat icon={FileBadge} label="Capacity" value={selectedScheduleCapacity || stats.totalCapacity} />
         </div>
 
         <Card>
@@ -591,6 +906,18 @@ const AdmitCards = () => {
             </div>
           </CardContent>
         </Card>
+
+        {selectedSchedule?.status === 'published' && (
+          <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
+            <div>
+              <p className="font-semibold">Published admit-card schedules are locked.</p>
+              <p className="mt-0.5 text-orange-800">
+                Unpublish before changing date, timing, centers, rooms, or instructions; then allocate, generate, and publish again.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(380px,440px)_minmax(0,1fr)] xl:items-stretch">
           <div className="space-y-5">
@@ -634,24 +961,20 @@ const AdmitCards = () => {
                   <Building2 className="w-4 h-4 text-orange-600" /> Add Room / Capacity
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Allocation uses active room capacity. A center without rooms has zero seats.
+                  Room capacity drives seats. No rooms means no seats.
                 </p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={submitRoom} className="space-y-3">
-                  <select
+                  <CustomSelect
                     value={roomForm.centerId}
-                    onChange={(e) => setRoomForm({ ...roomForm, centerId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  >
-                    <option value="">Select center</option>
-                    {activeCenters.map((center) => (
-                      <option key={center._id} value={center._id}>
-                        {center.centerCode} - {center.name} ({center.totalCapacity || 0} seats)
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(centerId) => setRoomForm({ ...roomForm, centerId })}
+                    placeholder="Select center"
+                    options={activeCenters.map((center) => ({
+                      value: center._id,
+                      label: `${center.centerCode} - ${center.name} (${center.totalCapacity || 0} seats)`,
+                    }))}
+                  />
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       value={roomForm.roomCode}
@@ -722,22 +1045,33 @@ const AdmitCards = () => {
                 <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                   <CalendarClock className="w-4 h-4 text-orange-600" /> Create Schedule
                 </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  You can create multiple schedules for the same job. Keep the exam time window separate for each one.
+                </p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={submitSchedule} className="space-y-3">
                   <label className="block">
                     <span className="text-xs font-semibold text-gray-600">Job</span>
-                    <select
+                    <CustomSelect
                       value={scheduleForm.jobId}
-                      onChange={(e) => setScheduleForm({ ...scheduleForm, jobId: e.target.value })}
-                      className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    >
-                      <option value="">Select job</option>
-                      {jobs.map((job) => (
-                        <option key={job._id} value={job._id}>{job.title} ({job.postCode})</option>
-                      ))}
-                    </select>
+                      onChange={(jobId) => {
+                        const job = jobs.find((item) => item._id === jobId)
+                        setScheduleForm({
+                          ...scheduleForm,
+                          jobId,
+                          examName: jobId === selectedJob?._id ? scheduleForm.examName : job?.title || scheduleForm.examName,
+                          examCode: jobId === selectedJob?._id ? scheduleForm.examCode : job?.postCode || scheduleForm.examCode,
+                          advertisementNo: jobId === selectedJob?._id ? scheduleForm.advertisementNo : job?.postCode || scheduleForm.advertisementNo,
+                        })
+                      }}
+                      placeholder="Select job"
+                      className="mt-1"
+                      options={jobs.map((job) => ({
+                        value: job._id,
+                        label: `${job.title} (${job.postCode})`,
+                      }))}
+                    />
                   </label>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -763,25 +1097,50 @@ const AdmitCards = () => {
 
                   <label className="block">
                     <span className="text-xs font-semibold text-gray-600">Exam Date</span>
-                    <input type="date" value={scheduleForm.examDate} onChange={(e) => setScheduleForm({ ...scheduleForm, examDate: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                    <AppDatePicker
+                      value={scheduleForm.examDate}
+                      onChange={(examDate) => setScheduleForm({ ...scheduleForm, examDate })}
+                      placeholder="Select exam date"
+                      className="mt-1"
+                    />
                   </label>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Reporting Time</span>
-                      <input type="time" value={toTimeInputValue(scheduleForm.reportingTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, reportingTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <TimeSelect
+                        value={toTimeInputValue(scheduleForm.reportingTime)}
+                        onChange={(reportingTime) => setScheduleForm({ ...scheduleForm, reportingTime })}
+                        placeholder="Select reporting time"
+                        className="mt-1"
+                      />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Gate Closing Time</span>
-                      <input type="time" value={toTimeInputValue(scheduleForm.gateClosingTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, gateClosingTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <TimeSelect
+                        value={toTimeInputValue(scheduleForm.gateClosingTime)}
+                        onChange={(gateClosingTime) => setScheduleForm({ ...scheduleForm, gateClosingTime })}
+                        placeholder="Select gate close time"
+                        className="mt-1"
+                      />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Exam Start Time</span>
-                      <input type="time" value={toTimeInputValue(scheduleForm.examStartTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, examStartTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" required />
+                      <TimeSelect
+                        value={toTimeInputValue(scheduleForm.examStartTime)}
+                        onChange={(examStartTime) => setScheduleForm({ ...scheduleForm, examStartTime })}
+                        placeholder="Select start time"
+                        className="mt-1"
+                      />
                     </label>
                     <label className="block">
                       <span className="text-xs font-semibold text-gray-600">Exam End Time</span>
-                      <input type="time" value={toTimeInputValue(scheduleForm.examEndTime)} onChange={(e) => setScheduleForm({ ...scheduleForm, examEndTime: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                      <TimeSelect
+                        value={toTimeInputValue(scheduleForm.examEndTime)}
+                        onChange={(examEndTime) => setScheduleForm({ ...scheduleForm, examEndTime })}
+                        placeholder="Select end time"
+                        className="mt-1"
+                      />
                     </label>
                   </div>
 
@@ -948,17 +1307,17 @@ const AdmitCards = () => {
                     </div>
                     <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Selected Centers</p>
-                      <p className="mt-1 font-bold text-gray-900">{managedCenters.length}</p>
-                      <p className="text-xs text-gray-500">{managedCenters.reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)} usable seats</p>
+                      <p className="mt-1 font-bold text-gray-900">{selectedScheduleCenterCount}</p>
+                      <p className="text-xs text-gray-500">{selectedScheduleCapacity} usable seats</p>
                     </div>
                     <div className="min-h-[112px] rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold uppercase text-gray-500">Current Phase</p>
                       <p className="mt-1 font-bold capitalize text-gray-900">{selectedSchedule.status}</p>
                       <p className="text-xs text-gray-500">
-                        {selectedSchedule.status === 'draft' && 'Publish the admit-card window after centers and rooms are ready'}
+                        {selectedSchedule.status === 'draft' && 'Publish after centers and rooms are ready'}
                         {selectedSchedule.status === 'allocated' && 'Bulk allocation exists; publish when ready'}
-                        {selectedSchedule.status === 'locked' && 'Bulk list locked; publish window when ready'}
-                        {selectedSchedule.status === 'published' && 'Public on-demand admit-card window is open now'}
+                        {selectedSchedule.status === 'locked' && 'List locked; publish when ready'}
+                        {selectedSchedule.status === 'published' && 'On-demand admit cards are live'}
                         {selectedSchedule.status === 'cancelled' && 'No candidate action'}
                       </p>
                     </div>
@@ -976,8 +1335,8 @@ const AdmitCards = () => {
                   {schedulesLoading && <Loader2 className="w-4 h-4 animate-spin text-orange-600" />}
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-hidden">
-                <div className="hover-scroll max-h-[465px] overflow-y-auto overflow-x-hidden pr-1">
+              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="hover-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
                   <table className="w-full table-fixed text-sm">
                     <colgroup>
                       <col className="w-[38%]" />
@@ -994,7 +1353,7 @@ const AdmitCards = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {schedules.map((schedule) => (
+                      {selectedJobSchedules.map((schedule) => (
                         <tr key={schedule._id} className="border-t border-gray-100">
                           <td className="min-w-0 px-3 py-3 align-middle">
                             <p className="truncate font-semibold text-gray-900" title={schedule.examName}>{schedule.examName}</p>
@@ -1020,8 +1379,16 @@ const AdmitCards = () => {
                           </td>
                         </tr>
                       ))}
-                      {!schedulesLoading && schedules.length === 0 && (
-                        <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-500">No exam schedules yet.</td></tr>
+                      {!schedulesLoading && selectedJobSchedules.length === 0 && (
+                        <tr>
+                          <td colSpan="4" className="px-3 py-10 text-center text-gray-500">
+                            {selectedJob
+                              ? `No exam schedules for ${selectedJob.title || 'this job'} yet.`
+                              : projectId
+                                ? 'No exam schedules for this project yet.'
+                                : 'No exam schedules yet.'}
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -1106,21 +1473,18 @@ const AdmitCards = () => {
                   <div className="mt-auto rounded-xl border border-gray-200 bg-gray-50 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-gray-900">Attendance Print</p>
-                      <span className="text-xs font-semibold text-gray-500">{managedCenters.length} centers</span>
+                        <span className="text-xs font-semibold text-gray-500">{selectedScheduleCenterCount} centers</span>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
-                      <select
+                      <CustomSelect
                         value={selectedAttendanceCenterId}
-                        onChange={(event) => setSelectedAttendanceCenterId(event.target.value)}
-                        className="h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                      >
-                        <option value="">Select center</option>
-                        {managedCenters.map((center) => (
-                          <option key={center._id} value={center._id}>
-                            {center.centerCode} - {center.name}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSelectedAttendanceCenterId}
+                        placeholder="Select center"
+                        options={managedCenters.map((center) => ({
+                          value: center._id,
+                          label: `${center.centerCode} - ${center.name}`,
+                        }))}
+                      />
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           type="button"
@@ -1268,8 +1632,8 @@ const AdmitCards = () => {
                   />
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-hidden">
-                <div className="hover-scroll h-full overflow-y-auto overflow-x-hidden pr-1">
+              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="hover-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
                   <table className="w-full table-fixed text-sm">
                     <tbody>
                       {admitCards.map((card) => (
@@ -1318,7 +1682,7 @@ const AdmitCards = () => {
         {centersLoading && <p className="text-xs text-gray-400">Loading centers...</p>}
       </div>
 
-      {previewAdmitCard && (
+        {previewAdmitCard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm">
           <div className="flex max-h-[94vh] w-full max-w-[980px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/20">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
@@ -1327,7 +1691,7 @@ const AdmitCards = () => {
                   Admit Card Preview
                 </p>
                 <h2 className="truncate text-sm font-semibold text-slate-900">
-                  Roll {previewAdmitCard.rollNumber} · {previewAdmitCard.applicationId?.applicationId || 'Application'}
+                  Roll {previewAdmitCard.rollNumber} Â· {previewAdmitCard.applicationId?.applicationId || 'Application'}
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -1362,7 +1726,7 @@ const AdmitCards = () => {
                   Attendance Sheet Preview
                 </p>
                 <h2 className="truncate text-sm font-semibold text-slate-900">
-                  {previewAttendance.center?.centerCode || 'Center'} · {previewAttendance.center?.name || 'Attendance Sheet'}
+                  {previewAttendance.center?.centerCode || 'Center'} Â· {previewAttendance.center?.name || 'Attendance Sheet'}
                 </h2>
               </div>
               <button
@@ -1390,8 +1754,4 @@ const AdmitCards = () => {
 }
 
 export default AdmitCards
-
-
-
-
 

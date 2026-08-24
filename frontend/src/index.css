@@ -44,6 +44,39 @@
     @apply border-orange-400;
   }
 
+  .theme-select-menu {
+    scrollbar-width: thin;
+    scrollbar-color: #fdba74 transparent;
+  }
+  .theme-select-menu::-webkit-scrollbar {
+    width: 8px;
+  }
+  .theme-select-menu::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .theme-select-menu::-webkit-scrollbar-thumb {
+    background-color: #fdba74;
+    border-radius: 999px;
+  }
+  .theme-select-menu::-webkit-scrollbar-thumb:hover {
+    background-color: #fb923c;
+  }
+
+  select {
+    color-scheme: light;
+  }
+  select:focus {
+    @apply border-orange-500 outline-none ring-2 ring-orange-100;
+  }
+  select option:checked {
+    color: #c2410c;
+    font-weight: 700;
+    background: linear-gradient(0deg, #fff7ed, #fff7ed);
+  }
+  select option:hover {
+    background-color: #fff7ed;
+  }
+
   /* ── React DatePicker custom theme ── */
   .react-datepicker-wrapper {
     @apply w-full;
@@ -437,6 +470,98 @@
   text-rendering: optimizeLegibility;
 }
 
+.admin-page-root {
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.public-content-root {
+  --public-accent: #e46a1d;
+  --public-accent-dark: #cb5d16;
+  --public-ink: #1f1d1b;
+  --public-muted: #6d6761;
+  --public-border: #e0d7cd;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--public-ink);
+}
+
+.public-content-root :where(
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-shadow,
+  .transition-transform
+) {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+.public-content-root :where(h1) {
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.public-content-root :where(h2) {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.public-content-root :where(h3) {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.public-content-root :where(p, li) {
+  line-height: 1.6;
+}
+
+.public-content-root :where(button, a, input, textarea, select, label) {
+  letter-spacing: 0;
+}
+
+.public-content-root :where(button:not(:disabled), a) {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+}
+
+.public-content-root :where(button:not(:disabled):active, a:active) {
+  transform: translateY(1px);
+}
+
+.public-content-root :where(.rounded-2xl) {
+  border-radius: 0.875rem;
+}
+
+.public-content-root :where(.font-black, .font-extrabold) {
+  font-weight: 700;
+}
+
+.public-content-root :where(.text-2xl) {
+  font-size: 1.5rem;
+  line-height: 1.18;
+}
+
+.public-content-root :where(.text-3xl) {
+  font-size: 1.875rem;
+  line-height: 1.14;
+}
+
+.public-content-root :where(.text-4xl, .text-5xl, .text-6xl) {
+  line-height: 1.1;
+}
+
+.public-content-root :where(input, textarea, select) {
+  min-height: 2.75rem;
+}
+
 .admin-page-root :where(h1, h2, h3, h4),
 .public-content-root :where(h1, h2, h3, h4),
 .candidate-page-root :where(h1, h2, h3, h4),
@@ -444,11 +569,50 @@
   letter-spacing: 0;
 }
 
+.admin-page-root :where(.text-xs, .text-[10px], .text-[11px]) {
+  line-height: 1.35;
+}
+
+.admin-page-root :where(.text-sm) {
+  line-height: 1.45;
+}
+
+.admin-page-root :where(.text-base) {
+  line-height: 1.5;
+}
+
+.admin-page-root :where(.text-lg) {
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.admin-page-root :where(.text-xl, .text-2xl, .text-3xl) {
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.admin-page-root :where(.text-4xl, .text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl) {
+  line-height: 1.05;
+  font-weight: 700;
+}
+
 .admin-page-root :where(.font-black, .font-extrabold),
 .public-content-root :where(.font-black, .font-extrabold),
 .candidate-page-root :where(.font-black, .font-extrabold),
 .application-page-root :where(.font-black, .font-extrabold) {
   font-weight: 700;
+}
+
+.admin-page-root :where(.font-bold) {
+  font-weight: 700;
+}
+
+.admin-page-root :where(.font-semibold) {
+  font-weight: 600;
+}
+
+.admin-page-root :where(.font-medium) {
+  font-weight: 500;
 }
 
 .admin-page-root :where(.text-2xl, .text-3xl),
@@ -525,11 +689,77 @@
   margin-bottom: calc(1.25rem * var(--tw-space-y-reverse));
 }
 
-select:not([multiple]) {
+.admin-page-root :where(input, textarea, select),
+.public-content-root :where(input, textarea, select),
+.candidate-page-root :where(input, textarea, select),
+.application-page-root :where(input, textarea, select) {
+  @apply rounded-lg border-stone-300 text-sm text-gray-800 placeholder:text-gray-400 transition-colors duration-200;
+  color-scheme: light;
+}
+
+.admin-page-root :where(input:focus, textarea:focus, select:focus),
+.public-content-root :where(input:focus, textarea:focus, select:focus),
+.candidate-page-root :where(input:focus, textarea:focus, select:focus),
+.application-page-root :where(input:focus, textarea:focus, select:focus) {
+  @apply border-orange-500 outline-none ring-2 ring-orange-100;
+}
+
+.admin-page-root :where(input[type="date"], input[type="time"]),
+.public-content-root :where(input[type="date"], input[type="time"]),
+.candidate-page-root :where(input[type="date"], input[type="time"]),
+.application-page-root :where(input[type="date"], input[type="time"]) {
+  @apply bg-white;
+}
+
+.admin-page-root :where(select:not([multiple])),
+.public-content-root :where(select:not([multiple])),
+.candidate-page-root :where(select:not([multiple])),
+.application-page-root :where(select:not([multiple])) {
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e46a1d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 18px center;
   padding-right: 44px !important;
+}
+
+.admin-page-root :where(select option:checked),
+.public-content-root :where(select option:checked),
+.candidate-page-root :where(select option:checked),
+.application-page-root :where(select option:checked) {
+  color: #c2410c;
+  font-weight: 700;
+  background: #fff7ed;
+}
+
+.admin-page-root :where(select option:hover),
+.public-content-root :where(select option:hover),
+.candidate-page-root :where(select option:hover),
+.application-page-root :where(select option:hover) {
+  background: #fff7ed;
+}
+
+.admin-page-root :where(input[type="checkbox"], input[type="radio"]),
+.public-content-root :where(input[type="checkbox"], input[type="radio"]),
+.candidate-page-root :where(input[type="checkbox"], input[type="radio"]),
+.application-page-root :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: #ea580c;
+}
+
+.animate-public-ticker {
+  animation: public-ticker 34s linear infinite;
+}
+
+.public-notice-ticker:hover .animate-public-ticker,
+.public-notice-ticker:focus-within .animate-public-ticker {
+  animation-play-state: paused;
+}
+
+@keyframes public-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }

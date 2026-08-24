@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
@@ -22,6 +23,7 @@ const getAppId = () => {
 const AdditionalInfo = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const stateId = location.state?.applicationId;
@@ -56,14 +58,17 @@ const AdditionalInfo = () => {
     queryKey: ["application-additional", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
-    if (appData && !dataLoaded) {
+    if (appData) {
       const app = appData?.application || appData;
       const info = app?.additionalInfo || {};
       if (info && Object.keys(info).length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFormData({
           isGovtEmployee: info.isGovtEmployee || false,
           departmentName: info.departmentName || "",
@@ -83,7 +88,7 @@ const AdditionalInfo = () => {
       }
       setDataLoaded(true);
     }
-  }, [appData, dataLoaded]);
+  }, [appData]);
 
   const set = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -91,12 +96,19 @@ const AdditionalInfo = () => {
   const { mutate: saveStep, isPending } = useMutation({
     mutationFn: (data) =>
       candidateService.saveAdditionalInfo(applicationId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Additional info saved");
+      const latestApplication = result?.application || result || appData?.application || appData;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-additional", applicationId], {
+        application: latestApplication,
+      });
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else {
-        const app = appData?.application || appData;
+        const app = latestApplication;
         const steps = buildApplicationSteps(app?.jobId, app);
         const additionalStep =
           steps.find((step) => step.type === "additional-info")?.id || 3;
@@ -147,7 +159,7 @@ const AdditionalInfo = () => {
 
   const inputCls =
     "w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500";
-  const YesNo = ({ field }) => (
+  const renderYesNo = (field) => (
     <div className="flex space-x-4">
       {[true, false].map((val) => (
         <button
@@ -199,7 +211,7 @@ const AdditionalInfo = () => {
                   <p className="text-sm font-medium text-gray-700 mb-3">
                     Are you a Government employee (3+ years)?
                   </p>
-                  <YesNo field="isGovtEmployee" />
+                  {renderYesNo("isGovtEmployee")}
                 </div>
                 {formData.isGovtEmployee && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -243,36 +255,31 @@ const AdditionalInfo = () => {
                   <p className="text-sm font-medium text-gray-700 mb-3">
                     Ex-serviceman?
                   </p>
-                  <YesNo field="isExServiceman" />
+                  {renderYesNo("isExServiceman")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-3">
                     Person with Disability (PwD)?
                   </p>
-                  <YesNo field="isPwD" />
+                  {renderYesNo("isPwD")}
                   {formData.isPwD && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Disability Type
                         </label>
-                        <select
+                        <CustomSelect
                           className={inputCls}
                           value={formData.disabilityType}
-                          onChange={(e) =>
-                            set("disabilityType", e.target.value)
-                          }
-                        >
-                          <option value="">Select</option>
-                          <option value="locomotor">
-                            Locomotor Disability
-                          </option>
-                          <option value="visual">Visual Impairment</option>
-                          <option value="hearing">Hearing Impairment</option>
-                          <option value="intellectual">
-                            Intellectual Disability
-                          </option>
-                        </select>
+                          onChange={(val) => set("disabilityType", val)}
+                          options={[
+                            { value: "", label: "Select" },
+                            { value: "locomotor", label: "Locomotor Disability" },
+                            { value: "visual", label: "Visual Impairment" },
+                            { value: "hearing", label: "Hearing Impairment" },
+                            { value: "intellectual", label: "Intellectual Disability" }
+                          ]}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -302,49 +309,50 @@ const AdditionalInfo = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Driving License
                 </label>
-                <select
+                <CustomSelect
                   className={inputCls}
                   value={formData.drivingLicense}
-                  onChange={(e) => set("drivingLicense", e.target.value)}
-                >
-                  <option value="">Select</option>
-                  <option value="LMV">Yes — LMV (Light Motor Vehicle)</option>
-                  <option value="HMV">Yes — HMV (Heavy Motor Vehicle)</option>
-                  <option value="none">No</option>
-                </select>
+                  onChange={(val) => set("drivingLicense", val)}
+                  options={[
+                    { value: "", label: "Select" },
+                    { value: "LMV", label: "Yes — LMV (Light Motor Vehicle)" },
+                    { value: "HMV", label: "Yes — HMV (Heavy Motor Vehicle)" },
+                    { value: "none", label: "No" }
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Computer Certificate
                 </label>
-                <select
+                <CustomSelect
                   className={inputCls}
                   value={formData.computerCertificate}
-                  onChange={(e) => set("computerCertificate", e.target.value)}
-                >
-                  <option value="">Select</option>
-                  <option value="dca">
-                    DCA (Diploma in Computer Applications)
-                  </option>
-                  <option value="pgdca">PGDCA</option>
-                  <option value="other">Other</option>
-                  <option value="none">None</option>
-                </select>
+                  onChange={(val) => set("computerCertificate", val)}
+                  options={[
+                    { value: "", label: "Select" },
+                    { value: "dca", label: "DCA (Diploma in Computer Applications)" },
+                    { value: "pgdca", label: "PGDCA" },
+                    { value: "other", label: "Other" },
+                    { value: "none", label: "None" }
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Subject Combination
                 </label>
-                <select
+                <CustomSelect
                   className={inputCls}
                   value={formData.subjectCombination}
-                  onChange={(e) => set("subjectCombination", e.target.value)}
-                >
-                  <option value="">Select</option>
-                  <option value="english-hindi">English + Hindi</option>
-                  <option value="hindi-urdu">Hindi + Urdu</option>
-                  <option value="english-bengali">English + Bengali</option>
-                </select>
+                  onChange={(val) => set("subjectCombination", val)}
+                  options={[
+                    { value: "", label: "Select" },
+                    { value: "english-hindi", label: "English + Hindi" },
+                    { value: "hindi-urdu", label: "Hindi + Urdu" },
+                    { value: "english-bengali", label: "English + Bengali" }
+                  ]}
+                />
               </div>
             </div>
           </CardContent>

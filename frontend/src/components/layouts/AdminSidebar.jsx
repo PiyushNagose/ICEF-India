@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Layers,
   FileBadge,
+  ClipboardList,
   X
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -31,6 +32,7 @@ const menuItems = [
   { icon: Shield,          label: 'Roles & Permissions', path: '/admin/roles',            permission: ['employees', 'view'] },
   { icon: CreditCard,      label: 'Payment Settings',    path: '/admin/payment-settings', permission: ['paymentSettings', 'view'] },
   { icon: Layers,          label: 'CMS',                 path: '/admin/cms',              permission: ['projects', 'edit'] },
+  { icon: ClipboardList,   label: 'Standards Settings',  path: '/admin/standards-settings', permission: ['jobs', 'edit'] },
 ]
 
 const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
@@ -73,7 +75,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto hover-scroll p-3 space-y-0.5">
         {!isCollapsed || isMobile ? (
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 pb-2 pt-1">
             Main Navigation

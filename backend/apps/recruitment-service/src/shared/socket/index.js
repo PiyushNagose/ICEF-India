@@ -1,7 +1,9 @@
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
+const { createAdapter } = require("@socket.io/redis-adapter");
 const env = require("../config/env");
 const logger = require("../utils/logger");
+const { getRedis } = require("../config/redis");
 
 let io = null;
 const NORMAL_DISCONNECT_REASONS = new Set([
@@ -20,7 +22,10 @@ const parsedOrigins = env.CLIENT_URL?.split(",")
  * Called once from server.js
  */
 const initSocket = (httpServer) => {
+  const redisClient = getRedis();
+
   io = new Server(httpServer, {
+    adapter: redisClient ? createAdapter(redisClient, redisClient.duplicate()) : undefined,
     cors: {
       origin: parsedOrigins.length > 1 ? parsedOrigins : parsedOrigins[0],
       methods: ["GET", "POST"],

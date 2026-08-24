@@ -33,6 +33,38 @@ const saveAuditLog = async (req, details = "") => {
       ...req.auditInfo,
       details,
     });
+
+    if (
+      req.user?.role === "employee" &&
+      (req.auditInfo.action === "UPDATE" || req.auditInfo.action === "DELETE")
+    ) {
+      const { notifySuperAdmins } = require("../utils/notifyAdmins");
+      const Employee = require("../models/Employee");
+      const actor = await Employee.findById(req.user.id)
+        .select("fullName employeeId officialEmail")
+        .lean();
+      const empName =
+        actor?.fullName ||
+        actor?.employeeId ||
+        req.user?.employeeId ||
+        req.user?.email ||
+        "An employee";
+      const recordAction =
+        req.auditInfo.action === "UPDATE" ? "updated" : "deleted";
+
+      notifySuperAdmins({
+        type: "system_audit",
+        title: `Employee ${recordAction} ${req.auditInfo.module}`,
+        message: `${empName} ${recordAction} a ${req.auditInfo.module} record from the employee portal.`,
+        link: "/admin/activity-logs",
+        metadata: {
+          module: req.auditInfo.module,
+          action: req.auditInfo.action,
+          employeeId: req.auditInfo.employeeId,
+          actorRole: req.user.role,
+        },
+      });
+    }
   } catch (err) {
     // Audit log failure should never break the main operation
     const logger = require("../utils/logger");

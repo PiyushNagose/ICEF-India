@@ -35,6 +35,7 @@ const JobConfiguredSection = forwardRef(
 
     useEffect(() => {
       setFormData(app?.formResponses || {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [app?._id]);
 
     const handleFieldChange = (section, field, value) => {

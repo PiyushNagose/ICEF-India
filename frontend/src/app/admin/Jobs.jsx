@@ -18,10 +18,11 @@ import {
 } from 'lucide-react'
 
 import AdminLayout from '../../components/layouts/AdminLayout'
-import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 
+import { useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import { jobService } from '../../services/job.service'
 import { adminService } from '../../services/admin.service'
 import {
@@ -37,6 +38,20 @@ const STATUS_COLORS = {
 }
 
 const STORAGE_KEY = 'job_draft'
+
+const isDraftJob = (job) =>
+  String(job?.status || '').toLowerCase() === 'draft'
+
+const isPublicJob = (job) =>
+  ['active', 'published', 'closed'].includes(String(job?.status || '').toLowerCase())
+
+const isDeadlinePassed = (value) => {
+  if (!value) return false
+  const deadline = new Date(value)
+  if (Number.isNaN(deadline.getTime())) return false
+  deadline.setHours(23, 59, 59, 999)
+  return new Date() > deadline
+}
 
 const toDraftPayload = (job) => {
   const projectId = job.projectId?._id || job.projectId || ''
@@ -79,6 +94,9 @@ const Jobs = () => {
 
   const [showProjectSelector, setShowProjectSelector] =
     useState(false)
+
+  const { user } = useAuth()
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, job: null })
 
   const { data: jobsData, isLoading } = useQuery({
     queryKey: ['admin-jobs'],
@@ -161,16 +179,22 @@ const Jobs = () => {
   })
 
   const handleDelete = (job) => {
-    if (
-      window.confirm(
-        `Delete "${job.title}"? This cannot be undone.`
-      )
-    ) {
-      deleteJob(job._id)
+    setDeleteModal({ isOpen: true, job })
+  }
+
+  const confirmDelete = () => {
+    if (deleteModal.job) {
+      deleteJob(deleteModal.job._id)
+      setDeleteModal({ isOpen: false, job: null })
     }
   }
 
   const handlePublish = (job) => {
+    if (isDeadlinePassed(job.applicationDeadline)) {
+      toast.error('Application deadline has passed. Update the deadline before publishing.')
+      return
+    }
+
     if (
       window.confirm(
         `Publish "${job.title}"?`
@@ -635,10 +659,22 @@ const Jobs = () => {
 
                         {/* VIEW / EDIT */}
                         <button
-                          onClick={() =>
-                            job.status === 'draft' || job.status === 'Draft'
-                              ? openDraftJob(job, 'review')
-                              : navigate(`/jobs/${job._id}`)
+                          onClick={() => {
+                            if (isDraftJob(job)) {
+                              openDraftJob(job, 'review')
+                              return
+                            }
+                            if (isPublicJob(job)) {
+                              navigate(`/jobs/${job._id}`)
+                            }
+                          }}
+                          disabled={!isDraftJob(job) && !isPublicJob(job)}
+                          title={
+                            isDraftJob(job)
+                              ? 'Edit draft job'
+                              : isPublicJob(job)
+                                ? 'View public job'
+                                : 'Public view is not available'
                           }
                           className="
                             w-9 h-9 rounded-xl
@@ -646,9 +682,10 @@ const Jobs = () => {
                             text-gray-500
                             flex items-center justify-center
                             transition-all
+                            disabled:cursor-not-allowed disabled:opacity-40
                           "
                         >
-                          {job.status === 'draft' || job.status === 'Draft' ? (
+                          {isDraftJob(job) ? (
                             <Edit className="
                               w-4 h-4
                             " />
@@ -660,13 +697,16 @@ const Jobs = () => {
                         </button>
 
                         {/* PUBLISH */}
-                        {(job.status ===
-                          'draft' ||
-                          job.status ===
-                            'Draft') && (
+                        {isDraftJob(job) && (
                           <button
                             onClick={() =>
                               handlePublish(job)
+                            }
+                            disabled={isDeadlinePassed(job.applicationDeadline)}
+                            title={
+                              isDeadlinePassed(job.applicationDeadline)
+                                ? 'Application deadline has passed. Edit the job deadline before publishing.'
+                                : 'Publish job'
                             }
                             className="
                               w-9 h-9 rounded-xl
@@ -674,6 +714,7 @@ const Jobs = () => {
                               text-green-600
                               flex items-center justify-center
                               transition-all
+                              disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent
                             "
                           >
                             <Send className="
@@ -912,6 +953,14 @@ const Jobs = () => {
           </div>
         )}
       </div>
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, job: null })}
+        onConfirm={confirmDelete}
+        title="Delete Job"
+        message={`Are you sure you want to permanently delete "${deleteModal.job?.title}"? All related data will be removed.`}
+        requireType={isSuperAdminUser(user)}
+      />
     </AdminLayout>
   )
 }

@@ -72,6 +72,16 @@ const experienceSchema = new mongoose.Schema(
 const physicalStandardsSchema = new mongoose.Schema(
   {
     required: { type: Boolean, default: false },
+    criteria: [
+      {
+        label: { type: String, trim: true },
+        male: { type: String, trim: true },
+        female: { type: String, trim: true },
+        value: { type: String, trim: true },
+        unit: { type: String, trim: true },
+        notes: { type: String, trim: true },
+      },
+    ],
     height: { male: Number, female: Number },
     chest: { male: Number, female: Number },
     weight: { male: Number, female: Number },
@@ -82,6 +92,16 @@ const physicalStandardsSchema = new mongoose.Schema(
 const medicalStandardsSchema = new mongoose.Schema(
   {
     required: { type: Boolean, default: false },
+    criteria: [
+      {
+        label: { type: String, trim: true },
+        male: { type: String, trim: true },
+        female: { type: String, trim: true },
+        value: { type: String, trim: true },
+        unit: { type: String, trim: true },
+        notes: { type: String, trim: true },
+      },
+    ],
     vision: String,
     hearing: String,
     other: String,
@@ -117,6 +137,7 @@ const formFieldSchema = new mongoose.Schema(
       max: Number,
       pattern: String,
       message: String,
+      maxSizeKB: Number,
     },
   },
   { _id: true },
@@ -211,6 +232,10 @@ const jobSchema = new mongoose.Schema(
 
     // Eligibility
     ageLimit: { type: ageLimitSchema, default: () => ({}) },
+    standardPresetId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StandardPreset",
+    },
     education: {
       essential: [educationRequirementSchema],
       desirable: [educationRequirementSchema],

@@ -44,6 +44,7 @@ const formFieldSchema = z.object({
       max: z.number().optional(),
       pattern: z.string().optional(),
       message: z.string().optional(),
+      maxSizeKB: z.number().int().positive().optional(),
     })
     .optional(),
 });

@@ -6,7 +6,7 @@ import {
   Plus, FileText, Shield, Lock, RefreshCw, Loader2,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
-import { Card, CardContent, CardHeader } from '../../components/ui/Card'
+import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { adminService } from '../../services/admin.service'
 
@@ -118,7 +118,7 @@ const PaymentSettings = () => {
     queryFn: adminService.getPaymentGateways,
   })
 
-  const { data: statsData } = useQuery({
+  useQuery({
     queryKey: ['admin-payment-stats'],
     queryFn: adminService.getPaymentStats,
   })
@@ -147,9 +147,6 @@ const PaymentSettings = () => {
   }
 
   const gateways = gatewaysData?.gateways || []
-  const totalRevenue = statsData?.totalRevenue || 0
-  const successCount = statsData?.statusStats?.find(s => s._id === 'success')?.count || 0
-  const activeCount = gateways.filter(g => g.status === 'ACTIVE').length
 
   // Settlement progress (mock 82% as shown in image — real calc needs settlement data)
   const settlementPct = 82
@@ -223,7 +220,7 @@ const PaymentSettings = () => {
                 <h3 className="font-semibold text-gray-900">Settlement Target Completion</h3>
                 <p className="text-sm text-gray-500 mt-0.5">Monthly reconciliation progress across all gateways</p>
               </div>
-              <span className="text-3xl font-bold text-orange-600">{settlementPct}%</span>
+              <span className="text-2xl font-bold text-orange-600">{settlementPct}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
               <div

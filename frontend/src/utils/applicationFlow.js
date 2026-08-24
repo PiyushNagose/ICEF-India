@@ -191,6 +191,137 @@ export const getRouteForApplicationStep = (
   return steps[stepIndex]?.path || getFirstApplicationRoute(job);
 };
 
+const hasValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+const normaliseKey = (value = "") =>
+  String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+export const isApplicationStepComplete = (step, application = {}) => {
+  const job = normaliseJob(application);
+  const type = step?.type;
+
+  if (!type) return false;
+  if (["submitted", "approved"].includes(String(application?.status || "").toLowerCase())) {
+    return true;
+  }
+
+  if (type === "personal-details") {
+    const personal = application?.personalDetails || {};
+    return Boolean(
+      hasValue(personal.fullName) &&
+        hasValue(personal.dateOfBirth) &&
+        hasValue(personal.gender) &&
+        hasValue(personal.category) &&
+        hasValue(personal.registeredMobile),
+    );
+  }
+
+  if (type === "payment") {
+    return String(application?.paymentStatus || "").toLowerCase() === "paid";
+  }
+
+  if (type === "education") {
+    const education = application?.education || {};
+    return Boolean(
+      Object.keys(education).length > 0 ||
+        Number(application?.currentStep || 0) > Number(step.id || 0),
+    );
+  }
+
+  if (type === "additional-info") {
+    return Boolean(
+      application?.additionalInfo &&
+        (Object.keys(application.additionalInfo).length > 0 ||
+          Number(application?.currentStep || 0) > Number(step.id || 0)),
+    );
+  }
+
+  if (type === "address") {
+    const permanent = application?.address?.permanent || {};
+    return Boolean(
+      hasValue(permanent.addressLine1) &&
+        hasValue(permanent.state) &&
+        hasValue(permanent.district) &&
+        hasValue(permanent.pincode),
+    );
+  }
+
+  if (type === "form-section") {
+    const responses = application?.formResponses || {};
+    const section = getJobFormSections(job)[step.sectionIndex];
+    const requiredFields = Array.isArray(section?.fields)
+      ? section.fields.filter((field) => field.required)
+      : [];
+    if (requiredFields.length === 0) {
+      return Number(application?.currentStep || 0) > Number(step.id || 0);
+    }
+    return requiredFields.every((field) =>
+      hasValue(responses[field.id] ?? responses[field.label]),
+    );
+  }
+
+  if (type === "documents") {
+    const requirements = getJobDocumentRequirements(job);
+    const requiredDocs = requirements.filter((doc) => doc.required !== false);
+    if (requiredDocs.length === 0) return true;
+    const uploadedDocs = Array.isArray(application?.documents)
+      ? application.documents
+      : [];
+    return requiredDocs.every((requiredDoc) =>
+      uploadedDocs.some(
+        (doc) =>
+          normaliseKey(doc.type || doc.documentType || doc.id || "") ===
+            normaliseKey(requiredDoc.id || requiredDoc.name || "") &&
+          ["uploaded", "verified", "pending"].includes(
+            String(doc.status || "uploaded").toLowerCase(),
+          ),
+      ),
+    );
+  }
+
+  if (type === "review") {
+    return (
+      hasValue(application?.declaration) ||
+      Number(application?.currentStep || 0) > Number(step.id || 0)
+    );
+  }
+
+  if (type === "post-selection") {
+    return Array.isArray(application?.appliedPosts) && application.appliedPosts.length > 0;
+  }
+
+  if (type === "success") {
+    return ["submitted", "approved"].includes(String(application?.status || "").toLowerCase());
+  }
+
+  return Number(application?.currentStep || 0) > Number(step.id || 0);
+};
+
+export const getApplicationUnlockedStep = (application = {}, steps = []) => {
+  const savedStep = Math.max(Number(application?.currentStep || 1), 1);
+  const firstIncomplete = steps.find((step) => !isApplicationStepComplete(step, application));
+  const inferredStep = firstIncomplete?.id || steps[steps.length - 1]?.id || savedStep;
+  return Math.max(savedStep, inferredStep);
+};
+
+export const getNextPendingApplicationStep = (
+  application = {},
+  steps = [],
+  fromStepId = 0,
+) =>
+  steps.find(
+    (step) =>
+      Number(step.id || 0) > Number(fromStepId || 0) &&
+      !isApplicationStepComplete(step, application),
+  ) ||
+  steps.find((step) => !isApplicationStepComplete(step, application)) ||
+  steps[steps.length - 1];
+
 export const persistApplicationDraft = ({
   applicationId,
   jobId,
@@ -198,7 +329,7 @@ export const persistApplicationDraft = ({
   supportTicketId,
   correctionMode,
 }) => {
-  let draft = {};
+  let draft;
   try {
     draft = JSON.parse(sessionStorage.getItem(APP_DRAFT_KEY) || "{}");
   } catch {

@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const Job = require("../../shared/models/Job");
 const Project = require("../../shared/models/Project");
 const Application = require("../../shared/models/Application");
+const ExamSchedule = require("../../shared/models/ExamSchedule");
 const ApiError = require("../../shared/utils/ApiError");
 const {
   ApiResponse,
@@ -18,6 +19,9 @@ const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const {
   assertJobTimeline,
   getProjectLifecycleStatus,
+  parseDate,
+  startOfDay,
+  endOfDay,
 } = require("../../shared/utils/timeline");
 const {
   invalidatePublicRecruitmentCache,
@@ -60,6 +64,227 @@ const getPublishValidationErrors = (job) => {
   if (!job.applicationDeadline) errors.push("Application deadline is required");
 
   return errors;
+};
+
+const getBodyPaths = (value, prefix = "") => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return prefix ? [prefix] : [];
+  }
+
+  return Object.keys(value).flatMap((key) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (
+      value[key] &&
+      typeof value[key] === "object" &&
+      !Array.isArray(value[key]) &&
+      !(value[key] instanceof Date)
+    ) {
+      const childPaths = getBodyPaths(value[key], path);
+      return childPaths.length ? childPaths : [path];
+    }
+    return [path];
+  });
+};
+
+const pathTouched = (paths, field) =>
+  paths.some((path) => path === field || path.startsWith(`${field}.`));
+
+const isEmptyComparableValue = (value) =>
+  value === null ||
+  value === undefined ||
+  value === "" ||
+  (Array.isArray(value) && value.length === 0) ||
+  (value &&
+    typeof value === "object" &&
+    !(value instanceof Date) &&
+    Object.keys(value).length === 0);
+
+const stripMongoKeys = (value) => {
+  if (Array.isArray(value)) {
+    const next = value.map(stripMongoKeys).filter((item) => item !== undefined);
+    return next.length ? next : null;
+  }
+  if (value && typeof value === "object") {
+    if (value instanceof Date) return value.toISOString();
+    const plain = typeof value.toObject === "function" ? value.toObject() : value;
+    const next = Object.keys(plain)
+      .filter((key) => !["_id", "id", "__v", "createdAt", "updatedAt"].includes(key))
+      .sort()
+      .reduce((acc, key) => {
+        if (typeof plain[key] !== "function" && plain[key] !== undefined) {
+          acc[key] = stripMongoKeys(plain[key]);
+        }
+        return acc;
+      }, {});
+    return isEmptyComparableValue(next) ? null : next;
+  }
+  return value ?? null;
+};
+
+const valuesEqual = (left, right) =>
+  JSON.stringify(stripMongoKeys(left)) === JSON.stringify(stripMongoKeys(right));
+
+const isDateLikeField = (field) =>
+  /date|deadline/i.test(field);
+
+const dateValuesEqual = (left, right) => {
+  const a = parseDate(left);
+  const b = parseDate(right);
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+};
+
+const bodyFieldChanged = (body, job, field) => {
+  if (body[field] === undefined) return false;
+  if (isDateLikeField(field)) return !dateValuesEqual(body[field], job[field]);
+  return !valuesEqual(body[field], job[field]);
+};
+
+const bodyNestedChanged = (body, job, parent, key) =>
+  body[parent]?.[key] !== undefined &&
+  (isDateLikeField(key)
+    ? !dateValuesEqual(body[parent][key], job[parent]?.[key])
+    : !valuesEqual(body[parent][key], job[parent]?.[key]));
+
+const isDateBefore = (left, right) => {
+  const a = parseDate(left);
+  const b = parseDate(right);
+  return Boolean(a && b && a < b);
+};
+
+const isTodayOrAfter = (value) => {
+  const date = startOfDay(value);
+  return Boolean(date && startOfDay(new Date()) >= date);
+};
+
+const enforcePublishedJobEditPolicy = async ({ job, body }) => {
+  if (job.status !== "active") return;
+
+  const applicationCount = await Application.countDocuments({ jobId: job._id });
+  const paths = getBodyPaths(body);
+  const hasApplications = applicationCount > 0;
+  const applicationStarted = isTodayOrAfter(job.applicationStartDate);
+  const admitReleased = isTodayOrAfter(job.admitCardReleaseDate);
+  const admitWindowPublished = await ExamSchedule.exists({
+    jobId: job._id,
+    status: "published",
+  });
+
+  if (
+    applicationStarted &&
+    pathTouched(paths, "applicationStartDate") &&
+    bodyFieldChanged(body, job, "applicationStartDate")
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Application start date cannot be changed after the application window has opened.",
+    );
+  }
+
+  if (!hasApplications) return;
+
+  const blockedAfterApplications = [
+    "projectId",
+    "postCode",
+    "department",
+    "category",
+    "jobType",
+    "totalPosts",
+    "posts",
+    "postSelectionMode",
+    "reservedPosts",
+    "salaryRange",
+    "applicationFee",
+    "ageLimit",
+    "standardPresetId",
+    "education",
+    "experience",
+    "physicalStandards",
+    "medicalStandards",
+    "otherRequirements",
+    "formSections",
+    "documentRequirements",
+  ];
+  const attemptedBlocked = blockedAfterApplications.filter((field) =>
+    pathTouched(paths, field) && bodyFieldChanged(body, job, field),
+  );
+
+  if (attemptedBlocked.length > 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Cannot change ${attemptedBlocked.join(", ")} after candidates have applied. Create an official amendment instead.`,
+    );
+  }
+
+  if (body.paymentConfig) {
+    const allowedPaymentKeys = ["paymentDeadline", "refundPolicy"];
+    const blockedPaymentKeys = Object.keys(body.paymentConfig).filter(
+      (key) =>
+        !allowedPaymentKeys.includes(key) &&
+        bodyNestedChanged(body, job, "paymentConfig", key),
+    );
+    if (blockedPaymentKeys.length > 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Cannot change payment rules (${blockedPaymentKeys.join(", ")}) after candidates have applied.`,
+      );
+    }
+  }
+
+  if (
+    body.applicationDeadline &&
+    isDateBefore(body.applicationDeadline, job.applicationDeadline)
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Application deadline can only be extended after candidates have applied.",
+    );
+  }
+
+  if (
+    body.paymentConfig?.paymentDeadline &&
+    isDateBefore(body.paymentConfig.paymentDeadline, job.paymentConfig?.paymentDeadline)
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Payment deadline can only be extended after candidates have applied.",
+    );
+  }
+
+  if (
+    body.correctionStartDate &&
+    isTodayOrAfter(job.correctionStartDate) &&
+    bodyFieldChanged(body, job, "correctionStartDate")
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Correction start date cannot be changed after the correction window has opened.",
+    );
+  }
+
+  if (
+    body.correctionDeadline &&
+    isDateBefore(body.correctionDeadline, job.correctionDeadline)
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Correction deadline can only be extended after candidates have applied.",
+    );
+  }
+
+  if (
+    (admitReleased || admitWindowPublished) &&
+    ((pathTouched(paths, "examDate") && bodyFieldChanged(body, job, "examDate")) ||
+      (pathTouched(paths, "admitCardReleaseDate") &&
+        bodyFieldChanged(body, job, "admitCardReleaseDate"))) &&
+    !String(body.amendmentReason || "").trim()
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Add an amendment reason before changing admit-card release or exam date after admit cards are published or released.",
+    );
+  }
 };
 
 const withComputedProjectStatus = (jobLike) => {
@@ -370,18 +595,7 @@ const updateJob = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
 
-  // Don't allow updates to published jobs with applications
-  if (job.status === "active") {
-    const applicationCount = await Application.countDocuments({
-      jobId: job._id,
-    });
-    if (applicationCount > 0) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "Cannot update job with existing applications",
-      );
-    }
-  }
+  await enforcePublishedJobEditPolicy({ job, body: req.body });
 
   if (Array.isArray(req.body.posts) && req.body.posts.length > 0) {
     const posts = normalizePosts(req.body.posts);
@@ -417,6 +631,7 @@ const updateJob = asyncHandler(async (req, res) => {
   Object.keys(req.body).forEach((key) => {
     if (
       req.body[key] !== undefined &&
+      key !== "amendmentReason" &&
       key !== "posts" &&
       typeof req.body[key] === "object" &&
       !Array.isArray(req.body[key]) &&
@@ -424,7 +639,7 @@ const updateJob = asyncHandler(async (req, res) => {
       typeof nextJob[key] === "object"
     ) {
       nextJob[key] = { ...nextJob[key], ...req.body[key] };
-    } else if (req.body[key] !== undefined) {
+    } else if (req.body[key] !== undefined && key !== "amendmentReason") {
       nextJob[key] = req.body[key];
     }
   });
@@ -433,7 +648,7 @@ const updateJob = asyncHandler(async (req, res) => {
   }
 
   Object.keys(req.body).forEach((key) => {
-    if (req.body[key] !== undefined) {
+    if (req.body[key] !== undefined && key !== "amendmentReason") {
       // For nested objects (applicationFee, paymentConfig, etc.), merge instead of replace
       if (
         key !== "posts" &&
@@ -453,6 +668,13 @@ const updateJob = asyncHandler(async (req, res) => {
   });
 
   await job.save();
+  await saveAuditLog(
+    req,
+    req.body.amendmentReason
+      ? `Job amendment for "${job.title}": ${String(req.body.amendmentReason).trim()}`
+      : `Updated job: ${job.title}`,
+  );
+
   await job.populate([
     { path: "projectId", select: "name department state" },
     { path: "createdBy", select: "fullName employeeId" },
@@ -523,9 +745,22 @@ const publishJob = asyncHandler(async (req, res) => {
 
   assertJobTimeline(job.toObject(), job.projectId);
 
+  const deadline = endOfDay(job.applicationDeadline);
+  if (deadline && new Date() > deadline) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Cannot publish job. Application deadline has already passed. Update the deadline before publishing.",
+    );
+  }
+
   job.status = "active";
   job.publishedAt = new Date();
   await job.save();
+
+  await saveAuditLog(req, "JOB_PUBLISHED", "Job published successfully", {
+    jobId: job._id,
+    title: job.title,
+  });
 
   await job.populate([
     { path: "projectId", select: "name department state" },
@@ -632,6 +867,7 @@ const deleteJob = asyncHandler(async (req, res) => {
   }
 
   await Job.findByIdAndDelete(req.params.id);
+  await saveAuditLog(req, `Deleted job: ${job.title}`);
 
   await invalidatePublicRecruitmentCache();
 

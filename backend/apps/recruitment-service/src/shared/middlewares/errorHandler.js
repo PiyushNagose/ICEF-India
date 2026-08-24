@@ -22,7 +22,12 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 11000) {
     statusCode = 409;
     const field = Object.keys(err.keyValue)[0];
-    message = `${field} already exists`;
+    if (field === "publicSlug") {
+      message =
+        "A project with this name already exists. Please choose a different project name.";
+    } else {
+      message = `${field} already exists`;
+    }
     errors = [{ field, message }];
   }
 

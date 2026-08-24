@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   Loader2,
@@ -66,6 +66,7 @@ const acceptFromFormats = (formats = []) => {
 const Documents = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const fileInputRefs = useRef({});
 
   useEffect(() => {
@@ -93,7 +94,9 @@ const Documents = () => {
     queryKey: ["application-documents", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   const app = appData?.application || appData;
@@ -127,8 +130,10 @@ const Documents = () => {
           };
         }
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUploadedDocs(map);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appData]);
 
   const handleFileSelect = async (docType, file) => {
@@ -147,13 +152,24 @@ const Documents = () => {
 
     setUploading((prev) => ({ ...prev, [docType]: true }));
     try {
-      await candidateService.uploadDocument(applicationId, docType, file);
+      const uploadResult = await candidateService.uploadDocument(
+        applicationId,
+        docType,
+        file,
+      );
       toast.success(`${docConfig.name} uploaded successfully`);
-      // Refresh to get updated doc list
-      const result = await refetch();
-      const app = result.data?.application || result.data;
+      const uploadedApplication =
+        uploadResult?.application || uploadResult?.data?.application;
+      const result = uploadedApplication ? null : await refetch();
+      const app = uploadedApplication || result?.data?.application || result?.data;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: app,
+      });
+      queryClient.setQueryData(["application-documents", applicationId], {
+        application: app,
+      });
       const docs = app?.documents || [];
-      const map = { ...uploadedDocs };
+      const map = {};
       docs.forEach((doc) => {
         if (doc.status === "uploaded") {
           map[doc.type] = {

@@ -7,9 +7,10 @@ import {
 } from 'recharts'
 import {
   ArrowLeft, TrendingDown, Target, Landmark,
-  AlertTriangle, CheckCircle, ChevronDown, Filter,
+  AlertTriangle, CheckCircle, Filter,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import CustomSelect from '../../components/ui/CustomSelect'
 import { adminService } from '../../services/admin.service'
 
 const fmt = (n) => {
@@ -29,7 +30,7 @@ const STAGE_KEYS = [
 const COLORS = ['#f97316', '#fb923c', '#fdba74', '#fed7aa', '#c2410c']
 
 // Custom tooltip for bar chart
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
@@ -175,35 +176,25 @@ const FunnelAnalysis = () => {
             <div className="flex items-end gap-3 flex-wrap">
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Date Range</p>
-                <div className="relative">
-                  <select
-                    value={dateRange}
-                    onChange={e => setDateRange(e.target.value)}
-                    className="appearance-none border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                  >
-                    {DATE_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <CustomSelect
+                  value={dateRange}
+                  onChange={val => setDateRange(val)}
+                  options={DATE_OPTIONS}
+                  className="w-40 border-gray-200"
+                />
               </div>
 
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Job Category</p>
-                <div className="relative">
-                  <select
-                    value={selectedJob}
-                    onChange={e => setSelectedJob(e.target.value)}
-                    className="appearance-none border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer max-w-[200px]"
-                  >
-                    <option value="">All Categories</option>
-                    {jobs.map(j => (
-                      <option key={j._id} value={j._id}>{j.title}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <CustomSelect
+                  value={selectedJob}
+                  onChange={val => setSelectedJob(val)}
+                  options={[
+                    { value: '', label: 'All Categories' },
+                    ...jobs.map(j => ({ value: j._id, label: j.title }))
+                  ]}
+                  className="w-48 border-gray-200"
+                />
               </div>
 
               <button
@@ -290,15 +281,15 @@ const FunnelAnalysis = () => {
             <div className="flex gap-8 flex-1 flex-wrap">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Inflow</p>
-                <p className="text-3xl font-bold text-gray-900">{fmt(maxVal)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(maxVal)}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Converted</p>
-                <p className="text-3xl font-bold text-orange-600">{fmt(submitted)}</p>
+                <p className="text-2xl font-bold text-orange-600">{fmt(submitted)}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Leakage</p>
-                <p className="text-3xl font-bold text-red-500">{fmt(totalLeakage)}</p>
+                <p className="text-2xl font-bold text-red-500">{fmt(totalLeakage)}</p>
               </div>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 text-center min-w-[160px]">
@@ -306,7 +297,7 @@ const FunnelAnalysis = () => {
                 <Target className="w-4 h-4 text-blue-600" />
                 <p className="text-xs font-semibold text-blue-700 uppercase tracking-normal">Final Conversion</p>
               </div>
-              <p className="text-3xl font-bold text-blue-800">{conversionRate}%</p>
+              <p className="text-2xl font-bold text-blue-800">{conversionRate}%</p>
             </div>
           </div>
           <div className="mt-4">

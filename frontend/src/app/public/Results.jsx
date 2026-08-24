@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,18 +11,10 @@ import {
   PageFrame,
   PageHero,
   StatTile,
+  fadeUp,
   formatDate,
   publicContainer,
 } from "./PublicPageShell";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: "easeOut", delay: i * 0.07 },
-  }),
-};
 
 const Results = () => {
   const { data, isLoading, error } = useQuery({
@@ -30,12 +22,25 @@ const Results = () => {
     queryFn: () =>
       jobService.getPublicJobs({
         limit: 20,
-        sortBy: "examDate",
+        sortBy: "resultDate",
         sortOrder: "desc",
       }),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
-  const jobs = (data?.jobs || []).filter((job) => job.examDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isReleased = (value) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date <= today;
+  };
+  const jobs = (data?.jobs || [])
+    .filter((job) => job.resultDate)
+    .sort((a, b) => new Date(b.resultDate) - new Date(a.resultDate));
+  const releasedCount = jobs.filter((job) => isReleased(job.resultDate)).length;
 
   return (
     <PageFrame>
@@ -46,7 +51,7 @@ const Results = () => {
       >
         <div className="grid grid-cols-2 gap-3">
           <StatTile label="Tracked Jobs" value={jobs.length || "-"} />
-          <StatTile label="Active Jobs" value={data?.pagination?.totalItems ?? "-"} />
+          <StatTile label="Released" value={releasedCount || "-"} />
         </div>
       </PageHero>
 
@@ -58,7 +63,7 @@ const Results = () => {
           <EmptyState
             icon={Award}
             title="No public result updates available"
-            description="No active recruitment records currently have exam schedules/results available for public display."
+            description="No recruitment has an official result publish date available for public display yet."
           />
         )}
 
@@ -74,7 +79,11 @@ const Results = () => {
             >
               <JobListCard
                 job={job}
-                meta={`Exam conducted/scheduled on ${formatDate(job.examDate)}. Use the public status page for application-specific result updates.`}
+                meta={
+                  isReleased(job.resultDate)
+                    ? `Released: ${formatDate(job.resultDate)}. Use your registration number for candidate-specific status.`
+                    : `Scheduled: ${formatDate(job.resultDate)}. Candidate-specific status opens after the official publish date.`
+                }
                 actionLabel="Open Recruitment"
               />
             </motion.div>
@@ -85,16 +94,16 @@ const Results = () => {
           <div className="flex items-start gap-3">
             <BarChart3 className="w-6 h-6 text-orange-600 shrink-0" />
             <div>
-              <h2 className="font-black text-[#1f1d1b]">
+              <h2 className="text-[24px] font-black leading-tight text-[#1f1d1b]">
                 Public result status
               </h2>
-              <p className="mt-1 text-sm text-[#6d6761]">
+              <p className="mt-1 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                 View result status against your submitted applications.
               </p>
             </div>
           </div>
           <Link
-            to="/results"
+            to="/check-status"
             className="inline-flex h-11 items-center justify-center rounded bg-[#e46a1d] px-5 text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16]"
           >
             View My Results
@@ -106,5 +115,3 @@ const Results = () => {
 };
 
 export default Results;
-
-

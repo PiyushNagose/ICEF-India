@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const Project = require("../../shared/models/Project");
 const Job = require("../../shared/models/Job");
 const Application = require("../../shared/models/Application");
+const StateBanner = require("../../shared/models/StateBanner");
 const ApiError = require("../../shared/utils/ApiError");
 const { ApiResponse, paginationMeta } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
@@ -26,6 +27,22 @@ const withProjectLifecycleStatus = (project) => {
     ...plain,
     status: getProjectLifecycleStatus(plain),
   };
+};
+
+const isJobAdvertisementConfigured = (job) => {
+  const posts = Array.isArray(job?.posts) ? job.posts : [];
+  const hasVacancies =
+    Number(job?.totalPosts || 0) > 0 ||
+    posts.some((post) => Number(post?.vacancies || 0) > 0);
+
+  return Boolean(
+    job?.title &&
+      job?.postCode &&
+      job?.department &&
+      hasVacancies &&
+      job?.applicationStartDate &&
+      job?.applicationDeadline,
+  );
 };
 
 /**
@@ -122,8 +139,17 @@ const getProject = asyncHandler(async (req, res) => {
 
   // Get detailed stats
   const jobs = await Job.find({ projectId: project._id })
-    .select("title status totalApplicants applicationDeadline")
+    .select(
+      "title postCode department category status totalPosts posts applicationFee " +
+        "applicationStartDate applicationDeadline paymentConfig createdAt",
+    )
     .sort({ createdAt: -1 });
+  const cmsPage = await StateBanner.findOne({ projectId: project._id })
+    .select("status updatedAt")
+    .lean();
+  const landingComplete = cmsPage?.status === "published";
+  const configuredJobCount = jobs.filter(isJobAdvertisementConfigured).length;
+  const activeJobCount = jobs.filter((job) => job.status === "active").length;
 
   const totalApplications = await Application.countDocuments({
     jobId: { $in: jobs.map((job) => job._id) },
@@ -132,6 +158,42 @@ const getProject = asyncHandler(async (req, res) => {
   const paidApplications = await Application.countDocuments({
     jobId: { $in: jobs.map((job) => job._id) },
     paymentStatus: "paid",
+  });
+
+  const applicationStatsByJob = await Application.aggregate([
+    {
+      $match: {
+        jobId: { $in: jobs.map((job) => job._id) },
+      },
+    },
+    {
+      $group: {
+        _id: "$jobId",
+        totalApplicants: { $sum: 1 },
+        paidApplicants: {
+          $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
+        },
+      },
+    },
+  ]);
+  const applicationStatsMap = new Map(
+    applicationStatsByJob.map((item) => [
+      String(item._id),
+      {
+        totalApplicants: item.totalApplicants || 0,
+        paidApplicants: item.paidApplicants || 0,
+      },
+    ]),
+  );
+  const jobsWithStats = jobs.map((job) => {
+    const stats = applicationStatsMap.get(String(job._id)) || {
+      totalApplicants: 0,
+      paidApplicants: 0,
+    };
+    return {
+      ...job.toObject(),
+      ...stats,
+    };
   });
 
   const revenue = await Application.aggregate([
@@ -151,7 +213,47 @@ const getProject = asyncHandler(async (req, res) => {
 
   const projectStats = {
     ...withProjectLifecycleStatus(project),
-    jobs,
+    jobs: jobsWithStats,
+    cmsStatus: cmsPage?.status || "draft",
+    workflowReadiness: {
+      complete: Boolean(project.isPublished && landingComplete && activeJobCount > 0),
+      checks: [
+        {
+          key: "landing",
+          label: "Landing CMS",
+          complete: landingComplete,
+        },
+        {
+          key: "job",
+          label: "Job Advertisement",
+          complete: configuredJobCount > 0 || activeJobCount > 0,
+        },
+        {
+          key: "admit-format",
+          label: "Admit Format",
+          complete: false,
+          optional: true,
+        },
+        {
+          key: "centers",
+          label: "Centers",
+          complete: false,
+          optional: true,
+        },
+        {
+          key: "review",
+          label: "Final Review",
+          complete: Boolean(landingComplete && (configuredJobCount > 0 || activeJobCount > 0)),
+          optional: true,
+        },
+        {
+          key: "publish",
+          label: "Publish / Verify",
+          complete: Boolean(project.isPublished && activeJobCount > 0),
+          optional: true,
+        },
+      ],
+    },
     totalJobs: jobs.length,
     totalApplicants: totalApplications,
     paidApplicants: paidApplications,
@@ -173,7 +275,7 @@ const getProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const createProject = asyncHandler(async (req, res) => {
-  const { name, description, department, state, startDate, endDate } = req.body;
+  const { name, description, department, state, startDate, endDate, isPublished } = req.body;
   assertProjectTimeline({ startDate, endDate });
 
   const project = await Project.create({
@@ -183,6 +285,7 @@ const createProject = asyncHandler(async (req, res) => {
     state,
     startDate,
     endDate,
+    isPublished: isPublished || false,
     createdBy: req.user.id,
   });
 
@@ -222,7 +325,7 @@ const createProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const updateProject = asyncHandler(async (req, res) => {
-  const { name, description, department, state, status, startDate, endDate } =
+  const { name, description, department, state, status, startDate, endDate, isPublished } =
     req.body;
 
   const project = await Project.findById(req.params.id);
@@ -236,6 +339,22 @@ const updateProject = asyncHandler(async (req, res) => {
     endDate: endDate !== undefined ? endDate : project.endDate,
   });
 
+  if (endDate !== undefined) {
+    const newEndDate = new Date(endDate);
+    const childJobs = await Job.find({ projectId: project._id });
+    for (const j of childJobs) {
+      if (j.resultDate && new Date(j.resultDate) > newEndDate) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" result date.`);
+      }
+      if (j.examDate && new Date(j.examDate) > newEndDate) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" exam date.`);
+      }
+      if (j.applicationDeadline && new Date(j.applicationDeadline) > newEndDate) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" application deadline.`);
+      }
+    }
+  }
+
   // Update fields
   if (name !== undefined) project.name = name;
   if (description !== undefined) project.description = description;
@@ -244,8 +363,10 @@ const updateProject = asyncHandler(async (req, res) => {
   if (status !== undefined) project.status = status;
   if (startDate !== undefined) project.startDate = startDate;
   if (endDate !== undefined) project.endDate = endDate;
+  if (isPublished !== undefined) project.isPublished = isPublished;
 
   await project.save();
+  await saveAuditLog(req, `Updated project: ${project.name}`);
   await project.populate("createdBy", "fullName employeeId");
 
   await invalidatePublicRecruitmentCache();
@@ -298,6 +419,7 @@ const deleteProject = asyncHandler(async (req, res) => {
   }
 
   await Project.findByIdAndDelete(req.params.id);
+  await saveAuditLog(req, `Deleted project: ${project.name}`);
 
   await invalidatePublicRecruitmentCache();
 

@@ -1,21 +1,68 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import Badge from '../../components/ui/Badge'
 import JobStepProgress from './JobStepProgress'
+import CustomSelect from '../../components/ui/CustomSelect'
+import { adminService } from '../../services/admin.service'
+import { saveJobDraftProgress } from '../../utils/jobDraft'
 import { 
   ArrowRight,
   ArrowLeft,
   GraduationCap,
   Calendar,
-  Users,
   Plus,
+  Save,
   X,
   Award,
-  BookOpen
+  BookOpen,
+  Settings
 } from 'lucide-react'
+
+const emptyStandardCriteria = []
+
+const legacyPhysicalCriteria = (standards = {}) =>
+  ['height', 'chest', 'weight']
+    .map((key) => ({
+      label: key.charAt(0).toUpperCase() + key.slice(1),
+      male: standards[key]?.male ? String(standards[key].male) : '',
+      female: standards[key]?.female ? String(standards[key].female) : '',
+      value: '',
+      unit: key === 'weight' ? 'kg' : 'cm',
+      notes: '',
+    }))
+    .filter((item) => item.male || item.female)
+
+const legacyMedicalCriteria = (standards = {}) =>
+  [
+    { label: 'Vision', value: standards.vision || '' },
+    { label: 'Hearing', value: standards.hearing || '' },
+    { label: 'Other', value: standards.other || '' },
+  ]
+    .filter((item) => item.value)
+    .map((item) => ({ male: '', female: '', unit: '', notes: '', ...item }))
+
+const resolvePhysicalCriteria = (standards = {}) =>
+  Array.isArray(standards.criteria) && standards.criteria.length
+    ? standards.criteria
+    : legacyPhysicalCriteria(standards)
+
+const resolveMedicalCriteria = (standards = {}) =>
+  Array.isArray(standards.criteria) && standards.criteria.length
+    ? standards.criteria
+    : legacyMedicalCriteria(standards)
+
+const formatCriterionValue = (item = {}) => {
+  const genderValues = [
+    item.male ? `M: ${item.male}${item.unit ? ` ${item.unit}` : ''}` : '',
+    item.female ? `F: ${item.female}${item.unit ? ` ${item.unit}` : ''}` : '',
+  ].filter(Boolean)
+  const commonValue = item.value ? `${item.value}${item.unit && !genderValues.length ? ` ${item.unit}` : ''}` : ''
+  return [genderValues.join(' / '), commonValue, item.notes].filter(Boolean).join(' | ') || '-'
+}
 
 const JobEligibility = () => {
   const navigate = useNavigate()
@@ -56,19 +103,32 @@ const JobEligibility = () => {
       description: saved.experience?.description || ''
     },
     otherRequirements: saved.otherRequirements || [],
+    standardPresetId: saved.standardPresetId || '',
     physicalStandards: {
       required: saved.physicalStandards?.required || false,
+      criteria: resolvePhysicalCriteria(saved.physicalStandards) || emptyStandardCriteria,
       height: saved.physicalStandards?.height || { male: '', female: '' },
       chest: saved.physicalStandards?.chest || { male: '', female: '' },
       weight: saved.physicalStandards?.weight || { male: '', female: '' }
     },
     medicalStandards: {
       required: saved.medicalStandards?.required || false,
+      criteria: resolveMedicalCriteria(saved.medicalStandards) || emptyStandardCriteria,
       vision: saved.medicalStandards?.vision || '',
       hearing: saved.medicalStandards?.hearing || '',
       other: saved.medicalStandards?.other || ''
     }
   }})
+
+  const { data: standardsData, isLoading: standardsLoading } = useQuery({
+    queryKey: ['admin-standard-presets'],
+    queryFn: () => adminService.getStandardPresets(),
+  })
+  const standardPresets = standardsData?.presets || []
+
+  const selectedPreset = standardPresets.find(
+    (preset) => preset._id === formData.standardPresetId,
+  )
 
   const handleInputChange = (field, value) => {
     if (field.includes('.')) {
@@ -148,29 +208,109 @@ const JobEligibility = () => {
     }))
   }
 
-  const handleNext = () => {
-    const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
-    sessionStorage.setItem('job_draft', JSON.stringify({
-      ...existing,
-      ageLimit: {
-        min: Number(formData.ageLimit.min) || undefined,
-        max: Number(formData.ageLimit.max) || undefined,
-        relaxation: {
-          sc: Number(formData.ageLimit.relaxation.sc) || 0,
-          st: Number(formData.ageLimit.relaxation.st) || 0,
-          obc: Number(formData.ageLimit.relaxation.obc) || 0,
-          pwd: Number(formData.ageLimit.relaxation.pwd) || 0,
-        },
+  const applyStandardPreset = (presetId) => {
+    const preset = standardPresets.find((item) => item._id === presetId)
+    handleInputChange('standardPresetId', presetId)
+    if (!preset) return
+    setFormData((prev) => ({
+      ...prev,
+      standardPresetId: presetId,
+      physicalStandards: {
+        required: Boolean(preset.physicalStandards?.required),
+        criteria: resolvePhysicalCriteria(preset.physicalStandards),
+        height: preset.physicalStandards?.height || { male: '', female: '' },
+        chest: preset.physicalStandards?.chest || { male: '', female: '' },
+        weight: preset.physicalStandards?.weight || { male: '', female: '' },
       },
-      education: {
-        essential: formData.education.essential.filter(e => e.degree),
-        desirable: formData.education.desirable.filter(e => e.degree),
+      medicalStandards: {
+        required: Boolean(preset.medicalStandards?.required),
+        criteria: resolveMedicalCriteria(preset.medicalStandards),
+        vision: preset.medicalStandards?.vision || '',
+        hearing: preset.medicalStandards?.hearing || '',
+        other: preset.medicalStandards?.other || '',
       },
-      experience: formData.experience,
-      physicalStandards: formData.physicalStandards,
-      medicalStandards: formData.medicalStandards,
-      otherRequirements: formData.otherRequirements.filter(r => r.trim()),
     }))
+  }
+
+  const buildDraftPatch = () => ({
+    ageLimit: {
+      min: Number(formData.ageLimit.min) || undefined,
+      max: Number(formData.ageLimit.max) || undefined,
+      relaxation: {
+        sc: Number(formData.ageLimit.relaxation.sc) || 0,
+        st: Number(formData.ageLimit.relaxation.st) || 0,
+        obc: Number(formData.ageLimit.relaxation.obc) || 0,
+        pwd: Number(formData.ageLimit.relaxation.pwd) || 0,
+      },
+    },
+    education: {
+      essential: formData.education.essential.filter(e => e.degree),
+      desirable: formData.education.desirable.filter(e => e.degree),
+    },
+    experience: formData.experience,
+    standardPresetId: formData.standardPresetId,
+    physicalStandards: formData.physicalStandards,
+    medicalStandards: formData.medicalStandards,
+    otherRequirements: formData.otherRequirements.filter(r => r.trim()),
+  })
+
+  const validateCriteria = (standards, label) => {
+    if (!standards.required) return true
+    const criteria = Array.isArray(standards.criteria) ? standards.criteria : []
+    if (!criteria.length) {
+      toast.error(`Add at least one ${label.toLowerCase()} criterion`)
+      return false
+    }
+    const incomplete = criteria.find((criterion) => {
+      const hasName = criterion.label?.trim()
+      const hasValue =
+        criterion.value?.trim() ||
+        criterion.male?.trim() ||
+        criterion.female?.trim()
+      return !hasName || !hasValue
+    })
+    if (incomplete) {
+      toast.error(`${label} criteria need a name and value`)
+      return false
+    }
+    return true
+  }
+
+  const validateStep = () => {
+    const minAge = Number(formData.ageLimit.min)
+    const maxAge = Number(formData.ageLimit.max)
+    if ((formData.ageLimit.min || formData.ageLimit.max) && (!minAge || !maxAge)) {
+      toast.error('Enter both minimum and maximum age')
+      return false
+    }
+    if (minAge && maxAge && maxAge < minAge) {
+      toast.error('Maximum age cannot be less than minimum age')
+      return false
+    }
+    if (formData.experience.required) {
+      if (!Number(formData.experience.years) || Number(formData.experience.years) < 1) {
+        toast.error('Enter required experience years')
+        return false
+      }
+      if (!formData.experience.type?.trim()) {
+        toast.error('Select experience type')
+        return false
+      }
+    }
+    return (
+      validateCriteria(formData.physicalStandards, 'Physical standards') &&
+      validateCriteria(formData.medicalStandards, 'Medical standards')
+    )
+  }
+
+  const handleSaveDraft = () => {
+    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 2 })
+    toast.success('Draft saved.')
+  }
+
+  const handleNext = () => {
+    if (!validateStep()) return
+    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 2 })
     navigate(returnToReview
       ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ''}`
       : `/admin/jobs/create/form-builder${projectId ? `?project=${projectId}` : ''}`)
@@ -484,18 +624,19 @@ const JobEligibility = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Experience Type
                         </label>
-                        <select 
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        <CustomSelect
                           value={formData.experience.type}
-                          onChange={(e) => handleInputChange('experience.type', e.target.value)}
-                        >
-                          <option value="">Select Type</option>
-                          <option value="Teaching">Teaching</option>
-                          <option value="Research">Research</option>
-                          <option value="Industry">Industry</option>
-                          <option value="Government">Government</option>
-                          <option value="Any">Any Relevant</option>
-                        </select>
+                          onChange={(val) => handleInputChange('experience.type', val)}
+                          options={[
+                            { value: '', label: 'Select Type' },
+                            { value: 'Teaching', label: 'Teaching' },
+                            { value: 'Research', label: 'Research' },
+                            { value: 'Industry', label: 'Industry' },
+                            { value: 'Government', label: 'Government' },
+                            { value: 'Any', label: 'Any Relevant' },
+                          ]}
+                          className="w-full border-gray-300"
+                        />
                       </div>
                     </div>
                     <div>
@@ -564,94 +705,86 @@ const JobEligibility = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Physical Standards */}
+            {/* Standards Preset */}
             <Card>
               <CardHeader>
                 <div className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-900">Physical Standards</h3>
+                  <Settings className="w-5 h-5 text-orange-600" />
+                  <h3 className="font-semibold text-gray-900">Standards Preset</h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="physicalRequired"
-                    className="w-4 h-4 text-orange-600 rounded"
-                    checked={formData.physicalStandards.required}
-                    onChange={(e) => handleInputChange('physicalStandards.required', e.target.checked)}
-                  />
-                  <label htmlFor="physicalRequired" className="text-sm font-medium text-gray-700">
-                    Physical Standards Required
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Physical / Medical Standard
                   </label>
+                  <CustomSelect
+                    value={formData.standardPresetId}
+                    onChange={applyStandardPreset}
+                    placeholder={standardsLoading ? 'Loading standards...' : 'Select standard preset'}
+                    options={standardPresets.map((preset) => ({
+                      value: preset._id,
+                      label: preset.name,
+                    }))}
+                  />
                 </div>
 
-                {formData.physicalStandards.required && (
-                  <div className="space-y-4">
+                {!standardsLoading && standardPresets.length === 0 && (
+                  <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 text-sm text-orange-700">
+                    No presets yet. Open Standards Settings to create one.
+                  </div>
+                )}
+
+                {selectedPreset && (
+                  <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Height (cm)
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          placeholder="Male"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          value={formData.physicalStandards.height.male}
-                          onChange={(e) => handleInputChange('physicalStandards.height.male', e.target.value)}
-                        />
-                        <input
-                          type="number"
-                          placeholder="Female"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          value={formData.physicalStandards.height.female}
-                          onChange={(e) => handleInputChange('physicalStandards.height.female', e.target.value)}
-                        />
-                      </div>
+                      <p className="text-xs font-bold uppercase tracking-normal text-gray-400">
+                        Applied Preset
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">{selectedPreset.name}</p>
+                      {selectedPreset.description && (
+                        <p className="mt-1 text-xs leading-5 text-gray-500">{selectedPreset.description}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      {formData.physicalStandards.criteria?.length > 0 && (
+                        <div>
+                          <p className="mb-1 font-bold uppercase tracking-normal text-gray-400">Physical</p>
+                          <div className="space-y-2">
+                            {formData.physicalStandards.criteria.map((item, index) => (
+                              <div key={`${item.label}-${index}`} className="rounded-lg bg-white p-2">
+                                <p className="font-bold text-gray-600">{item.label}</p>
+                                <p className="mt-1 text-gray-900">{formatCriterionValue(item)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {formData.medicalStandards.criteria?.length > 0 && (
+                        <div>
+                          <p className="mb-1 font-bold uppercase tracking-normal text-gray-400">Medical</p>
+                          <div className="space-y-2">
+                            {formData.medicalStandards.criteria.map((item, index) => (
+                              <div key={`${item.label}-${index}`} className="rounded-lg bg-white p-2">
+                                <p className="font-bold text-gray-600">{item.label}</p>
+                                <p className="mt-1 text-gray-900">{formatCriterionValue(item)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Medical Standards */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center space-x-2">
-                  <Award className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-900">Medical Standards</h3>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="medicalRequired"
-                    className="w-4 h-4 text-orange-600 rounded"
-                    checked={formData.medicalStandards.required}
-                    onChange={(e) => handleInputChange('medicalStandards.required', e.target.checked)}
-                  />
-                  <label htmlFor="medicalRequired" className="text-sm font-medium text-gray-700">
-                    Medical Standards Required
-                  </label>
-                </div>
-
-                {formData.medicalStandards.required && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vision Requirements
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 6/6 or 6/9"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        value={formData.medicalStandards.vision}
-                        onChange={(e) => handleInputChange('medicalStandards.vision', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
+                <Button
+                  variant="outline"
+                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                  onClick={() => window.open('/admin/standards-settings', '_blank', 'noopener,noreferrer')}
+                >
+                  Manage Standards Settings
+                </Button>
               </CardContent>
             </Card>
 
@@ -680,13 +813,19 @@ const JobEligibility = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back: Basic Info
           </Button>
-          <Button 
-            onClick={handleNext}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-8"
-          >
-            {returnToReview ? 'Save & Return to Review' : 'Next: Form Builder'}
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button variant="outline" onClick={handleSaveDraft} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+              <Save className="w-4 h-4 mr-2" />
+              Save Draft
+            </Button>
+            <Button
+              onClick={handleNext}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-8"
+            >
+              {returnToReview ? 'Save & Return to Review' : 'Next: Form Builder'}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </div>
       </div>

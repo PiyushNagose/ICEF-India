@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useDebounce } from "../../hooks/useDebounce";
 import toast from "react-hot-toast";
 import {
   Archive,
@@ -21,6 +22,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
+import CustomSelect from "../../components/ui/CustomSelect";
 import Button from "../../components/ui/Button";
 import { adminService } from "../../services/admin.service";
 
@@ -133,19 +135,20 @@ const Applications = () => {
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
   const [exportJobId, setExportJobId] = useState("");
 
   const status = activeTab === "all" ? undefined : activeTab;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-applications", status, search, page],
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["admin-applications", status, debouncedSearch, page],
     queryFn: () =>
       adminService.getApplications({
         status,
         limit: 10,
         page,
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
       }),
   });
 
@@ -321,6 +324,7 @@ const Applications = () => {
         id: "export",
       });
     } catch (error) {
+      console.error(error);
       toast.error("Failed to export applications", {
         id: "export",
       });
@@ -339,6 +343,7 @@ const Applications = () => {
         { id: "repair-manifest" },
       );
     } catch (error) {
+      console.error(error);
       toast.error("Unable to repair manifests", { id: "repair-manifest" });
     }
   };
@@ -378,6 +383,12 @@ const Applications = () => {
 
   const getJobDept = (app) =>
     app.job?.department || app.jobId?.department || null;
+
+  const hasPendingCorrection = (app) =>
+    app.correction?.status === "submitted" ||
+    (app.corrections || []).some((item) =>
+      ["pending", "more_info_needed"].includes(item.status),
+    );
 
   return (
     <AdminLayout title="Applications">
@@ -444,22 +455,18 @@ const Applications = () => {
                 <label className="text-xs font-bold uppercase tracking-normal text-gray-500">
                   Handover Scope
                 </label>
-                <select
+                <CustomSelect
                   value={exportJobId}
-                  onChange={(event) => setExportJobId(event.target.value)}
-                  className="w-full h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                >
-                  <option value="">All jobs / current filters</option>
-                  {Array.isArray(exportJobs) &&
-                    exportJobs.map((job) => (
-                      <option key={job._id || job.id} value={job._id || job.id}>
-                        {job.title || "Untitled Job"}
-                        {job.postCode || job.code
-                          ? ` - ${job.postCode || job.code}`
-                          : ""}
-                      </option>
-                    ))}
-                </select>
+                  onChange={(val) => setExportJobId(val)}
+                  options={[
+                    { value: "", label: "All jobs / current filters" },
+                    ...(Array.isArray(exportJobs) ? exportJobs.map((job) => ({
+                      value: job._id || job.id,
+                      label: `${job.title || "Untitled Job"}${job.postCode || job.code ? ` - ${job.postCode || job.code}` : ""}`
+                    })) : [])
+                  ]}
+                  className="w-full border-gray-200"
+                />
                 <p className="text-xs leading-5 text-gray-500">
                   {selectedExportJob
                     ? `Exports will include only candidates for ${selectedExportJob.title || "the selected job"}.`
@@ -561,10 +568,15 @@ const Applications = () => {
               <input
                 type="text"
                 placeholder="Search name, email, mobile, registration, or application ID..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
+                className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
               />
+              {isFetching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -711,7 +723,15 @@ const Applications = () => {
 
                       {/* Status */}
                       <td className="py-4 px-4 text-center">
-                        <StatusBadge status={app.status} />
+                        <div className="flex flex-col items-center gap-1.5">
+                          <StatusBadge status={app.status} />
+                          {hasPendingCorrection(app) && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-700">
+                              <AlertCircle className="h-3 w-3" />
+                              Correction Pending
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Payment */}

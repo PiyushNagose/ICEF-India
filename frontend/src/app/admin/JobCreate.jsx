@@ -1,14 +1,31 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import { JOB_DRAFT_STORAGE_KEY, readJobDraft, getJobDraftResumePath } from '../../utils/jobDraft'
 
 const JobCreate = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   
   useEffect(() => {
-    // Redirect to basic info step with project parameter
     const projectId = searchParams.get('project')
+    const mode = searchParams.get('mode')
+    const draft = readJobDraft()
+
+    if (mode === 'new') {
+      sessionStorage.removeItem(JOB_DRAFT_STORAGE_KEY)
+      sessionStorage.setItem(
+        JOB_DRAFT_STORAGE_KEY,
+        JSON.stringify({ projectId }),
+      )
+      navigate(`/admin/jobs/create/basic-info${projectId ? `?project=${projectId}` : ''}`, { replace: true })
+      return
+    }
+
+    if (draft?.projectId && (draft._jobId || draft.title || draft.postCode || draft.department)) {
+      navigate(getJobDraftResumePath(draft), { replace: true })
+      return
+    }
     navigate(`/admin/jobs/create/basic-info${projectId ? `?project=${projectId}` : ''}`, { replace: true })
   }, [navigate, searchParams])
 

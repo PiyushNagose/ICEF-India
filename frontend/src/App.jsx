@@ -136,7 +136,7 @@ const GlobalNavigationLoader = () => {
     if (isLoading) {
       stopLoadingSoon()
     }
-  }, [location.pathname, location.search, location.hash])
+  }, [location, location.pathname, location.search, location.hash, isLoading])
 
   return isLoading ? <GlobalPageLoader overlay /> : null
 }

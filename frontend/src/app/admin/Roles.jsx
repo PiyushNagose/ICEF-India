@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Shield, Edit, Trash2, Eye, Users, Activity, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
+import { Plus, Shield, Edit, Trash2, Eye, Users, Activity, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { adminService } from '../../services/admin.service'
-import { hasPermission, useAuth } from '../../hooks/useAuth'
+import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
+import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 
 // Role type badge config
 const ROLE_TYPE = {
@@ -61,6 +62,7 @@ const Roles = () => {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [page, setPage] = useState(1)
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, role: null })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-roles'],
@@ -78,7 +80,14 @@ const Roles = () => {
 
   const handleDelete = (role) => {
     if (role.isSystemRole) { toast.error('System roles cannot be deleted'); return }
-    if (window.confirm(`Delete role "${role.roleName}"?`)) deleteRole(role._id)
+    setDeleteModal({ isOpen: true, role })
+  }
+
+  const confirmDelete = () => {
+    if (deleteModal.role) {
+      deleteRole(deleteModal.role._id)
+      setDeleteModal({ isOpen: false, role: null })
+    }
   }
 
   const roles      = [...(data?.roles || [])].sort((a, b) => {
@@ -312,6 +321,15 @@ const Roles = () => {
         </div>
 
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, role: null })}
+        onConfirm={confirmDelete}
+        title="Delete Role"
+        message={`Are you sure you want to permanently delete the role "${deleteModal.role?.roleName}"? All users with this role will lose its permissions.`}
+        requireType={isSuperAdminUser(user)}
+      />
     </AdminLayout>
   )
 }

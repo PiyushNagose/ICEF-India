@@ -95,6 +95,7 @@ const EmployeeActivityDetails = () => {
   const meta       = data?.meta || {}
   const totalPages = meta.totalPages || 1
   const totalItems = meta.total || logs.length
+  const [renderedAt] = useState(() => Date.now())
 
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i))
@@ -108,7 +109,7 @@ const EmployeeActivityDetails = () => {
   const lastLog      = logs[0]
   const lastActivity = lastLog?.createdAt
     ? (() => {
-        const diff = Math.floor((Date.now() - new Date(lastLog.createdAt)) / 60000)
+        const diff = Math.floor((renderedAt - new Date(lastLog.createdAt)) / 60000)
         if (diff < 60) return `${diff} mins ago`
         if (diff < 1440) return `${Math.floor(diff / 60)} hrs ago`
         return `${Math.floor(diff / 1440)} days ago`

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Share2, X, Copy, Check, MessageCircle, Mail, Twitter, Linkedin } from 'lucide-react'
 

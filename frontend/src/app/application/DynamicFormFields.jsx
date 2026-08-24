@@ -1,11 +1,13 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, ArrowRight } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import {
   buildApplicationSteps,
@@ -98,6 +100,7 @@ const DynamicFormFields = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const draft = readApplicationDraft();
   const applicationId = location.state?.applicationId || draft.applicationId;
   const [formData, setFormData] = useState({});
@@ -117,7 +120,9 @@ const DynamicFormFields = () => {
     queryKey: ["application-dynamic-form", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   const app = appData?.application || appData;
@@ -143,6 +148,7 @@ const DynamicFormFields = () => {
         applicationId: app._id,
         jobId: app.jobId?._id || app.jobId,
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(app.formResponses || {});
       setLoadedForApp(app._id);
     }
@@ -163,8 +169,15 @@ const DynamicFormFields = () => {
       candidateService.saveDynamicFormResponses(applicationId, data, {
         sectionIndex,
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Form responses saved");
+      const latestApplication = result?.application || result || app;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-dynamic-form", applicationId], {
+        application: latestApplication,
+      });
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else if (nextStep) {
@@ -323,18 +336,13 @@ export const renderField = (section, field, formData, errors, onChange) => {
     return (
       <>
         {label}
-        <select
+        <CustomSelect
           value={value}
-          onChange={(e) => onChange(section, field, e.target.value)}
+          onChange={(next) => onChange(section, field, next)}
+          options={INDIA_STATES}
+          placeholder="Select State"
           className={inputClass}
-        >
-          <option value="">Select State</option>
-          {INDIA_STATES.map((state) => (
-            <option key={state} value={state}>
-              {state}
-            </option>
-          ))}
-        </select>
+        />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </>
     );
@@ -346,21 +354,14 @@ export const renderField = (section, field, formData, errors, onChange) => {
     return (
       <>
         {label}
-        <select
+        <CustomSelect
           value={value}
-          onChange={(e) => onChange(section, field, e.target.value)}
+          onChange={(next) => onChange(section, field, next)}
+          options={cities}
+          placeholder={selectedState ? "Select City" : "Select state first"}
           className={inputClass}
           disabled={!selectedState}
-        >
-          <option value="">
-            {selectedState ? "Select City" : "Select state first"}
-          </option>
-          {cities.map((city) => (
-            <option key={city} value={city}>
-              {city}
-            </option>
-          ))}
-        </select>
+        />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </>
     );
@@ -385,18 +386,13 @@ export const renderField = (section, field, formData, errors, onChange) => {
       return (
         <>
           {label}
-          <select
+          <CustomSelect
             value={value}
-            onChange={(e) => onChange(section, field, e.target.value)}
+            onChange={(next) => onChange(section, field, next)}
+            options={field.options || []}
+            placeholder={`Select ${field.label}`}
             className={inputClass}
-          >
-            <option value="">Select {field.label}</option>
-            {(field.options || []).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          />
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </>
       );
@@ -448,6 +444,11 @@ export const renderField = (section, field, formData, errors, onChange) => {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             This file should be configured under job document requirements so it
             can be uploaded and verified securely.
+            {field.validation?.maxSizeKB ? (
+              <div className="mt-1 text-xs text-amber-700">
+                Max size: {field.validation.maxSizeKB} KB
+              </div>
+            ) : null}
           </div>
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </>

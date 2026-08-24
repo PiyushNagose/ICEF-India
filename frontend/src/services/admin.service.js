@@ -457,8 +457,8 @@ export const adminService = {
     const response = await apiClient.get(`/admin/cms/activity?limit=${limit}`);
     return unwrapData(response);
   },
-  async getCmsPage(state) {
-    const response = await apiClient.get(`/admin/cms/${encodeURIComponent(state)}`);
+  async getCmsPage(state, params = {}) {
+    const response = await apiClient.get(`/admin/cms/${encodeURIComponent(state)}`, { params });
     return unwrapData(response);
   },
   async uploadCmsBannerImage(file) {
@@ -473,16 +473,16 @@ export const adminService = {
     const response = await apiClient.post("/admin/cms", data);
     return unwrapData(response);
   },
-  async updateCmsPage(state, data) {
-    const response = await apiClient.put(`/admin/cms/${encodeURIComponent(state)}`, data);
+  async updateCmsPage(state, data, params = {}) {
+    const response = await apiClient.put(`/admin/cms/${encodeURIComponent(state)}`, data, { params });
     return unwrapData(response);
   },
-  async publishCmsPage(state) {
-    const response = await apiClient.put(`/admin/cms/${encodeURIComponent(state)}/publish`);
+  async publishCmsPage(state, params = {}) {
+    const response = await apiClient.put(`/admin/cms/${encodeURIComponent(state)}/publish`, {}, { params });
     return unwrapData(response);
   },
-  async deleteCmsPage(state) {
-    const response = await apiClient.delete(`/admin/cms/${encodeURIComponent(state)}`);
+  async deleteCmsPage(state, params = {}) {
+    const response = await apiClient.delete(`/admin/cms/${encodeURIComponent(state)}`, { params });
     return unwrapData(response);
   },
 
@@ -496,5 +496,21 @@ export const adminService = {
     const response = await apiClient.get(`/admin/activity-logs/employee/${employeeId}`, { params });
     // response.data = { logs, stats }
     return { logs: response?.data?.logs ?? [], stats: response?.data?.stats ?? [], meta: response?.meta ?? {} };
+  },
+  async getStandardPresets(params = {}) {
+    const response = await apiClient.get("/admin/standard-presets", { params });
+    return unwrapData(response);
+  },
+  async createStandardPreset(data) {
+    const response = await apiClient.post("/admin/standard-presets", data);
+    return unwrapData(response);
+  },
+  async updateStandardPreset(id, data) {
+    const response = await apiClient.put(`/admin/standard-presets/${id}`, data);
+    return unwrapData(response);
+  },
+  async deleteStandardPreset(id) {
+    const response = await apiClient.delete(`/admin/standard-presets/${id}`);
+    return unwrapData(response);
   },
 };

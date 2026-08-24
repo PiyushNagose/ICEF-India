@@ -12,7 +12,7 @@ const Project = require("../models/Project");
 const ApiError = require("../utils/ApiError");
 const { getPaginationParams } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
-const { assertJobTimeline, parseDate } = require("../utils/timeline");
+const { assertJobTimeline, parseDate, startOfDay } = require("../utils/timeline");
 const {
   emitToAdmins,
   emitBroadcast,
@@ -47,12 +47,55 @@ const emitExamRealtime = (event, payload = {}, options = {}) => {
 };
 
 const assertEditableSchedule = (schedule) => {
-  if (["locked", "published"].includes(schedule.status)) {
+  if (schedule.status === "published") {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Locked or published exam schedules cannot be edited",
+      "Unpublish admit cards before changing date, timing, centers, rooms, or instructions for this schedule.",
     );
   }
+};
+
+const OPERATIONAL_SCHEDULE_FIELDS = [
+  "jobId",
+  "examName",
+  "examCode",
+  "advertisementNo",
+  "shiftName",
+  "examDate",
+  "reportingTime",
+  "gateClosingTime",
+  "examStartTime",
+  "examEndTime",
+  "selectedCenterIds",
+  "papers",
+  "instructions",
+  "provisionalNote",
+];
+
+const scheduleOperationalFieldsTouched = (data = {}) =>
+  OPERATIONAL_SCHEDULE_FIELDS.some((field) => data[field] !== undefined);
+
+const clearGeneratedScheduleState = async (schedule, data = {}) => {
+  if (!["allocation_ready", "allocated", "locked"].includes(schedule.status)) return;
+  if (!scheduleOperationalFieldsTouched(data)) return;
+
+  await Promise.all([
+    CandidateAllocation.deleteMany({ examScheduleId: schedule._id }),
+    AdmitCard.deleteMany({
+      examScheduleId: schedule._id,
+      status: { $ne: "published" },
+    }),
+  ]);
+
+  schedule.status = "draft";
+  schedule.lockedAt = undefined;
+  schedule.lockedBy = undefined;
+  schedule.allocationSummary = {
+    eligibleCandidates: 0,
+    allocatedCandidates: 0,
+    unallocatedCandidates: 0,
+    totalCapacity: 0,
+  };
 };
 
 const assertAllocatableSchedule = (schedule) => {
@@ -181,6 +224,46 @@ const assertScheduleCenterConflicts = async (
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       `Selected center already has overlapping exam schedule: ${conflict.examName} (${conflict.examCode})`,
+    );
+  }
+};
+
+const assertSameJobScheduleConflicts = async (
+  scheduleLike,
+  excludeId = null,
+) => {
+  const window = getScheduleWindow(scheduleLike);
+  if (!window) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Enter a valid exam start/end time",
+    );
+  }
+
+  const filter = {
+    jobId: scheduleLike.jobId,
+    examDate: {
+      $gte: new Date(new Date(scheduleLike.examDate).setHours(0, 0, 0, 0)),
+      $lte: new Date(new Date(scheduleLike.examDate).setHours(23, 59, 59, 999)),
+    },
+    status: { $ne: "cancelled" },
+  };
+  if (excludeId) filter._id = { $ne: excludeId };
+
+  const schedules = await ExamSchedule.find(filter).select(
+    "examName examCode examDate examStartTime examEndTime status",
+  );
+
+  const conflict = schedules.find(
+    (item) =>
+      sameExamDate(item.examDate, scheduleLike.examDate) &&
+      hasOverlap(window, getScheduleWindow(item)),
+  );
+
+  if (conflict) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `This job already has an overlapping schedule: ${conflict.examName} (${conflict.examCode})`,
     );
   }
 };
@@ -500,6 +583,7 @@ const createSchedule = async (data, userId) => {
     project = await Project.findById(job.projectId);
   }
   assertJobTimeline({ ...job.toObject(), examDate: data.examDate }, project);
+  await assertSameJobScheduleConflicts(data);
   await assertScheduleCenterConflicts(data);
 
   const schedule = await ExamSchedule.create({
@@ -553,6 +637,10 @@ const updateSchedule = async (id, data, userId) => {
     { ...job.toObject(), examDate: data.examDate || schedule.examDate },
     project,
   );
+  await assertSameJobScheduleConflicts(
+    { ...schedule.toObject(), ...data },
+    schedule._id,
+  );
   await assertScheduleCenterConflicts(
     { ...schedule.toObject(), ...data },
     schedule._id,
@@ -560,6 +648,7 @@ const updateSchedule = async (id, data, userId) => {
   if (data.examCode) data.examCode = normalizeCode(data.examCode);
   if (data.examDate) data.examDate = new Date(data.examDate);
 
+  await clearGeneratedScheduleState(schedule, data);
   Object.assign(schedule, data, { updatedBy: userId });
   await schedule.save();
   return getSchedule(schedule._id);
@@ -796,8 +885,22 @@ const getAdmitCardPopulate = () => [
   },
 ];
 
+const formatOfficialDate = (value) => {
+  const date = parseDate(value);
+  if (!date) return "";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const isAdmitCardReleased = (admitCard) => {
-  return admitCard?.examScheduleId?.status === "published";
+  if (admitCard?.examScheduleId?.status !== "published") return false;
+  const releaseDate = admitCard.examScheduleId?.jobId?.admitCardReleaseDate;
+  const releaseDay = startOfDay(releaseDate);
+  if (!releaseDay) return true;
+  return startOfDay(new Date()) >= releaseDay;
 };
 
 const normalizeMobile = (value) =>
@@ -876,6 +979,15 @@ const findPublishedScheduleForApplication = async (application) => {
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Admit card is not released yet");
   }
+
+  const releaseDay = startOfDay(schedule.jobId?.admitCardReleaseDate);
+  if (releaseDay && startOfDay(new Date()) < releaseDay) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Admit card download opens on ${formatOfficialDate(releaseDay)}`,
+    );
+  }
+
   return schedule;
 };
 

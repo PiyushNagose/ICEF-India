@@ -38,6 +38,9 @@ const {
   buildApplicationStoragePath,
 } = require("../../shared/services/fileStorage.service");
 
+const APPLICATION_JOB_POPULATE_FIELDS =
+  "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig";
+
 // ── Helpers ───────────────────────────────────────────────────
 
 const emitStepSaved = (candidateId, applicationId, currentStep, extra = {}) => {
@@ -354,19 +357,6 @@ const createApplication = asyncHandler(async (req, res) => {
     "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
   );
 
-  try {
-    emitToAdmins(SOCKET_EVENTS.APPLICATION_NEW, {
-      type: "application_started",
-      message: `New application started: ${application.applicationId}`,
-      application: {
-        _id: application._id,
-        applicationId: application.applicationId,
-        jobTitle: job.title,
-      },
-      timestamp: new Date(),
-    });
-  } catch (_) {}
-
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(StatusCodes.CREATED, "Application created", {
       application,
@@ -498,6 +488,19 @@ const getOwnDraftApplication = async (id, candidateId) => {
  */
 const updatePersonalDetails = asyncHandler(async (req, res) => {
   const app = await getOwnDraftApplication(req.params.id, req.user.id);
+  const existingCategory = app.personalDetails?.category;
+  const nextCategory = req.body.category;
+  if (
+    app.paymentStatus === "paid" &&
+    existingCategory &&
+    nextCategory &&
+    String(existingCategory).toLowerCase() !== String(nextCategory).toLowerCase()
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Category cannot be changed after payment is completed",
+    );
+  }
   app.personalDetails = {
     ...(app.personalDetails?.toObject?.() || {}),
     ...req.body,
@@ -511,10 +514,7 @@ const updatePersonalDetails = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, 2);
   app.lastSavedAt = new Date();
   await app.save();
-  await app.populate(
-    "jobId",
-    "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
-  );
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
   emitStepSaved(req.user.id, app._id, app.currentStep);
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Personal details saved", {
@@ -538,11 +538,11 @@ const updateEducation = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, 3);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
   emitStepSaved(req.user.id, app._id, app.currentStep);
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Education details saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
+      application: app,
     }),
   );
 });
@@ -565,11 +565,11 @@ const updateAdditionalInfo = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, 4);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
   emitStepSaved(req.user.id, app._id, app.currentStep);
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Additional info saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
+      application: app,
     }),
   );
 });
@@ -589,11 +589,11 @@ const updateAddress = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, 5);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
   emitStepSaved(req.user.id, app._id, app.currentStep);
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Address saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
+      application: app,
     }),
   );
 });
@@ -785,13 +785,13 @@ const updateFormResponses = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, nextStepAfterCurrentSection);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
 
   emitStepSaved(req.user.id, app._id, app.currentStep);
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Form responses saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
+      application: app,
     }),
   );
 });
@@ -973,6 +973,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
   applyFileStorageMetadata(app, { job: app.jobId });
 
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
 
   emitStepSaved(req.user.id, app._id, app.currentStep, {
     documentType: docType,
@@ -983,6 +984,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
       document: docData,
       currentStep: app.currentStep,
       documentStatus: app.documentStatus,
+      application: app,
     }),
   );
 });
@@ -1121,15 +1123,13 @@ const updatePostSelection = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, postSelectionStepNum);
   app.lastSavedAt = new Date();
   await app.save();
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
 
   emitStepSaved(req.user.id, app._id, app.currentStep, { totalFee });
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Post selection saved", {
-      _id: app._id,
-      currentStep: app.currentStep,
-      appliedPosts: app.appliedPosts,
-      totalFee: app.totalFee,
+      application: app,
     }),
   );
 });
@@ -1197,22 +1197,9 @@ const submitApplication = asyncHandler(async (req, res) => {
   app.currentStep = Math.max(app.currentStep, reviewStepNum);
   app.lastSavedAt = new Date();
   await app.save();
-
-  const candidate = await User.findById(req.user.id).select("fullName email");
+  await app.populate("jobId", APPLICATION_JOB_POPULATE_FIELDS);
 
   try {
-    emitToAdmins(SOCKET_EVENTS.APPLICATION_SUBMITTED, {
-      type: "application_submitted",
-      message: `Application submitted: ${app.applicationId}`,
-      application: {
-        _id: app._id,
-        applicationId: app.applicationId,
-        candidateName: candidate?.fullName,
-        jobTitle: app.jobId.title,
-      },
-      timestamp: new Date(),
-    });
-
     emitToCandidate(req.user.id, SOCKET_EVENTS.APPLICATION_SUBMITTED, {
       type: "submitted",
       message: "Your application has been submitted successfully!",
@@ -1226,11 +1213,8 @@ const submitApplication = asyncHandler(async (req, res) => {
   } catch (_) {}
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "Application submitted successfully", {
-      _id: app._id,
-      applicationId: app.applicationId,
-      status: app.status,
-      submittedAt: app.submittedAt,
+    new ApiResponse(StatusCodes.OK, "Review saved", {
+      application: app,
     }),
   );
 });
@@ -1289,8 +1273,6 @@ const finalizeApplication = asyncHandler(async (req, res) => {
 
   await app.save();
 
-  const candidate = await User.findById(req.user.id).select("fullName email");
-
   // Notify candidate — payment success
   await notify({
     recipientId: req.user.id,
@@ -1314,28 +1296,9 @@ const finalizeApplication = asyncHandler(async (req, res) => {
     metadata: { applicationId: app.applicationId },
   });
 
-  // Notify all admins — new application received
-  notifyAdmins({
-    type: "application_submitted",
-    title: "New Application Received",
-    message: `${candidate?.fullName || "A candidate"} submitted application ${app.applicationId} for "${app.jobId?.title || "a job"}".`,
-    link: `/admin/applications/${app._id}`,
-    metadata: { applicationId: app.applicationId },
-  });
+  // (Removed) Notify all admins — new application received (Too much overhead)
 
   try {
-    emitToAdmins(SOCKET_EVENTS.APPLICATION_SUBMITTED, {
-      type: "application_submitted",
-      message: `Application submitted: ${app.applicationId}`,
-      application: {
-        _id: app._id,
-        applicationId: app.applicationId,
-        candidateName: candidate?.fullName,
-        jobTitle: app.jobId?.title,
-      },
-      timestamp: new Date(),
-    });
-
     emitToCandidate(req.user.id, SOCKET_EVENTS.APPLICATION_SUBMITTED, {
       type: "submitted",
       message: "Your application has been submitted successfully!",
@@ -1526,6 +1489,10 @@ const previewDocument = asyncHandler(async (req, res) => {
   return Readable.fromWeb(response.body).pipe(res);
 });
 
+const downloadApplicationReceiptPdf = asyncHandler(async (req, res) => {
+  res.status(501).send("Not implemented");
+});
+
 module.exports = {
   createApplication,
   getMyApplications,
@@ -1541,4 +1508,5 @@ module.exports = {
   submitApplication,
   finalizeApplication,
   submitCorrection,
+  downloadApplicationReceiptPdf,
 };

@@ -122,13 +122,6 @@ const submitApplication = async (applicationId, candidateId, declaration) => {
     $inc: { totalApplicants: 1 },
   });
 
-  // Notify admin in real-time
-  emitToAdmins(SOCKET_EVENTS.APPLICATION_NEW, {
-    applicationId: application.applicationId,
-    candidateId,
-    jobTitle: application.jobId?.title,
-  });
-
   // Queue confirmation email
   const candidate = await User.findById(candidateId).select("email fullName");
   await publishToQueue(QUEUES.EMAIL, {

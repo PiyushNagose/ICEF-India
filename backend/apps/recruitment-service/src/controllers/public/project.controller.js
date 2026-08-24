@@ -1,11 +1,16 @@
 const { StatusCodes } = require("http-status-codes");
 const Project = require("../../shared/models/Project");
 const Job = require("../../shared/models/Job");
+const StateBanner = require("../../shared/models/StateBanner");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const ApiError = require("../../shared/utils/ApiError");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const { getRedis } = require("../../shared/config/redis");
-const { getProjectLifecycleStatus } = require("../../shared/utils/timeline");
+const {
+  getProjectLifecycleStatus,
+  startOfDay,
+  endOfDay,
+} = require("../../shared/utils/timeline");
 
 const CACHE_TTL = 10; // keep public pages fresh after admin publishing changes
 const PUBLIC_JOB_FILTER = { status: "active" };
@@ -16,7 +21,7 @@ const getVisibleJobFilter = (now = new Date()) => ({
   $or: [
     { applicationDeadline: { $exists: false } },
     { applicationDeadline: null },
-    { applicationDeadline: { $gte: now } },
+    { applicationDeadline: { $gte: startOfDay(now) } },
   ],
 });
 
@@ -40,12 +45,10 @@ const safeCacheSet = async (redis, key, ttl, payload) => {
 };
 
 const buildAvailability = (job, now = new Date()) => {
-  const start = job.applicationStartDate
-    ? new Date(job.applicationStartDate)
-    : null;
-  const deadline = job.applicationDeadline
-    ? new Date(job.applicationDeadline)
-    : null;
+  const currentDay = startOfDay(now);
+  const start = startOfDay(job.applicationStartDate);
+  const deadline = endOfDay(job.applicationDeadline);
+  const deadlineDay = startOfDay(job.applicationDeadline);
 
   if (job.status !== "active") {
     return {
@@ -56,14 +59,16 @@ const buildAvailability = (job, now = new Date()) => {
       daysLeft: null,
     };
   }
-  if (start && now < start) {
+  if (start && currentDay < start) {
     return {
       status: "not_open",
       label: "Not Open Yet",
       canApply: false,
       reason: "Application window has not opened yet.",
-      daysUntilOpen: Math.max(0, Math.ceil((start - now) / MS_PER_DAY)),
-      daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+      daysUntilOpen: Math.max(0, Math.ceil((start - currentDay) / MS_PER_DAY)),
+      daysLeft: deadlineDay
+        ? Math.max(0, Math.ceil((deadlineDay - currentDay) / MS_PER_DAY) + 1)
+        : null,
     };
   }
   if (deadline && now > deadline) {
@@ -80,7 +85,9 @@ const buildAvailability = (job, now = new Date()) => {
     label: "Open",
     canApply: true,
     reason: "Applications are open.",
-    daysLeft: deadline ? Math.ceil((deadline - now) / MS_PER_DAY) : null,
+    daysLeft: deadlineDay
+      ? Math.max(0, Math.ceil((deadlineDay - currentDay) / MS_PER_DAY) + 1)
+      : null,
   };
 };
 
@@ -99,7 +106,11 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
     return res.status(StatusCodes.OK).json(JSON.parse(cached));
   }
 
-  const project = await Project.findOne({ publicSlug: slug })
+  const project = await Project.findOne({
+    publicSlug: slug,
+    isPublished: true,
+    status: { $ne: "Cancelled" },
+  })
     .select("-createdBy -__v")
     .lean();
 
@@ -112,33 +123,41 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
       "title postCode department category totalPosts posts salaryRange " +
         "applicationFee applicationStartDate applicationDeadline correctionStartDate " +
         "correctionDeadline admitCardReleaseDate examDate resultDate ageLimit " +
-        "education physicalStandards description status",
+        "education physicalStandards medicalStandards description status",
     )
     .sort({ createdAt: 1 })
     .lean();
 
   const now = new Date();
   const enrichedJobs = jobs.map((job) => {
-    const availability = buildAvailability(job, now);
-    return {
-      ...job,
-      availability,
-      isApplicationOpen: availability.canApply,
-      daysLeft: availability.daysLeft,
-      isCorrectionOpen:
-        job.correctionStartDate &&
-        job.correctionDeadline &&
-        job.correctionStartDate <= now &&
-        job.correctionDeadline >= now,
-      isAdmitCardAvailable:
-        job.admitCardReleaseDate && job.admitCardReleaseDate <= now,
-    };
-  });
+      const availability = buildAvailability(job, now);
+      return {
+        ...job,
+        availability,
+        isApplicationOpen: availability.canApply,
+        daysLeft: availability.daysLeft,
+        isCorrectionOpen:
+          job.correctionStartDate &&
+          job.correctionDeadline &&
+          startOfDay(job.correctionStartDate) <= startOfDay(now) &&
+          endOfDay(job.correctionDeadline) >= now,
+        isAdmitCardAvailable:
+          job.admitCardReleaseDate &&
+          startOfDay(job.admitCardReleaseDate) <= startOfDay(now),
+      };
+    });
+
+  const cmsPage = await StateBanner.findOne({
+    projectId: project._id,
+    status: "published",
+  })
+    .populate("featuredJobs", "title postCode department totalPosts applicationDeadline applicationFee status")
+    .lean();
 
   const payload = new ApiResponse(
     StatusCodes.OK,
     "Project fetched successfully",
-    { project, jobs: enrichedJobs },
+    { project, jobs: enrichedJobs, cmsPage },
   );
 
   // Cache the response
@@ -161,7 +180,7 @@ const getActiveProjects = asyncHandler(async (req, res) => {
     return res.status(StatusCodes.OK).json(JSON.parse(cached));
   }
 
-  const filter = { status: { $ne: "Cancelled" } };
+  const filter = { status: { $ne: "Cancelled" }, isPublished: true };
   if (state) filter.state = new RegExp(state, "i");
   if (department) filter.department = new RegExp(department, "i");
   if (search) {

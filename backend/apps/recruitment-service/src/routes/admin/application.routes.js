@@ -67,6 +67,11 @@ router.put(
   auditLog("Applications", "UPDATE"),
   applicationController.verifyDocument,
 );
+router.get(
+  "/:id/documents/:documentId/preview",
+  checkPermission("applications", "view"),
+  applicationController.previewDocument,
+);
 router.put(
   "/:id/documents/:documentId/reject",
   checkPermission("applications", "edit"),

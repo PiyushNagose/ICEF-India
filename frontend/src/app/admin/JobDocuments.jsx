@@ -34,7 +34,7 @@ const JobDocuments = () => {
         name: doc.name,
         required: doc.required,
         formats: doc.formats || [],
-        maxSize: doc.maxSizeKB ? `${Math.round(doc.maxSizeKB / 1024)}MB` : '5MB',
+        maxSizeKB: doc.maxSizeKB || 5120,
         description: doc.description || '',
       }))
     }
@@ -44,7 +44,7 @@ const JobDocuments = () => {
       name: 'Resume/CV',
       required: true,
       formats: ['PDF', 'DOC', 'DOCX'],
-      maxSize: '5MB',
+      maxSizeKB: 5120,
       description: 'Upload your latest resume or curriculum vitae'
     },
     {
@@ -52,7 +52,7 @@ const JobDocuments = () => {
       name: 'Educational Certificates',
       required: true,
       formats: ['PDF', 'JPG', 'PNG'],
-      maxSize: '10MB',
+      maxSizeKB: 10240,
       description: 'Upload all educational qualification certificates'
     },
     {
@@ -60,7 +60,7 @@ const JobDocuments = () => {
       name: 'Experience Letters',
       required: false,
       formats: ['PDF', 'DOC', 'DOCX'],
-      maxSize: '5MB',
+      maxSizeKB: 5120,
       description: 'Upload experience/service letters from previous employers'
     },
     {
@@ -68,7 +68,7 @@ const JobDocuments = () => {
       name: 'Identity Proof',
       required: true,
       formats: ['PDF', 'JPG', 'PNG'],
-      maxSize: '2MB',
+      maxSizeKB: 2048,
       description: 'Upload government issued identity proof (Aadhar, PAN, etc.)'
     }
     ]
@@ -78,7 +78,7 @@ const JobDocuments = () => {
     name: '',
     required: false,
     formats: [],
-    maxSize: '5MB',
+    maxSizeKB: 5120,
     description: ''
   })
 
@@ -94,7 +94,7 @@ const JobDocuments = () => {
         name: '',
         required: false,
         formats: [],
-        maxSize: '5MB',
+        maxSizeKB: 5120,
         description: ''
       })
       setShowAddForm(false)
@@ -109,12 +109,12 @@ const JobDocuments = () => {
     const existing = JSON.parse(sessionStorage.getItem('job_draft') || '{}')
     sessionStorage.setItem('job_draft', JSON.stringify({
       ...existing,
-      documentRequirements: documents.map(({ id: _id, ...doc }) => ({
+      documentRequirements: documents.map((doc) => ({
         name: doc.name,
         description: doc.description,
         required: doc.required,
         formats: doc.formats,
-        maxSizeKB: doc.maxSize ? parseInt(doc.maxSize) * 1024 : undefined,
+        maxSizeKB: doc.maxSizeKB ? Math.max(1, Math.round(Number(doc.maxSizeKB))) : undefined,
       })),
     }))
     navigate(returnToReview
@@ -162,7 +162,7 @@ const JobDocuments = () => {
             <CardContent className="space-y-4">
               {/* Add Document Form */}
               {showAddForm && (
-                <div className="p-4 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50 space-y-4">
+                <div className="p-5 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50 space-y-5">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-900">New Document</h4>
                     <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
@@ -177,7 +177,7 @@ const JobDocuments = () => {
                       type="text"
                       value={newDocument.name}
                       onChange={(e) => setNewDocument({...newDocument, name: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       placeholder="e.g. Caste Certificate"
                     />
                   </div>
@@ -189,48 +189,57 @@ const JobDocuments = () => {
                       value={newDocument.description}
                       onChange={(e) => setNewDocument({...newDocument, description: e.target.value})}
                       rows={2}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full min-h-[76px] px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       placeholder="Describe what this document should contain..."
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.9fr_0.9fr] gap-5 items-start">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Allowed Formats
                       </label>
-                      <select
-                        multiple
-                        value={newDocument.formats}
-                        onChange={(e) => setNewDocument({
-                          ...newDocument, 
-                          formats: Array.from(e.target.selectedOptions, option => option.value)
-                        })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      >
-                        <option value="PDF">PDF</option>
-                        <option value="DOC">DOC</option>
-                        <option value="DOCX">DOCX</option>
-                        <option value="JPG">JPG</option>
-                        <option value="PNG">PNG</option>
-                      </select>
+                      <div className="flex min-h-12 flex-wrap items-center gap-2">
+                        {['PDF', 'DOC', 'DOCX', 'JPG', 'PNG'].map(fmt => (
+                          <label key={fmt} className="flex h-12 items-center space-x-2 bg-white px-3.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-orange-50 hover:border-orange-200 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={newDocument.formats?.includes(fmt) || false}
+                              onChange={(e) => {
+                                const newFormats = e.target.checked
+                                  ? [...(newDocument.formats || []), fmt]
+                                  : (newDocument.formats || []).filter(f => f !== fmt)
+                                setNewDocument({ ...newDocument, formats: newFormats })
+                              }}
+                              className="rounded text-orange-600 focus:ring-orange-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700">{fmt}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Max File Size
+                        Max File Size (KB)
                       </label>
-                      <select
-                        value={newDocument.maxSize}
-                        onChange={(e) => setNewDocument({...newDocument, maxSize: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      >
-                        <option value="1MB">1 MB</option>
-                        <option value="2MB">2 MB</option>
-                        <option value="5MB">5 MB</option>
-                        <option value="10MB">10 MB</option>
-                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={newDocument.maxSizeKB}
+                        onChange={(e) => setNewDocument({
+                          ...newDocument,
+                          maxSizeKB: e.target.value,
+                        })}
+                        className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="e.g. 5120"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Enter size in KB only, e.g. 5120</p>
                     </div>
-                    <div className="flex items-end pb-3">
-                      <label className="flex items-center space-x-2 cursor-pointer">
+                    <div>
+                      <label className="block text-sm font-medium text-transparent mb-2 select-none">
+                        Required
+                      </label>
+                      <label className="flex h-12 items-center space-x-2 rounded-lg border border-gray-200 bg-white px-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50 transition-colors">
                         <input
                           type="checkbox"
                           checked={newDocument.required}
@@ -241,14 +250,14 @@ const JobDocuments = () => {
                       </label>
                     </div>
                   </div>
-                  <div className="flex justify-end space-x-3">
-                    <Button variant="outline" onClick={() => setShowAddForm(false)}>
+                  <div className="flex justify-end gap-3 border-t border-orange-100 pt-4">
+                    <Button variant="outline" onClick={() => setShowAddForm(false)} className="h-11 px-6">
                       Cancel
                     </Button>
                     <Button
                       onClick={handleAddDocument}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                      disabled={!newDocument.name.trim()}
+                      className="h-11 bg-orange-600 hover:bg-orange-700 text-white px-6"
+                      disabled={!newDocument.name.trim() || !Number(newDocument.maxSizeKB)}
                     >
                       Add Document
                     </Button>
@@ -273,7 +282,7 @@ const JobDocuments = () => {
                       <p className="text-sm text-gray-500 mt-0.5">{doc.description}</p>
                       <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400">
                         <span>Formats: <span className="text-gray-600 font-medium">{doc.formats.join(', ')}</span></span>
-                        <span>Max: <span className="text-gray-600 font-medium">{doc.maxSize}</span></span>
+                        <span>Max: <span className="text-gray-600 font-medium">{doc.maxSizeKB} KB</span></span>
                       </div>
                     </div>
                     <Button

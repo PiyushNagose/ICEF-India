@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CheckCircle2, CreditCard, FileCheck2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -6,17 +6,9 @@ import {
   PageFrame,
   PageHero,
   ResourceCard,
+  fadeUp,
   publicContainer,
 } from "./PublicPageShell";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  visible: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut", delay: i * 0.1 },
-  }),
-};
 
 const steps = [
   {
@@ -54,7 +46,7 @@ const HowToApply = () => (
     />
 
     <section className={`${publicContainer} py-8 lg:py-10`}>
-      <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start">
         <div className="space-y-5">
           {steps.map((step, index) => (
             <motion.div
@@ -73,10 +65,10 @@ const HowToApply = () => (
                 <p className="text-[10px] uppercase tracking-[0.14em] font-black text-[#9a8f86]">
                   Step {index + 1}
                 </p>
-                <h2 className="mt-1 text-xl font-black text-[#1f1d1b]">
+                <h2 className="mt-1 text-[24px] font-black leading-tight text-[#1f1d1b]">
                   {step.title}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[#6d6761]">
+                <p className="mt-2 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                   {step.description}
                 </p>
               </div>
@@ -84,7 +76,7 @@ const HowToApply = () => (
           ))}
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-28">
+        <aside className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
           <motion.div
             variants={fadeUp}
             initial="hidden"
@@ -92,9 +84,9 @@ const HowToApply = () => (
             viewport={{ once: true, amount: 0.2 }}
           >
             <ResourceCard
-              title="Browse Active Jobs"
-              description="Start from the dynamic job listing and select the recruitment you want to apply for."
-              to="/jobs"
+              title="Back to Recruitment"
+              description="Return to the project public URL and choose the published post you want to apply for."
+              to="/"
             />
           </motion.div>
           <motion.div
@@ -112,12 +104,13 @@ const HowToApply = () => (
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
+            className="sm:col-span-2 lg:col-span-1"
           >
             <Link
-              to="/jobs"
+              to="/"
               className="flex h-12 items-center justify-center rounded bg-[#e46a1d] text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16] transition-colors"
             >
-              View Openings
+              Open Recruitment
             </Link>
           </motion.div>
         </aside>
@@ -127,5 +120,3 @@ const HowToApply = () => (
 );
 
 export default HowToApply;
-
-

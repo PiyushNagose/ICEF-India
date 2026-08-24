@@ -3,6 +3,7 @@ const router = express.Router();
 const supportController = require("../../controllers/admin/support.controller");
 const authenticate = require("../../shared/middlewares/authenticate");
 const { authorize } = require("../../shared/middlewares/authorize");
+const { auditLog } = require("../../shared/middlewares/auditLog");
 const validate = require("../../shared/middlewares/validate");
 const {
   updateTicketSchema,
@@ -19,6 +20,7 @@ router.get("/tickets/:id", supportController.getTicketById);
 router.put(
   "/tickets/:id",
   validate(updateTicketSchema),
+  auditLog("Support", "UPDATE"),
   supportController.updateTicket,
 );
 router.post(
@@ -29,11 +31,13 @@ router.post(
 router.post(
   "/tickets/:id/request-correction",
   validate(ticketActionSchema),
+  auditLog("Support", "UPDATE"),
   supportController.requestCorrection,
 );
 router.post(
   "/tickets/:id/verify-payment",
   validate(ticketActionSchema),
+  auditLog("Support", "UPDATE"),
   supportController.verifyPayment,
 );
 

@@ -16,19 +16,11 @@ import {
   HelpPanel,
   PageFrame,
   PageHero,
-  ResourceCard,
+  fadeUp,
   publicContainer,
 } from "./PublicPageShell";
 import { publicService } from "../../services/public.service";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: "easeOut", delay: i * 0.06 },
-  }),
-};
+import CustomSelect from "../../components/ui/CustomSelect";
 
 const inputClass =
   "h-12 w-full rounded border border-[#d9cec0] bg-white px-4 text-sm text-[#111827] outline-none transition focus:border-[#e65f16] focus:ring-2 focus:ring-orange-100";
@@ -58,19 +50,16 @@ const contactCards = [
     icon: Phone,
     title: "Helpline",
     description: "1800-123-4567, Monday to Friday, 9:00 AM to 6:00 PM.",
-    to: "/faq",
   },
   {
     icon: Mail,
     title: "Email Support",
     description: "support@recruitment.gov.in for application and payment queries.",
-    to: "/faq",
   },
   {
     icon: MapPin,
     title: "Office",
     description: "Recruitment Portal Helpdesk, New Delhi, India.",
-    to: "/about",
   },
 ];
 
@@ -163,7 +152,7 @@ const Contact = () => {
       />
 
       <section className={`${publicContainer} py-8 lg:py-10`}>
-        <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
           <motion.div
             variants={fadeUp}
             initial="hidden"
@@ -175,7 +164,7 @@ const Contact = () => {
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-[#e65f16]">
                   Public Helpdesk
                 </p>
-                <h2 className="mt-2 text-2xl font-black text-[#111827]">
+                <h2 className="mt-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
                   Support Ticket Centre
                 </h2>
               </div>
@@ -262,28 +251,25 @@ const Contact = () => {
                     />
                   </Field>
                   <Field label="Category *">
-                    <select
+                    <CustomSelect
                       value={form.category}
-                      onChange={(e) => set("category", e.target.value)}
-                      className={inputClass}
-                    >
-                      {["Application", "Payment", "Document", "Technical", "General"].map(
-                        (option) => (
-                          <option key={option}>{option}</option>
-                        ),
+                      onChange={(value) => set("category", value)}
+                      options={["Application", "Payment", "Document", "Technical", "General"].map(
+                        (option) => ({ value: option, label: option }),
                       )}
-                    </select>
+                      placeholder="Select category"
+                    />
                   </Field>
                   <Field label="Priority">
-                    <select
+                    <CustomSelect
                       value={form.priority}
-                      onChange={(e) => set("priority", e.target.value)}
-                      className={inputClass}
-                    >
-                      {["Low", "Medium", "High", "Critical"].map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
+                      onChange={(value) => set("priority", value)}
+                      options={["Low", "Medium", "High", "Critical"].map((option) => ({
+                        value: option,
+                        label: option,
+                      }))}
+                      placeholder="Select priority"
+                    />
                   </Field>
                   <Field label="Subject *" wide>
                     <input
@@ -357,10 +343,10 @@ const Contact = () => {
                           <p className="font-mono text-xs font-black text-[#e65f16]">
                             {ticket.ticketId}
                           </p>
-                          <h3 className="mt-1 text-xl font-black text-[#111827]">
+                          <h3 className="mt-1 text-[18px] font-black text-[#1f1d1b] break-words line-clamp-2" title={ticket.title}>
                             {ticket.title}
                           </h3>
-                          <p className="mt-1 text-sm font-medium text-[#667085]">
+                          <p className="mt-1 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                             {ticket.category} query raised on {formatDate(ticket.createdAt)}
                           </p>
                         </div>
@@ -372,7 +358,7 @@ const Contact = () => {
                           {ticket.status}
                         </span>
                       </div>
-                      <p className="mt-4 text-sm leading-6 text-[#3f4652]">
+                      <p className="mt-4 text-sm leading-6 text-[#3f4652] whitespace-pre-wrap break-words">
                         {ticket.description}
                       </p>
                     </div>
@@ -403,7 +389,7 @@ const Contact = () => {
                                     {formatDate(item.createdAt)}
                                   </span>
                                 </div>
-                                <p className="mt-1 text-sm leading-6 text-[#3f4652]">
+                                <p className="mt-1 text-sm leading-6 text-[#3f4652] whitespace-pre-wrap break-words">
                                   {item.message}
                                 </p>
                               </div>
@@ -460,7 +446,7 @@ const Contact = () => {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
-            className="space-y-5"
+            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start"
           >
             <div className="rounded border border-[#ded4c8] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
@@ -476,7 +462,7 @@ const Contact = () => {
               </div>
             </div>
 
-            <div className="grid gap-4">
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 lg:col-span-1 lg:grid-cols-1">
               {contactCards.map((card, i) => (
                 <motion.div
                   key={card.title}
@@ -486,13 +472,17 @@ const Contact = () => {
                   whileInView="visible"
                   viewport={{ once: true, amount: 0.2 }}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  className="flex flex-col"
                 >
-                  <ResourceCard
-                    icon={card.icon}
-                    title={card.title}
-                    description={card.description}
-                    to={card.to}
-                  />
+                  <div className="h-full rounded border border-[#e0d7cd] bg-white p-5 shadow-sm transition-all hover:border-orange-300 hover:shadow-md">
+                    <card.icon className="h-5 w-5 text-[#e65f16]" />
+                    <h3 className="mt-3 text-base font-black text-[#111827]">
+                      {card.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[#667085]">
+                      {card.description}
+                    </p>
+                  </div>
                 </motion.div>
               ))}
             </div>

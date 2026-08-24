@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
@@ -64,15 +65,18 @@ const PersonalDetails = () => {
     queryKey: ["application-personal", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   // Populate form with existing data once loaded
   useEffect(() => {
-    if (appData && !dataLoaded) {
+    if (appData) {
       const app = appData?.application || appData;
       const p = app?.personalDetails || {};
       if (p && Object.keys(p).length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFormData({
           fullName: p.fullName || "",
           fatherName: p.fatherName || "",
@@ -90,7 +94,10 @@ const PersonalDetails = () => {
       }
       setDataLoaded(true);
     }
-  }, [appData, dataLoaded]);
+  }, [appData]);
+
+  const app = appData?.application || appData;
+  const isPaymentPaid = app?.paymentStatus === "paid";
 
   const { mutate: saveStep, isPending } = useMutation({
     mutationFn: (data) =>
@@ -102,6 +109,9 @@ const PersonalDetails = () => {
         application: latestApplication,
       });
       queryClient.setQueryData(["application-payment", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-layout", applicationId], {
         application: latestApplication,
       });
       // If editing from Review, go back to Review
@@ -125,6 +135,10 @@ const PersonalDetails = () => {
   });
 
   const set = (field, value) => {
+    if (field === "category" && isPaymentPaid) {
+      toast.error("Category is locked after payment");
+      return;
+    }
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
@@ -144,8 +158,6 @@ const PersonalDetails = () => {
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-
-  const app = appData?.application || appData;
 
   const handleNext = async () => {
     if (!applicationId) {
@@ -262,17 +274,18 @@ const PersonalDetails = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Marital Status
                   </label>
-                  <select
+                  <CustomSelect
                     className={inputClass("maritalStatus")}
                     value={formData.maritalStatus}
-                    onChange={(e) => set("maritalStatus", e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
-                  </select>
+                    onChange={(val) => set("maritalStatus", val)}
+                    options={[
+                      { value: "", label: "Select" },
+                      { value: "single", label: "Single" },
+                      { value: "married", label: "Married" },
+                      { value: "divorced", label: "Divorced" },
+                      { value: "widowed", label: "Widowed" }
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -330,16 +343,17 @@ const PersonalDetails = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Gender <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <CustomSelect
                     className={inputClass("gender")}
                     value={formData.gender}
-                    onChange={(e) => set("gender", e.target.value)}
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
+                    onChange={(val) => set("gender", val)}
+                    options={[
+                      { value: "", label: "Select Gender" },
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" }
+                    ]}
+                  />
                   {errors.gender && (
                     <p className="text-red-500 text-xs mt-1">{errors.gender}</p>
                   )}
@@ -348,21 +362,29 @@ const PersonalDetails = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <CustomSelect
                     className={inputClass("category")}
                     value={formData.category}
-                    onChange={(e) => set("category", e.target.value)}
-                  >
-                    <option value="">Select Category</option>
-                    <option value="general">General</option>
-                    <option value="obc">OBC</option>
-                    <option value="sc">SC</option>
-                    <option value="st">ST</option>
-                    <option value="ews">EWS</option>
-                  </select>
+                    onChange={(val) => set("category", val)}
+                    disabled={isPaymentPaid}
+                    options={[
+                      { value: "", label: "Select Category" },
+                      { value: "general", label: "General" },
+                      { value: "obc", label: "OBC" },
+                      { value: "sc", label: "SC" },
+                      { value: "st", label: "ST" },
+                      { value: "ews", label: "EWS" }
+                    ]}
+                  />
                   {errors.category && (
                     <p className="text-red-500 text-xs mt-1">
                       {errors.category}
+                    </p>
+                  )}
+                  {isPaymentPaid && (
+                    <p className="text-xs text-orange-700 mt-1">
+                      Category is locked after payment because the fee is based
+                      on it.
                     </p>
                   )}
                 </div>

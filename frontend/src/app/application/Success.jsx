@@ -33,6 +33,7 @@ const Success = () => {
   const submittedAtFromState = location.state?.submittedAt;
   const [showAcknowledgement, setShowAcknowledgement] = useState(false);
   const [finalizingSubmit, setFinalizingSubmit] = useState(false);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
 
   const { data: appData, isLoading, refetch } = useQuery({
     queryKey: ["application-success", rawApplicationId],
@@ -125,6 +126,28 @@ const Success = () => {
   const handleDownloadAcknowledgement = () => {
     setShowAcknowledgement(true);
     window.setTimeout(() => window.print(), 120);
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!rawApplicationId || downloadingReceipt) return;
+
+    setDownloadingReceipt(true);
+    try {
+      const blob = await candidateService.downloadApplicationReceipt(rawApplicationId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `application-receipt-${applicationId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      toast.success("Application receipt downloaded.");
+    } catch (err) {
+      toast.error(err.message || "Unable to download application receipt.");
+    } finally {
+      setDownloadingReceipt(false);
+    }
   };
 
   const closeAcknowledgement = () => setShowAcknowledgement(false);
@@ -288,6 +311,32 @@ const Success = () => {
                 Your application has been submitted and payment has been
                 processed successfully.
               </p>
+              <p className="mt-2 text-base font-semibold text-orange-600">
+                Application submitted successfully. Download and save your
+                application receipt for future reference.
+              </p>
+              {app && (
+                <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <Button
+                    className="bg-orange-600 px-6 hover:bg-orange-700"
+                    onClick={handleDownloadReceipt}
+                    disabled={downloadingReceipt}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {downloadingReceipt
+                      ? "Downloading..."
+                      : "Download Application Receipt"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-orange-200 px-6 text-orange-600 hover:bg-orange-50"
+                    onClick={() => setShowAcknowledgement(true)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Acknowledgement
+                  </Button>
+                </div>
+              )}
             </section>
 
             <Card className="no-print mb-6 shadow-sm">
@@ -336,7 +385,7 @@ const Success = () => {
                     </span>
                   </DetailBox>
                   <DetailBox label="Application Status">
-                    <span className="inline-flex w-fit items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+                    <span className="inline-flex w-fit items-center rounded-full bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700">
                       Submitted
                     </span>
                   </DetailBox>
@@ -375,46 +424,6 @@ const Success = () => {
               </CardContent>
             </Card>
 
-            {app && (
-              <Card className="no-print mb-6 border-emerald-200 bg-emerald-50 shadow-sm">
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100">
-                        <FileText className="h-5 w-5 text-emerald-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-emerald-950">
-                          Application Acknowledgement Ready
-                        </h3>
-                        <p className="mt-1 text-sm text-emerald-800">
-                          View or save the official acknowledgement generated
-                          from your submitted application details.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        variant="outline"
-                        className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                        onClick={() => setShowAcknowledgement(true)}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Acknowledgement
-                      </Button>
-                      <Button
-                        className="bg-emerald-700 hover:bg-emerald-800"
-                        onClick={handleDownloadAcknowledgement}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Acknowledgement
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             <div className="no-print mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
               <ActionCard
                 icon={FileText}
@@ -427,21 +436,21 @@ const Success = () => {
               />
               <ActionCard
                 icon={Calendar}
-                iconClass="text-blue-600"
-                title="Notifications"
-                description="Stay updated with exam dates and results"
-                buttonLabel="View Notifications"
-                buttonClass="border-blue-200 text-blue-600 hover:bg-blue-50"
-                onClick={() => navigate("/notices")}
+                iconClass="text-orange-600"
+                title="Track Updates"
+                description="Check application status, admit card, and result updates"
+                buttonLabel="Check Status"
+                buttonClass="border-orange-200 text-orange-600 hover:bg-orange-50"
+                onClick={() => navigate("/check-status")}
               />
             </div>
 
-            <Card className="no-print mb-6 border-blue-200 bg-blue-50 shadow-sm">
+            <Card className="no-print mb-6 border-orange-200 bg-orange-50 shadow-sm">
               <CardContent className="p-6">
-                <h3 className="mb-3 font-semibold text-blue-800">
+                <h3 className="mb-3 font-semibold text-orange-800">
                   Important Information
                 </h3>
-                <ul className="list-disc space-y-2 pl-5 text-sm text-blue-700">
+                <ul className="list-disc space-y-2 pl-5 text-sm text-orange-700">
                   <li>
                     Keep your{" "}
                     {registrationNumber ? (
@@ -545,13 +554,6 @@ const AcknowledgementModal = ({
     </div>
   );
 };
-
-const Detail = ({ label, children }) => (
-  <div>
-    <p className="text-sm font-medium text-gray-600">{label}</p>
-    <div className="mt-1">{children}</div>
-  </div>
-);
 
 const DetailBox = ({ label, children, className = "" }) => (
   <div className={`rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 ${className}`}>

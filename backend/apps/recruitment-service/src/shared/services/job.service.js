@@ -8,7 +8,7 @@ const {
   emitBroadcast,
   SOCKET_EVENTS,
 } = require("../socket/index");
-const { assertJobTimeline } = require("../utils/timeline");
+const { assertJobTimeline, endOfDay } = require("../utils/timeline");
 
 const createJob = async (data, createdBy) => {
   const project = await Project.findById(data.projectId);
@@ -119,6 +119,14 @@ const publishJob = async (id) => {
   if (!job.applicationDeadline)
     throw new ApiError(400, "Application deadline is required before publishing");
   assertJobTimeline(job.toObject(), job.projectId);
+
+  const deadline = endOfDay(job.applicationDeadline);
+  if (deadline && new Date() > deadline) {
+    throw new ApiError(
+      400,
+      "Cannot publish job. Application deadline has already passed. Update the deadline before publishing.",
+    );
+  }
 
   job.status = "active";
   job.publishedAt = new Date();

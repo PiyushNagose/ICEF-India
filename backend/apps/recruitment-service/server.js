@@ -142,6 +142,10 @@ const startServer = async () => {
   const httpServer = http.createServer(app);
   initSocket(httpServer);
 
+  // Initialize cron jobs
+  const { startJobStatusCron } = require("./src/shared/cron/jobStatus.cron");
+  startJobStatusCron();
+
   httpServer.on("error", (err) => {
     if (err.code === "EADDRINUSE")
       logger.error(`Port ${PORT} already in use. Run: npm run kill-ports`);

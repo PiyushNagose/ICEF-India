@@ -24,8 +24,8 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
       toast.error('Only image files are allowed (JPG, PNG, WebP)')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be under 5 MB')
+    if (file.size > 500 * 1024) {
+      toast.error('Image must be under 500 KB')
       return
     }
 
@@ -143,7 +143,7 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
                 </p>
               </div>
               <p className="text-[10px] text-gray-400">
-                Recommended 1920×480px · JPG, PNG, WebP · Max 5 MB
+                Recommended 1920×480px · JPG, PNG, WebP · Max 500 KB
               </p>
             </>
           )}

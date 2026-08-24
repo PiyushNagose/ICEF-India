@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   User, Lock, Bell, Shield, Save, Eye, EyeOff,
-  Mail, Phone, Building, Calendar, Loader2, Hash,
+  Mail, Building, Loader2, Hash,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
-import { Card, CardContent, CardHeader } from '../../components/ui/Card'
+
 import Button from '../../components/ui/Button'
 import { adminService } from '../../services/admin.service'
 import { authService } from '../../services/auth.service'
@@ -48,6 +48,7 @@ const SettingsProfile = () => {
 
   // Populate form when data loads
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfileForm({
       fullName:        profile.fullName || '',
       contactNumber:   profile.contactNumber || '',
@@ -58,6 +59,7 @@ const SettingsProfile = () => {
   }, [profile?._id, profile?.fullName, profile?.contactNumber, profile?.department, profile?.roleDesignation, profile?.dateOfJoining])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (mustChangePassword) setActiveTab('security')
   }, [mustChangePassword])
 
@@ -129,7 +131,7 @@ const SettingsProfile = () => {
             <div>
               <h3 className="font-semibold text-orange-900">Reset your password first</h3>
               <p className="text-sm text-orange-800 mt-1">
-                Your employee account is using a temporary password. Open the Security tab, set a new password, then your permitted admin modules will be available.
+                Your account is using a temporary password. Set a new one in Security to continue.
               </p>
             </div>
           </div>

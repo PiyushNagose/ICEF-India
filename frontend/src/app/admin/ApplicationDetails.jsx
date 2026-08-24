@@ -1,6 +1,6 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -16,15 +16,15 @@ import {
   Clock,
   Eye,
   Download,
-  AlertCircle,
   Info,
   ChevronRight,
   ListChecks,
-  Plus,
-  Trash2,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import Button from "../../components/ui/Button";
+import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
 import { adminService } from "../../services/admin.service";
 
 const STATUS_CFG = {
@@ -76,7 +76,7 @@ const TABS = [
   { id: "education", label: "Education", icon: GraduationCap },
   { id: "additional", label: "Additional Info", icon: Info },
   { id: "address", label: "Address", icon: MapPin },
-  { id: "custom", label: "Application Form", icon: FileText },
+  { id: "custom", label: "Form Responses", icon: FileText },
   { id: "documents", label: "Documents", icon: Upload },
   { id: "posts", label: "Applied Posts", icon: ListChecks },
   { id: "payment", label: "Payment", icon: CreditCard },
@@ -111,47 +111,13 @@ const formatAdminValue = (value) => {
 const formatCurrency = (value) =>
   Number(value || 0) > 0 ? `₹${Number(value).toLocaleString("en-IN")}` : "—";
 
-const ISSUE_TYPES = [
-  "Mismatch with document",
-  "Incorrect value entered",
-  "Document unclear",
-  "Document missing",
-  "Invalid proof",
-  "Spelling / formatting issue",
-  "Other clarification needed",
-];
 
-const stringifyIssueValue = (value) => {
-  if (value === undefined || value === null || value === "") return "";
-  if (value instanceof Date) return value.toLocaleDateString("en-IN");
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "object") {
-    return Object.values(value).filter(Boolean).join(", ");
-  }
-  return String(value);
-};
 
-const makeIssueOption = (section, fieldKey, fieldLabel, value) => ({
-  section,
-  fieldKey,
-  fieldLabel,
-  currentValue: stringifyIssueValue(value),
-});
 
-const isCorrectionResolved = (correction) => {
-  if (!correction || correction.status === "none") return false;
-  if (correction.status === "resolved") return true;
-  const issues = correction.issues || [];
-  return (
-    correction.status === "submitted" &&
-    issues.length > 0 &&
-    issues.every((issue) => issue.status === "resolved")
-  );
-};
-
-const getCorrectionDisplayStatus = (correction) =>
-  isCorrectionResolved(correction) ? "resolved" : correction?.status || "requested";
+const getAdminDocumentPreviewUrl = (applicationId, documentId) =>
+  applicationId && documentId
+    ? `/api/admin/applications/${applicationId}/documents/${documentId}/preview`
+    : "";
 
 const EduCard = ({ title, data }) => {
   if (!data || Object.keys(data).length === 0) return null;
@@ -206,6 +172,7 @@ const AddrCard = ({ title, data }) => {
             <p className="mt-1 text-[15px] font-semibold leading-6 text-gray-900">{v}</p>
           </div>
         ) : null,
+
       )}
     </div>
   );
@@ -215,12 +182,9 @@ const ApplicationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("custom");
-  const [clarificationNote, setClarificationNote] = useState("");
-  const [clarificationIssues, setClarificationIssues] = useState([]);
-  const [selectedIssueField, setSelectedIssueField] = useState("");
-  const [correctionReviewNote, setCorrectionReviewNote] = useState("");
-  const [showClarificationModal, setShowClarificationModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("personal");
+  const [previewDoc, setPreviewDoc] = useState(null);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-application", id],
@@ -229,51 +193,25 @@ const ApplicationDetails = () => {
 
   const application = data?.application || data;
 
-  const { mutate: updateStatus, isPending } = useMutation({
-    mutationFn: ({ status, notes, correctionIssues }) =>
-      adminService.updateApplicationStatus(id, {
-        status,
-        notes,
-        rejectionReason: notes,
-        correctionIssues,
-      }),
-    onSuccess: (_, vars) => {
-      toast.success(
-        vars.status === "verified"
-          ? "Application verified"
-          : vars.status === "rejected"
-            ? "Application rejected"
-            : vars.status === "clarification_required"
-              ? "Clarification requested"
-            : "Status updated",
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin-application", id] });
-      queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
-      setShowClarificationModal(false);
-      setClarificationNote("");
-      setClarificationIssues([]);
-      setSelectedIssueField("");
-    },
-    onError: (err) => toast.error(err.message || "Failed to update"),
-  });
-
   const { mutate: reviewCorrection, isPending: isReviewingCorrection } =
     useMutation({
       mutationFn: ({ action, notes }) =>
         adminService.reviewApplicationCorrection(id, { action, notes }),
-      onSuccess: (_, vars) => {
+      onSuccess: (_, variables) => {
         toast.success(
-          vars.action === "approve"
-            ? "Correction accepted and application approved"
+          variables.action === "approve"
+            ? "Correction approved"
             : "Correction sent back to candidate",
         );
         queryClient.invalidateQueries({ queryKey: ["admin-application", id] });
         queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
-        setCorrectionReviewNote("");
+        queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
       },
       onError: (err) =>
-        toast.error(err.message || "Failed to review correction"),
+        toast.error(err.message || "Unable to review correction"),
     });
+
+
 
   if (isLoading)
     return (
@@ -310,77 +248,30 @@ const ApplicationDetails = () => {
     : [];
   const formResponses = application.formResponses || {};
   const fieldLabelMap = {};
+  const configuredFieldIds = new Set();
   (application.jobId?.formSections || []).forEach((section) => {
     (section.fields || []).forEach((field) => {
-      fieldLabelMap[String(field._id)] = field.label;
-      if (field.id) fieldLabelMap[String(field.id)] = field.label;
-      if (field.name) fieldLabelMap[String(field.name)] = field.label;
+      const keys = [field._id, field.id, field.name].filter(Boolean);
+      keys.forEach((key) => {
+        fieldLabelMap[String(key)] = field.label;
+        configuredFieldIds.add(String(key));
+      });
     });
   });
-  const canRequestClarification = ["submitted", "approved", "verified"].includes(
-    application.status,
+  const formResponseEntries = Object.entries(formResponses).filter(
+    ([fieldId, value]) =>
+      configuredFieldIds.has(String(fieldId)) &&
+      value !== undefined &&
+      value !== null &&
+      value !== "" &&
+      !(Array.isArray(value) && value.length === 0),
   );
-  const correctionIssues = application.correction?.issues || [];
-  const correctionDisplayStatus = getCorrectionDisplayStatus(
-    application.correction,
+  const visibleTabs = TABS.filter(
+    (tab) => tab.id !== "custom" || formResponseEntries.length > 0,
   );
-  const submittedCorrection = [...(application.corrections || [])]
-    .reverse()
-    .find((item) => item.status === "pending");
-
-  const correctionFieldOptions = [
-    makeIssueOption("Personal Details", "personalDetails.fullName", "Full Name", personal.fullName),
-    makeIssueOption("Personal Details", "personalDetails.fatherName", "Father's Name", personal.fatherName),
-    makeIssueOption("Personal Details", "personalDetails.motherName", "Mother's Name", personal.motherName),
-    makeIssueOption("Personal Details", "personalDetails.dateOfBirth", "Date of Birth", personal.dateOfBirth ? new Date(personal.dateOfBirth) : ""),
-    makeIssueOption("Personal Details", "personalDetails.gender", "Gender", personal.gender),
-    makeIssueOption("Personal Details", "personalDetails.category", "Category", personal.category),
-    makeIssueOption("Personal Details", "personalDetails.identificationMark", "Identification Mark", personal.identificationMark),
-    makeIssueOption("Education", "education.tenth", "10th Details", education.tenth),
-    makeIssueOption("Education", "education.twelfth", "12th Details", education.twelfth),
-    makeIssueOption("Education", "education.graduation", "Graduation Details", education.graduation),
-    makeIssueOption("Additional Info", "additionalInfo.isGovtEmployee", "Govt Employee", additional.isGovtEmployee),
-    makeIssueOption("Additional Info", "additionalInfo.isPwD", "PwD Details", additional.isPwD),
-    makeIssueOption("Address", "address.permanent", "Permanent Address", address.permanent),
-    makeIssueOption("Address", "address.correspondence", "Correspondence Address", address.correspondence),
-    ...Object.entries(formResponses || {}).map(([fieldId, value]) =>
-      makeIssueOption("Application Form", `formResponses.${fieldId}`, fieldLabelMap[fieldId] || fieldId, formatAdminValue(value)),
-    ),
-    ...documents.map((doc) =>
-      makeIssueOption("Documents", `documents.${doc.type || doc._id}`, doc.name || doc.type?.replace(/_/g, " ") || "Document", doc.originalName || doc.status || "Uploaded"),
-    ),
-  ].filter((option) => option.fieldKey && option.fieldLabel);
-
-  const addClarificationIssue = () => {
-    const option = correctionFieldOptions.find((item) => item.fieldKey === selectedIssueField);
-    if (!option) {
-      toast.error("Select a field or document first");
-      return;
-    }
-    if (clarificationIssues.some((item) => item.fieldKey === option.fieldKey)) {
-      toast.error("This field is already added");
-      return;
-    }
-    setClarificationIssues((items) => [
-      ...items,
-      {
-        ...option,
-        issueType: ISSUE_TYPES[0],
-        remark: "",
-      },
-    ]);
-    setSelectedIssueField("");
-  };
-
-  const updateClarificationIssue = (index, key, value) => {
-    setClarificationIssues((items) =>
-      items.map((item, idx) => (idx === index ? { ...item, [key]: value } : item)),
-    );
-  };
-
-  const removeClarificationIssue = (index) => {
-    setClarificationIssues((items) => items.filter((_, idx) => idx !== index));
-  };
+  const selectedTab = visibleTabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : "personal";
 
   const sCfg = STATUS_CFG[application.status] || STATUS_CFG.draft;
   const payCfg =
@@ -409,6 +300,11 @@ const ApplicationDetails = () => {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const pendingCorrection = [...(application.corrections || [])]
+    .reverse()
+    .find((item) => item.status === "pending");
+  const correctionNote =
+    pendingCorrection?.reason || application.correction?.note || "";
 
   return (
     <AdminLayout title="Application Details">
@@ -518,221 +414,109 @@ const ApplicationDetails = () => {
           </div>
         </div>
 
-        {canRequestClarification && (
-          <div className="bg-white rounded-2xl border-l-4 border-l-orange-500 border border-orange-200 shadow-sm p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
-                <div>
-                  <h3 className="text-base font-bold leading-6 text-gray-900">
-                    Application Auto Approved
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-gray-600">
-                    Paid applications are approved automatically. Request a
-                    correction only if candidate details need clarification.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => setShowClarificationModal(true)}
-                disabled={isPending}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                <AlertCircle className="w-4 h-4 mr-1.5" />
-                Request Clarification
-              </Button>
-            </div>
-          </div>
-        )}
 
-        {application.correction?.status !== "none" && (
+        {pendingCorrection && (
           <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-5 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-orange-700">
-                  Correction Status
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+                  Correction Review
                 </p>
-                <h3 className="mt-1.5 text-lg font-bold leading-tight text-gray-900">
-                  {correctionDisplayStatus.replaceAll("_", " ")}
-                </h3>
-                {application.correction?.note && (
-                  <p className="mt-2 text-sm leading-6 text-gray-700">{application.correction.note}</p>
+                <h2 className="mt-1 text-lg font-bold leading-6 text-gray-900">
+                  Candidate submitted field changes
+                </h2>
+                {correctionNote && (
+                  <p className="mt-1 text-sm leading-6 text-gray-600">
+                    {correctionNote}
+                  </p>
                 )}
               </div>
-              {application.correction?.requestedAt && (
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-                  Requested {new Date(application.correction.requestedAt).toLocaleDateString("en-IN")}
-                </span>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  disabled={isReviewingCorrection}
+                  onClick={() =>
+                    reviewCorrection({
+                      action: "reject",
+                      notes:
+                        "Correction requires more information. Please update and submit again.",
+                    })
+                  }
+                  className="border-orange-200 text-orange-700 hover:bg-orange-100"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Ask Again
+                </Button>
+                <Button
+                  disabled={isReviewingCorrection}
+                  onClick={() =>
+                    reviewCorrection({
+                      action: "approve",
+                      notes: "Correction accepted and applied.",
+                    })
+                  }
+                  className="bg-orange-600 text-white hover:bg-orange-700"
+                >
+                  {isReviewingCorrection ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Approve & Apply
+                </Button>
+              </div>
             </div>
-            {correctionIssues.length > 0 && (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {correctionIssues.map((issue, idx) => (
-                  <div key={issue._id || `${issue.fieldKey}-${idx}`} className="rounded-xl border border-orange-100 bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
-                          {issue.section}
-                        </p>
-                        <p className="mt-1 text-sm font-bold leading-5 text-gray-900">
-                          {issue.fieldLabel}
-                        </p>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        issue.status === "resolved"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}>
-                        {issue.status || "pending"}
-                      </span>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {(pendingCorrection.requestedFields || []).map((field, index) => (
+                <div
+                  key={`${field.field}-${index}`}
+                  className="rounded-xl border border-orange-100 bg-white p-4"
+                >
+                  <p className="text-sm font-bold leading-5 text-gray-900">
+                    {field.fieldLabel || field.field}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
+                        Current
+                      </p>
+                      <p className="mt-1 break-words text-sm font-semibold leading-5 text-gray-700">
+                        {field.oldValue || "-"}
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs font-semibold leading-5 text-orange-700">{issue.issueType}</p>
-                    {issue.currentValue && (
-                      <p className="mt-1 text-xs leading-5 text-gray-500">
-                        Current: <span className="font-medium text-gray-700">{issue.currentValue}</span>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
+                        Requested
                       </p>
-                    )}
-                    <p className="mt-2 text-sm leading-6 text-gray-700">{issue.remark}</p>
+                      <p className="mt-1 break-words text-sm font-semibold leading-5 text-orange-700">
+                        {field.newValue || "-"}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-            {submittedCorrection && (
-              <div className="mt-5 rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
-                      Candidate Submitted Correction
+                  {field.reason && (
+                    <p className="mt-3 text-xs leading-5 text-gray-500">
+                      {field.reason}
                     </p>
-                    <h3 className="mt-1.5 text-lg font-bold leading-tight text-gray-900">
-                      Review corrected values before final approval
-                    </h3>
-                    {submittedCorrection.reason && (
-                      <p className="mt-2 text-sm leading-6 text-gray-600">
-                        {submittedCorrection.reason}
-                      </p>
-                    )}
-                  </div>
-                  <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-700">
-                    Pending review
-                  </span>
+                  )}
                 </div>
-
-                <div className="mt-5 grid gap-4">
-                  {(submittedCorrection.requestedFields || []).map(
-                    (field, index) => (
-                      <div
-                        key={`${field.field}-${index}`}
-                        className="rounded-2xl border border-gray-200 bg-gray-50/70 p-5"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-[0.08em] text-orange-600">
-                              {field.fieldLabel || field.field}
-                            </p>
-                            <p className="mt-1 break-all font-mono text-xs leading-5 text-gray-500">
-                              {field.field}
-                            </p>
-                          </div>
-                          <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700">
-                            Candidate response
-                          </span>
-                        </div>
-                        <div className="mt-4 grid gap-4 md:grid-cols-2">
-                          <div className="min-h-[84px] rounded-xl border border-red-100 bg-white p-4">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-red-500">
-                              Previous Value
-                            </p>
-                            <p className="mt-2 break-words text-sm font-semibold leading-6 text-gray-900">
-                              {field.oldValue || "Not provided"}
-                            </p>
-                          </div>
-                          <div className="min-h-[84px] rounded-xl border border-emerald-100 bg-white p-4">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-emerald-600">
-                              Corrected Value
-                            </p>
-                            <p className="mt-2 break-words text-sm font-semibold leading-6 text-gray-900">
-                              {field.newValue || "Not provided"}
-                            </p>
-                          </div>
-                        </div>
-                        {field.reason && (
-                          <p className="mt-4 rounded-xl border border-gray-100 bg-white p-4 text-sm leading-6 text-gray-700">
-                            <span className="font-semibold text-gray-900">
-                              Candidate note:
-                            </span>{" "}
-                            {field.reason}
-                          </p>
-                        )}
-                      </div>
-                    ),
-                  )} 
-                </div>
-
-                <div className="mt-5">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                    Reviewer Decision Note
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={correctionReviewNote}
-                    onChange={(e) => setCorrectionReviewNote(e.target.value)}
-                    placeholder="Optional note for audit and candidate communication"
-                    className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm leading-6 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                  />
-                </div>
-
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Button
-                    onClick={() =>
-                      reviewCorrection({
-                        action: "approve",
-                        notes: correctionReviewNote,
-                      })
-                    }
-                    disabled={isReviewingCorrection}
-                    className="h-12 min-w-[260px] bg-emerald-600 px-6 text-white hover:bg-emerald-700"
-                  >
-                    {isReviewingCorrection ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <CheckCircle className="mr-1.5 h-4 w-4" />
-                        Accept & Approve Application
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      reviewCorrection({
-                        action: "request_again",
-                        notes: correctionReviewNote,
-                      })
-                    }
-                    disabled={isReviewingCorrection}
-                    className="h-12 min-w-[260px] border-orange-200 px-6 text-orange-700 hover:bg-orange-50"
-                  >
-                    <AlertCircle className="mr-1.5 h-4 w-4" />
-                    Send Back for Correction
-                  </Button>
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
+
+
 
         {/* Tabs + Content */}
         <div className="grid grid-cols-1 items-stretch lg:grid-cols-4 gap-5">
           {/* Sidebar */}
           <div className="lg:col-span-1 flex">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2 sticky top-24 w-full min-h-[420px] lg:h-full lg:flex lg:flex-col">
-              {TABS.map(({ id: tid, label, icon: Icon }) => (
+              {visibleTabs.map(({ id: tid, label, icon: Icon }) => (
                 <button
                   key={tid}
                   onClick={() => setActiveTab(tid)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all mb-0.5 last:mb-0 ${
-                    activeTab === tid
+                    selectedTab === tid
                       ? "bg-orange-600 text-white shadow-sm"
                       : "text-gray-600 hover:bg-gray-50"
                   }`}
@@ -748,7 +532,7 @@ const ApplicationDetails = () => {
           <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[420px] max-h-[calc(100vh-240px)] overflow-hidden">
             <div className="hover-scroll h-full overflow-y-auto p-6">
             {/* Admin-configured form */}
-            {activeTab === "custom" && (
+            {selectedTab === "custom" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -758,16 +542,16 @@ const ApplicationDetails = () => {
                     Application Form Responses
                   </h3>
                 </div>
-                {Object.keys(formResponses).length === 0 ? (
+                {formResponseEntries.length === 0 ? (
                   <p className="py-10 text-center text-sm leading-6 text-gray-400">
                     No form responses submitted yet.
                   </p>
                 ) : (
                   <Grid>
-                    {Object.entries(formResponses).map(([fieldId, value]) => (
+                    {formResponseEntries.map(([fieldId, value]) => (
                       <Row
                         key={fieldId}
-                        label={fieldLabelMap[fieldId] || fieldId}
+                        label={fieldLabelMap[fieldId]}
                         value={formatAdminValue(value)}
                       />
                     ))}
@@ -777,7 +561,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Personal */}
-            {activeTab === "personal" && (
+            {selectedTab === "personal" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -837,7 +621,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Education */}
-            {activeTab === "education" && (
+            {selectedTab === "education" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -874,7 +658,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Additional Info */}
-            {activeTab === "additional" && (
+            {selectedTab === "additional" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -940,7 +724,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Address */}
-            {activeTab === "address" && (
+            {selectedTab === "address" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -975,7 +759,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Documents */}
-            {activeTab === "documents" && (
+            {selectedTab === "documents" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -1002,21 +786,25 @@ const ApplicationDetails = () => {
                           : doc.status === "rejected"
                             ? "text-red-700 bg-red-50 border-red-200"
                             : "text-amber-700 bg-amber-50 border-amber-200";
+                      const previewUrl = getAdminDocumentPreviewUrl(
+                        application._id,
+                        doc._id,
+                      );
                       return (
                         <div
                           key={doc._id}
-                          className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                          className="grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-orange-200 hover:bg-orange-50/30 md:grid-cols-[1fr_auto] md:items-center"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-orange-100">
                               <FileText className="w-5 h-5 text-orange-600" />
                             </div>
-                            <div>
-                              <p className="text-sm font-bold leading-5 text-gray-900 capitalize">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold leading-5 text-gray-900 capitalize">
                                 {doc.name || doc.type?.replace(/_/g, " ")}
                               </p>
                               {doc.originalName && (
-                                <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                                <p className="mt-0.5 truncate text-xs leading-5 text-gray-500">
                                   {doc.originalName}
                                 </p>
                               )}
@@ -1040,24 +828,31 @@ const ApplicationDetails = () => {
                             </div>
                           </div>
                           {doc.cloudinaryUrl && (
-                            <div className="flex gap-2">
-                              <a
-                                href={doc.cloudinaryUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            <div className="flex items-center gap-2 md:justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                                onClick={() =>
+                                  setPreviewDoc({
+                                    url: previewUrl,
+                                    title:
+                                      doc.name ||
+                                      doc.type?.replace(/_/g, " ") ||
+                                      "Document Preview",
+                                    name: doc.originalName,
+                                  })
+                                }
                               >
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                                >
-                                  <Eye className="w-4 h-4 mr-1" /> View
-                                </Button>
-                              </a>
-                              <a href={doc.cloudinaryUrl} download>
-                                <Button variant="outline" size="sm">
-                                  <Download className="w-4 h-4" />
-                                </Button>
+                                <Eye className="w-4 h-4 mr-1" /> View
+                              </Button>
+                              <a
+                                href={previewUrl}
+                                download
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"
+                                aria-label={`Download ${doc.originalName || doc.name || "document"}`}
+                              >
+                                <Download className="w-4 h-4" />
                               </a>
                             </div>
                           )}
@@ -1070,7 +865,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Applied Posts */}
-            {activeTab === "posts" && (
+            {selectedTab === "posts" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -1139,7 +934,7 @@ const ApplicationDetails = () => {
             )}
 
             {/* Payment */}
-            {activeTab === "payment" && (
+            {selectedTab === "payment" && (
               <div>
                 <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -1210,160 +1005,60 @@ const ApplicationDetails = () => {
         </div>
       </div>
 
-      {/* Clarification Modal */}
-      {showClarificationModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold leading-tight text-gray-900">
-                Request Field Correction
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-gray-500">
-                Select the exact incorrect fields or documents. Candidate will see this list after OTP verification.
-              </p>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto p-6 space-y-5">
-              <div>
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
-                  Add Incorrect Field / Document
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedIssueField}
-                    onChange={(e) => setSelectedIssueField(e.target.value)}
-                    className="h-11 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                  >
-                    <option value="">Select field or document</option>
-                    {correctionFieldOptions.map((option) => (
-                      <option key={option.fieldKey} value={option.fieldKey}>
-                        {option.section} - {option.fieldLabel}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="button"
-                    onClick={addClarificationIssue}
-                    className="h-11 bg-orange-600 px-4 text-white hover:bg-orange-700"
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              {clarificationIssues.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-orange-200 bg-orange-50/60 p-6 text-center">
-                  <AlertCircle className="mx-auto mb-2 h-6 w-6 text-orange-500" />
-                  <p className="text-sm font-bold leading-5 text-gray-900">No issue selected yet</p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Add every field/document that the candidate must correct.
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm">
+          <div className="flex max-h-[94vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/20">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-600">
+                  Uploaded Document
+                </p>
+                <h3 className="truncate text-base font-semibold text-slate-900">
+                  {previewDoc.title || "Document Preview"}
+                </h3>
+                {previewDoc.name && (
+                  <p className="truncate text-sm text-slate-500">
+                    {previewDoc.name}
                   </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {clarificationIssues.map((issue, index) => (
-                    <div key={issue.fieldKey} className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-orange-600">
-                            {issue.section}
-                          </p>
-                          <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{issue.fieldLabel}</p>
-                          {issue.currentValue && (
-                            <p className="mt-1 text-xs leading-5 text-gray-500">
-                              Current value: <span className="font-medium text-gray-700">{issue.currentValue}</span>
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeClarificationIssue(index)}
-                          className="rounded-lg p-2 text-red-500 hover:bg-red-50"
-                          title="Remove issue"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-[240px_minmax(0,1fr)]">
-                        <select
-                          value={issue.issueType}
-                          onChange={(e) => updateClarificationIssue(index, "issueType", e.target.value)}
-                          className="h-11 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                        >
-                          {ISSUE_TYPES.map((type) => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                        <input
-                          value={issue.remark}
-                          onChange={(e) => updateClarificationIssue(index, "remark", e.target.value)}
-                          placeholder="Reviewer remark shown to candidate"
-                          className="h-11 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div>
-                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
-                  Overall Instruction
-                </label>
-              <textarea
-                rows="3"
-                placeholder="Short instruction for the candidate, e.g. Please correct the listed fields and upload clear supporting documents."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
-                value={clarificationNote}
-                onChange={(e) => setClarificationNote(e.target.value)}
-              />
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    window.open(
+                      previewDoc.url,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                  className="gap-1.5 border-orange-200 px-4 text-orange-600 hover:bg-orange-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPreviewDoc(null)}
+                  className="text-slate-500 hover:bg-slate-100"
+                  aria-label="Close document preview"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            <div className="px-6 pb-6 flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowClarificationModal(false);
-                  setClarificationNote("");
-                  setClarificationIssues([]);
-                  setSelectedIssueField("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (clarificationIssues.length === 0) {
-                    toast.error("Add at least one correction issue");
-                    return;
-                  }
-                  if (clarificationIssues.some((issue) => !issue.remark.trim())) {
-                    toast.error("Add remark for every selected issue");
-                    return;
-                  }
-                  if (!clarificationNote.trim()) {
-                    toast.error("Add overall instruction");
-                    return;
-                  }
-                  updateStatus({
-                    status: "clarification_required",
-                    notes: clarificationNote,
-                    correctionIssues: clarificationIssues,
-                  });
-                }}
-                disabled={isPending}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Send Request"
-                )}
-              </Button>
+            <div className="h-[calc(94vh-76px)] bg-slate-100">
+              <DocumentPreviewFrame
+                src={previewDoc.url}
+                title={previewDoc.name || previewDoc.title || "Uploaded document"}
+              />
             </div>
           </div>
         </div>
       )}
+
 
     </AdminLayout>
   );

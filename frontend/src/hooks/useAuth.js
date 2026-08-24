@@ -38,6 +38,7 @@ export const getDashboardPath = (user) => {
 
 export const hasPermission = (user, module, action = "view") => {
   if (!module) return true;
+  if (isSuperAdminUser(user)) return true;
   const permissions = user?.systemRole?.permissions || user?.permissions || {};
   return Boolean(permissions?.[module]?.[action]);
 };

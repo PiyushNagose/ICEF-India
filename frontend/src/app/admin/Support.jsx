@@ -31,17 +31,7 @@ const STATUS_COLORS = {
   Closed: "bg-gray-100 text-gray-800",
 };
 
-const getTicketContact = (ticket) => ({
-  name:
-    ticket.raisedBy?.fullName ||
-    ticket.guestContact?.name ||
-    "Public candidate",
-  email:
-    ticket.raisedBy?.email ||
-    ticket.guestContact?.email ||
-    ticket.guestContact?.mobile ||
-    "No contact provided",
-});
+
 
 const Support = () => {
   const navigate = useNavigate();
@@ -95,7 +85,7 @@ const Support = () => {
     {
       title: "TOTAL",
       value: totalCount,
-      color: "border-l-blue-500",
+      color: "border-l-orange-500",
       icon: Zap,
     },
   ];
@@ -162,7 +152,7 @@ const Support = () => {
                   <p className="text-xs font-medium text-gray-500 mb-1">
                     {s.title}
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-gray-900">
                     {Number(s.value).toLocaleString("en-IN")}
                   </p>
                 </div>
@@ -271,9 +261,17 @@ const Support = () => {
                       <p className="font-medium text-gray-800 text-sm truncate">
                         {ticket.title}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {ticket.category}
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <p className="text-xs text-gray-500">
+                          {ticket.category}
+                        </p>
+                        {ticket.resolutionAction?.type ===
+                          "application_correction" && (
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                            Correction
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-4">
                       <p className="text-sm text-gray-900">

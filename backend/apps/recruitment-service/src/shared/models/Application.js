@@ -342,4 +342,7 @@ applicationSchema.index({ jobId: 1, contactEmail: 1, contactMobile: 1, status: 1
 applicationSchema.index({ "fileStorage.batchNumber": 1 });
 applicationSchema.index({ "fileStorage.basePath": 1 });
 
+// Ensure a candidate can only apply once for a specific job
+applicationSchema.index({ candidateId: 1, jobId: 1 }, { unique: true });
+
 module.exports = mongoose.model("Application", applicationSchema);

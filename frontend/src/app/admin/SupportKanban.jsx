@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+/* eslint-disable react-hooks/preserve-manual-memoization */
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -304,6 +305,7 @@ const SupportKanban = () => {
 
   // Clear optimistic state when fresh server data arrives
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOptimisticBoard(null);
   }, [dataUpdatedAt]);
 
@@ -323,7 +325,7 @@ const SupportKanban = () => {
   });
 
   // ── Board state ─────────────────────────────────────────────────────────────
-  const allTickets = data?.tickets || [];
+  const allTickets = useMemo(() => data?.tickets || [], [data?.tickets]);
 
   const serverBoard = COLUMNS.reduce((acc, col) => {
     acc[col.id] = allTickets.filter(
@@ -403,6 +405,7 @@ const SupportKanban = () => {
     });
 
     saveStatus({ id: active.id, status: dstCol });
+
   }, [findCol, board, serverBoard, saveStatus]);
 
   const onDragCancel = useCallback(() => {
@@ -448,7 +451,7 @@ const SupportKanban = () => {
                   <Icon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900 leading-none">{countByStatus(col.id)}</p>
+                  <p className="text-2xl font-bold text-gray-900 leading-none">{countByStatus(col.id)}</p>
                   <p className="text-xs text-gray-500 mt-0.5 font-medium">{col.label}</p>
                 </div>
               </div>

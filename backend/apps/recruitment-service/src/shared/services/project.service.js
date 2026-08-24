@@ -6,8 +6,8 @@ const { emitToAdmins, SOCKET_EVENTS } = require("../socket/index");
 const { assertProjectTimeline } = require("../utils/timeline");
 
 const createProject = async (data, createdBy) => {
-  if (data.closureDate && !data.endDate) data.endDate = data.closureDate;
-  if (data.endDate && !data.closureDate) data.closureDate = data.endDate;
+  if (data.endDate) data.closureDate = data.endDate;
+  else if (data.closureDate) data.endDate = data.closureDate;
   assertProjectTimeline(data);
   const project = await Project.create({ ...data, createdBy });
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
@@ -48,8 +48,8 @@ const getProjectById = async (id) => {
 const updateProject = async (id, data, updatedBy) => {
   const existing = await Project.findById(id);
   if (!existing) throw new ApiError(404, "Project not found");
-  if (data.closureDate && !data.endDate) data.endDate = data.closureDate;
-  if (data.endDate && !data.closureDate) data.closureDate = data.endDate;
+  if (data.endDate) data.closureDate = data.endDate;
+  else if (data.closureDate) data.endDate = data.closureDate;
   assertProjectTimeline({ ...existing.toObject(), ...data });
   const project = await Project.findByIdAndUpdate(
     id,

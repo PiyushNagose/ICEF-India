@@ -11,20 +11,36 @@ const { paginationMeta } = require("../shared/utils/ApiResponse");
 
 router.use(authenticate, authorize("admin", "employee"));
 
+const HIGH_VOLUME_ADMIN_TYPES = ["payment_success", "application_submitted"];
+
+const buildAdminNotificationFilter = (userId, query = {}) => {
+  const filter = {
+    recipientId: userId,
+    recipientModel: "Employee",
+    type: { $nin: HIGH_VOLUME_ADMIN_TYPES },
+  };
+
+  if (query.isRead !== undefined) filter.isRead = query.isRead === "true";
+  if (query.type) {
+    filter.type = {
+      $regex: `^${query.type}`,
+      $options: "i",
+      $nin: HIGH_VOLUME_ADMIN_TYPES,
+    };
+  }
+
+  return filter;
+};
+
 // GET /api/admin/notifications
 router.get("/", asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
-  const filter = { recipientId: req.user.id, recipientModel: "Employee" };
-  if (req.query.isRead !== undefined) filter.isRead = req.query.isRead === "true";
-  // Support exact type or prefix match (e.g. type=payment matches payment_success, payment_failed)
-  if (req.query.type) {
-    filter.type = { $regex: `^${req.query.type}`, $options: "i" };
-  }
+  const filter = buildAdminNotificationFilter(req.user.id, req.query);
 
   const [notifications, total, unreadCount] = await Promise.all([
     Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
     Notification.countDocuments(filter),
-    Notification.countDocuments({ recipientId: req.user.id, recipientModel: "Employee", isRead: false }),
+    Notification.countDocuments(buildAdminNotificationFilter(req.user.id, { isRead: "false" })),
   ]);
 
   res.status(StatusCodes.OK).json(
@@ -35,7 +51,7 @@ router.get("/", asyncHandler(async (req, res) => {
 // PATCH /api/admin/notifications/read-all
 router.patch("/read-all", asyncHandler(async (req, res) => {
   await Notification.updateMany(
-    { recipientId: req.user.id, recipientModel: "Employee", isRead: false },
+    buildAdminNotificationFilter(req.user.id, { isRead: "false" }),
     { isRead: true, readAt: new Date() }
   );
   res.status(StatusCodes.OK).json(new ApiResponse(StatusCodes.OK, "All notifications marked as read"));

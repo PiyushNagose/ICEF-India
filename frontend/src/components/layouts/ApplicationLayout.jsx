@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,6 +17,7 @@ import {
 import { candidateService } from "../../services/candidate.service";
 import {
   buildApplicationSteps,
+  getApplicationUnlockedStep,
   isCorrectionMode,
   readApplicationDraft,
 } from "../../utils/applicationFlow";
@@ -72,7 +74,9 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
     queryKey: ["application-layout", draft.applicationId],
     queryFn: () => candidateService.getApplication(draft.applicationId),
     enabled: Boolean(draft.applicationId),
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   const app = appData?.application || appData;
@@ -85,11 +89,23 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
       if (path !== location.pathname) return false;
       if (!query) return true;
       return query === location.search.replace(/^\?/, "");
-    })?.id || Math.min(currentStep, steps.length);
-  const currentProgressStep = Math.max(
-    Number(app?.currentStep || 0),
-    Number(activeStep || currentStep || 1),
-  );
+    })?.id || currentStep || 1;
+
+  const currentProgressStep = app
+    ? getApplicationUnlockedStep(app, steps)
+    : Math.max(Number(app?.currentStep || 1), 1);
+
+  // Enforce step sequencing
+  useEffect(() => {
+    if (!appData || correctionMode) return;
+    if (activeStep > currentProgressStep) {
+      // Find the path for their actual current step
+      const targetStep = steps.find((s) => s.id === currentProgressStep) || steps[0];
+      if (targetStep && location.pathname !== targetStep.path.split("?")[0]) {
+        navigate(targetStep.path, { replace: true, state: location.state });
+      }
+    }
+  }, [activeStep, currentProgressStep, appData, correctionMode, steps, navigate, location.pathname, location.state]);
 
   // In correction mode, ALL non-payment steps are freely accessible
   // Otherwise, a step is accessible only if currentStep >= step.id

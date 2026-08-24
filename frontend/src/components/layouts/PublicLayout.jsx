@@ -1,9 +1,9 @@
-﻿// ============================
+// ============================
 // FILE: PublicLayout.jsx
 // ============================
 
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
+import { ArrowLeft, Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getDashboardPath, isCandidateUser, useAuth } from "../../hooks/useAuth";
 import logo from "../../assets/logo.png";
@@ -19,6 +19,20 @@ const PublicLayout = ({ children }) => {
   const dashboardLabel = isCandidateUser(user) ? "Check Status" : "Dashboard";
 
   const location = useLocation();
+  const projectMatch = location.pathname.match(/^\/apply\/([^/]+)/);
+  const currentProjectSlug = projectMatch?.[1] || "";
+  const storedProjectSlug =
+    typeof window === "undefined"
+      ? ""
+      : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
+  const projectSlug = currentProjectSlug || storedProjectSlug;
+  const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/check-status";
+  const isProjectScopedPage = Boolean(projectMatch);
+
+  useEffect(() => {
+    if (!currentProjectSlug) return;
+    window.sessionStorage.setItem("lastPublicProjectSlug", currentProjectSlug);
+  }, [currentProjectSlug]);
 
   useEffect(() => {
     document.documentElement.classList.add("public-scroll-page");
@@ -66,13 +80,8 @@ const PublicLayout = ({ children }) => {
 
   const navItems = [
     {
-      label: "Home",
-      path: "/",
-    },
-
-    {
-      label: "About Us",
-      path: "/about",
+      label: "Recruitment",
+      path: projectHomePath,
     },
 
     {
@@ -81,12 +90,17 @@ const PublicLayout = ({ children }) => {
     },
 
     {
-      label: "FAQ",
-      path: "/faq",
+      label: "Admit Card",
+      path: "/admit-cards",
     },
 
     {
-      label: "Contact Us",
+      label: "Check Status",
+      path: "/check-status",
+    },
+
+    {
+      label: "Support",
       path: "/contact",
     },
   ];
@@ -96,11 +110,24 @@ const PublicLayout = ({ children }) => {
       {/* MAIN HEADER */}
 
       <header className="sticky top-0 z-50 bg-[#f6f1ea]/95 backdrop-blur-md border-b border-[#ddd4ca]">
+        {!isProjectScopedPage && projectSlug && (
+          <div className="border-b border-[#e7dcd1] bg-white/60">
+            <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
+              <Link
+                to={projectHomePath}
+                className="inline-flex h-9 items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#e46a1d] transition-colors hover:text-[#b94711]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Recruitment
+              </Link>
+            </div>
+          </div>
+        )}
         <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-[72px] flex items-center justify-between">
             {/* LOGO */}
 
-            <Link to="/" className="flex items-center gap-3">
+            <Link to={projectHomePath} className="flex items-center gap-3">
               <div className="h-12 px-5 rounded-[6px] bg-[#1f1d1b] flex items-center justify-center">
                 <img
                   src={logo}
@@ -112,24 +139,27 @@ const PublicLayout = ({ children }) => {
 
             {/* DESKTOP NAV */}
 
-            <nav className="hidden lg:flex items-center gap-10 xl:gap-12 2xl:gap-14">
+            <nav className="hidden lg:flex h-full items-center gap-10 xl:gap-12 2xl:gap-14">
               {navItems.map((item) => {
                 const active = location.pathname === item.path;
+                const recruitmentActive =
+                  item.path === projectHomePath &&
+                  location.pathname.startsWith(projectHomePath);
 
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`relative text-[12px] uppercase tracking-[0.14em] font-black transition-all ${
-                      active
+                    className={`relative flex h-full items-center text-[12px] uppercase tracking-[0.14em] font-black transition-all ${
+                      active || recruitmentActive
                         ? "text-[#e46a1d]"
                         : "text-[#5f5752] hover:text-[#e46a1d]"
                     }`}
                   >
                     {item.label}
 
-                    {active && (
-                      <div className="absolute left-0 right-0 -bottom-[28px] h-[3px] bg-[#e46a1d]" />
+                    {(active || recruitmentActive) && (
+                      <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-[#e46a1d]" />
                     )}
                   </Link>
                 );
@@ -261,27 +291,31 @@ const PublicLayout = ({ children }) => {
 
       {/* FOOTER */}
 
-      <footer className="bg-[#1b1b1b] text-white mt-12">
-        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+      <footer className="mt-12 bg-[#1b1b1b] text-white">
+        <div className="mx-auto max-w-[1380px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.15fr] lg:gap-12">
             {/* BRAND */}
 
             <div>
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-[6px] bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
-                  <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1.5" />
+                <div className="flex h-12 w-[150px] shrink-0 items-center justify-center rounded-[6px] bg-[#1f1d1b]">
+                  <img
+                    src={logo}
+                    alt="ICEF India"
+                    className="h-9 w-auto object-contain"
+                  />
                 </div>
 
                 <div>
                   <h3 className="text-[18px] font-black">Recruitment Portal</h3>
 
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/50 mt-1">
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/50">
                     Government of India
                   </p>
                 </div>
               </div>
 
-              <p className="mt-6 text-white/65 text-[14px] leading-7">
+              <p className="mt-6 max-w-[360px] text-[14px] leading-7 text-white/65">
                 Official government recruitment platform for transparent,
                 accessible, and trusted hiring.
               </p>
@@ -296,15 +330,15 @@ const PublicLayout = ({ children }) => {
 
               <div className="mt-6 space-y-4">
                 {[
-                  ["Latest Jobs", "/jobs"],
+                  ["Recruitments", projectHomePath],
                   ["Results", "/results"],
                   ["Admit Cards", "/admit-cards"],
-                  ["Notifications", "/notices"],
+                  ["Check Status", "/check-status"],
                 ].map(([item, path]) => (
                   <Link
                     key={item}
                     to={path}
-                    className="block text-white/65 hover:text-orange-300 transition-colors text-[14px]"
+                    className="block text-[14px] text-white/65 transition-colors hover:text-orange-300"
                   >
                     {item}
                   </Link>
@@ -321,15 +355,14 @@ const PublicLayout = ({ children }) => {
 
               <div className="mt-6 space-y-4">
                 {[
-                  ["FAQ", "/faq"],
-                  ["Help Center", "/help-center"],
-                  ["Technical Support", "/technical-support"],
+                  ["How to Apply", "/how-to-apply"],
+                  ["Request Correction", "/correction-request"],
                   ["Contact Us", "/contact"],
                 ].map(([item, path]) => (
                   <Link
                     key={item}
                     to={path}
-                    className="block text-white/65 hover:text-orange-300 transition-colors text-[14px]"
+                    className="block text-[14px] text-white/65 transition-colors hover:text-orange-300"
                   >
                     {item}
                   </Link>
@@ -345,22 +378,22 @@ const PublicLayout = ({ children }) => {
               </h3>
 
               <div className="mt-6 space-y-5">
-                <div className="flex items-start gap-3 text-white/70">
-                  <Phone className="w-5 h-5 mt-0.5 text-orange-400" />
+                <div className="grid grid-cols-[24px_minmax(0,1fr)] items-start gap-3 text-white/70">
+                  <Phone className="mt-0.5 h-5 w-5 text-orange-400" />
 
                   <span className="text-[14px]">1800-123-4567</span>
                 </div>
 
-                <div className="flex items-start gap-3 text-white/70">
-                  <Mail className="w-5 h-5 mt-0.5 text-orange-400" />
+                <div className="grid grid-cols-[24px_minmax(0,1fr)] items-start gap-3 text-white/70">
+                  <Mail className="mt-0.5 h-5 w-5 text-orange-400" />
 
                   <span className="text-[14px]">
                     support@recruitment.gov.in
                   </span>
                 </div>
 
-                <div className="flex items-start gap-3 text-white/70">
-                  <MapPin className="w-5 h-5 mt-0.5 text-orange-400" />
+                <div className="grid grid-cols-[24px_minmax(0,1fr)] items-start gap-3 text-white/70">
+                  <MapPin className="mt-0.5 h-5 w-5 text-orange-400" />
 
                   <span className="text-[14px]">New Delhi, India</span>
                 </div>
@@ -370,31 +403,20 @@ const PublicLayout = ({ children }) => {
 
           {/* BOTTOM */}
 
-          <div className="mt-14 pt-8 border-t border-white/10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-            <p className="text-white/50 text-[13px]">
-              Â© 2026 Bihar State Recruitment Board. All Rights Reserved.
+          <div className="mt-12 flex flex-col gap-5 border-t border-white/10 pt-8 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-[13px] text-white/50">
+              © 2026 Recruitment Portal. All Rights Reserved.
             </p>
 
-            <div className="flex items-center gap-6 text-white/40 text-[12px]">
-              <Link
-                to="/about"
-                className="hover:text-orange-300 transition-colors"
-              >
-                Privacy Policy
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-[12px] text-white/40">
+              <Link to={projectHomePath} className="hover:text-orange-300 transition-colors">
+                Recruitment Page
               </Link>
-
-              <Link
-                to="/about"
-                className="hover:text-orange-300 transition-colors"
-              >
-                Terms & Conditions
+              <Link to="/contact" className="hover:text-orange-300 transition-colors">
+                Support
               </Link>
-
-              <Link
-                to="/about"
-                className="hover:text-orange-300 transition-colors"
-              >
-                Accessibility
+              <Link to="/check-status" className="hover:text-orange-300 transition-colors">
+                Status
               </Link>
             </div>
           </div>

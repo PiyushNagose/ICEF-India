@@ -18,6 +18,7 @@ const {
 router.use(authenticate, authorize("candidate"));
 
 router.get("/", applicationController.getMyApplications);
+router.get("/:id/pdf", applicationController.downloadApplicationReceiptPdf);
 router.post(
   "/",
   validate(createApplicationSchema),

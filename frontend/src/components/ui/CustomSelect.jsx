@@ -114,7 +114,7 @@ const CustomSelect = ({
       ref={dropdownRef}
       role="listbox"
       style={dropdownStyle}
-      className="bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto"
+      className="theme-select-menu max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl"
     >
       {normalised.length === 0 ? (
         <div className="px-4 py-3 text-sm text-gray-400 text-center">No options</div>
@@ -165,13 +165,13 @@ const CustomSelect = ({
           'w-full flex items-center justify-between gap-2',
           'px-4 py-3 rounded-xl border text-sm text-left',
           'transition-all duration-200 ease-out outline-none',
-          'focus:ring-2 focus:ring-orange-500 focus:border-orange-500',
+          'focus:ring-2 focus:ring-orange-100 focus:border-orange-500',
           disabled
             ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
             : error
               ? 'bg-red-50 border-red-400 text-gray-800 hover:border-red-500'
               : open
-                ? 'bg-white border-orange-500 ring-2 ring-orange-500 text-gray-800'
+                ? 'bg-white border-orange-500 ring-2 ring-orange-100 text-gray-800'
                 : 'bg-white border-gray-200 text-gray-800 hover:border-orange-400',
           className,
         )}

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import { INDIA_STATE_CITIES, INDIA_STATES } from "../../constants/indiaLocations";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
@@ -77,19 +78,16 @@ const AddressFields = ({ data, setFn, prefix, disabled, errors }) => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             State {prefix === "p" && <span className="text-red-500">*</span>}
           </label>
-          <select
+          <CustomSelect
             disabled={disabled}
             className={inputCls(`${prefix}State`)}
             value={data.state}
-            onChange={(e) => setFn("state", e.target.value)}
-          >
-            <option value="">Select State</option>
-            {INDIA_STATES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setFn("state", val)}
+            options={[
+              { value: "", label: "Select State" },
+              ...INDIA_STATES.map((s) => ({ value: s, label: s }))
+            ]}
+          />
           {errors[`${prefix}State`] && (
             <p className="text-red-500 text-xs mt-1">
               {errors[`${prefix}State`]}
@@ -101,19 +99,16 @@ const AddressFields = ({ data, setFn, prefix, disabled, errors }) => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             District {prefix === "p" && <span className="text-red-500">*</span>}
           </label>
-          <select
+          <CustomSelect
             disabled={disabled}
             className={inputCls(`${prefix}District`)}
             value={data.district}
-            onChange={(e) => setFn("district", e.target.value)}
-          >
-            <option value="">Select District</option>
-            {(INDIA_STATE_CITIES[data.state] || []).map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setFn("district", val)}
+            options={[
+              { value: "", label: "Select District" },
+              ...(INDIA_STATE_CITIES[data.state] || []).map((d) => ({ value: d, label: d }))
+            ]}
+          />
           {errors[`${prefix}District`] && (
             <p className="text-red-500 text-xs mt-1">
               {errors[`${prefix}District`]}
@@ -166,6 +161,7 @@ const AddressFields = ({ data, setFn, prefix, disabled, errors }) => {
 const Address = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const stateId = location.state?.applicationId;
@@ -207,7 +203,9 @@ const Address = () => {
     queryKey: ["application-address", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -215,6 +213,7 @@ const Address = () => {
       const app = appData?.application || appData;
       const resolvedJobId = app?.jobId?._id || app?.jobId;
       if (resolvedJobId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setJobId(resolvedJobId);
         const existing = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
         sessionStorage.setItem(
@@ -226,10 +225,11 @@ const Address = () => {
   }, [appData, jobId]);
 
   useEffect(() => {
-    if (appData && !dataLoaded) {
+    if (appData) {
       const app = appData?.application || appData;
       const addr = app?.address || {};
       if (addr?.permanent) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPermanent({
           addressLine1: addr.permanent.addressLine1 || "",
           addressLine2: addr.permanent.addressLine2 || "",
@@ -252,7 +252,7 @@ const Address = () => {
       if (addr?.sameAsPermanent) setSameAsPermanent(true);
       setDataLoaded(true);
     }
-  }, [appData, dataLoaded]);
+  }, [appData]);
 
   const setP = (field, value) =>
     setPermanent((prev) => ({
@@ -274,12 +274,19 @@ const Address = () => {
 
   const { mutate: saveStep, isPending } = useMutation({
     mutationFn: (data) => candidateService.saveAddress(applicationId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Address saved");
+      const latestApplication = result?.application || result || appData?.application || appData;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-address", applicationId], {
+        application: latestApplication,
+      });
       if (location.state?.returnToReview) {
         navigate("/application/review", { state: { applicationId } });
       } else {
-        const app = appData?.application || appData;
+        const app = latestApplication;
         const job = jobData?.job || jobData || app?.jobId;
         const steps = buildApplicationSteps(job, app);
         const addressStep = steps.find((step) => step.type === "address")?.id || 4;
@@ -373,7 +380,7 @@ const Address = () => {
                     onChange={(e) => handleSameToggle(e.target.checked)}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm font-medium">Same as Permanent</span>
+                  <span className="text-sm font-medium text-white">Same as Permanent</span>
                 </label>
               </div>
               <AddressFields

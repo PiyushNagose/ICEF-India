@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Loader2, CheckCircle, Edit3 } from "lucide-react";
 import ApplicationLayout from "../../components/layouts/ApplicationLayout";
@@ -16,6 +16,14 @@ const APP_KEY = "app_draft";
 const getAppId = () => {
   try {
     return JSON.parse(sessionStorage.getItem(APP_KEY) || "{}").applicationId;
+  } catch {
+    return null;
+  }
+};
+
+const getDraftJobId = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(APP_KEY) || "{}").jobId;
   } catch {
     return null;
   }
@@ -37,6 +45,7 @@ const Row = ({ label, value }) =>
 const Review = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const stateId = location.state?.applicationId;
@@ -53,35 +62,29 @@ const Review = () => {
   const [declaration, setDeclaration] = useState(DECLARATION_TEXT);
   const [accepted, setAccepted] = useState(false);
 
-  const [jobId, setJobId] = useState(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem(APP_KEY) || "{}").jobId;
-    } catch {
-      return null;
-    }
-  });
-
   const { data, isLoading } = useQuery({
     queryKey: ["application-review", applicationId],
     queryFn: () => candidateService.getApplication(applicationId),
     enabled: Boolean(applicationId),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
+  const app = data?.application || data;
+  const jobId = app?.jobId?._id || app?.jobId || getDraftJobId();
+
   useEffect(() => {
-    if (data && !jobId) {
-      const app = data?.application || data;
-      const resolvedJobId = app?.jobId?._id || app?.jobId;
-      if (resolvedJobId) {
-        setJobId(resolvedJobId);
-        const existing = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
+    if (jobId) {
+      const existing = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
+      if (existing.jobId !== jobId) {
         sessionStorage.setItem(
           APP_KEY,
-          JSON.stringify({ ...existing, jobId: resolvedJobId }),
+          JSON.stringify({ ...existing, jobId }),
         );
       }
     }
-  }, [data, jobId]);
+  }, [jobId]);
 
   const { data: jobData } = useQuery({
     queryKey: ["job-details-review", jobId],
@@ -89,7 +92,6 @@ const Review = () => {
     enabled: Boolean(jobId),
   });
 
-  const app = data?.application || data;
   const job = app?.jobId || jobData?.job || jobData;
   const correctionMode = isCorrectionMode(app);
   const steps = buildApplicationSteps(job, app);
@@ -110,6 +112,23 @@ const Review = () => {
       onError: (err) =>
         toast.error(err.message || "Failed to submit corrections"),
     });
+
+  const { mutate: saveReview, isPending: isSavingReview } = useMutation({
+    mutationFn: () => candidateService.submitApplication(applicationId, declaration),
+    onSuccess: (result) => {
+      const latestApplication = result?.application || result || app;
+      queryClient.setQueryData(["application-layout", applicationId], {
+        application: latestApplication,
+      });
+      queryClient.setQueryData(["application-review", applicationId], {
+        application: latestApplication,
+      });
+      navigate(nextStep?.path || "/application/success", {
+        state: { applicationId },
+      });
+    },
+    onError: (err) => toast.error(err.message || "Failed to save review"),
+  });
 
   // Review just navigates forward — no API call needed here.
   // Declaration is saved during finalize (after payment).
@@ -136,9 +155,7 @@ const Review = () => {
       return;
     }
 
-    navigate(nextStep?.path || "/application/success", {
-      state: { applicationId },
-    });
+    saveReview();
   };
 
   if (!applicationId)
@@ -251,7 +268,7 @@ const Review = () => {
 
             {/* Education */}
             {(education.tenth || education.twelfth || education.graduation) && (
-              <div className="border-l-4 border-blue-400 pl-6">
+              <div className="border-l-4 border-orange-400 pl-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">
                     Educational Qualifications
@@ -370,7 +387,7 @@ const Review = () => {
 
             {/* Address */}
             {address.permanent && (
-              <div className="border-l-4 border-purple-400 pl-6">
+              <div className="border-l-4 border-orange-400 pl-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">Address</h3>
                   <Button
@@ -425,7 +442,7 @@ const Review = () => {
 
             {/* Dynamic Form Responses */}
             {Object.keys(formResponses).length > 0 && (
-              <div className="border-l-4 border-indigo-400 pl-6">
+              <div className="border-l-4 border-orange-400 pl-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">
                     Custom Fields
@@ -561,13 +578,18 @@ const Review = () => {
           </Button>
           <Button
             onClick={handleNext}
-            disabled={!accepted || !applicationId || isSubmittingCorrection}
+            disabled={
+              !accepted ||
+              !applicationId ||
+              isSubmittingCorrection ||
+              isSavingReview
+            }
             className="px-6 bg-orange-600 hover:bg-orange-700"
           >
-            {isSubmittingCorrection ? (
+            {isSubmittingCorrection || isSavingReview ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Submitting Corrections...
+                {correctionMode ? "Submitting Corrections..." : "Saving..."}
               </>
             ) : correctionMode ? (
               "Submit Corrections →"

@@ -11,7 +11,11 @@ import ApplicationLayout from "../../components/layouts/ApplicationLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
-import { buildApplicationSteps, getPaymentTiming } from "../../utils/applicationFlow";
+import {
+  buildApplicationSteps,
+  getNextPendingApplicationStep,
+  getPaymentTiming,
+} from "../../utils/applicationFlow";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -45,6 +49,13 @@ const calculateCategoryFee = (feeConfig = {}, category = "") => {
     return Number(feeConfig.ews ?? feeConfig.general ?? 0);
   }
   return Number(feeConfig.general ?? feeConfig.amount ?? 0);
+};
+
+const isPastDeadline = (value) => {
+  if (!value) return false;
+  const deadline = new Date(value);
+  if (Number.isNaN(deadline.getTime())) return false;
+  return deadline.getTime() < Date.now();
 };
 
 // Load Razorpay checkout and open it
@@ -88,7 +99,6 @@ const Payment = () => {
   const applicationId = location.state?.applicationId || getAppId();
   const [method, setMethod] = useState("upi");
   const [processing, setProcessing] = useState(false);
-  const [qrUrl, setQrUrl] = useState(null);
   const paymentRequestRef = useRef(false);
 
   useEffect(() => {
@@ -125,8 +135,13 @@ const Payment = () => {
   const processingFee = applicationFee > 0 ? Math.round((applicationFee * processingPercent) / 100) : 0;
   const grandTotal = applicationFee + processingFee;
   const isPaymentCompleted = application?.paymentStatus === "paid";
+  const paymentDeadline =
+    application?.jobId?.paymentConfig?.paymentDeadline ||
+    application?.jobId?.applicationDeadline;
+  const paymentDeadlinePassed =
+    !isPaymentCompleted && isPastDeadline(paymentDeadline);
   const paidTransactionId =
-    application?.transactionId || `PAID-${application?.applicationId || applicationId || Date.now()}`;
+    application?.transactionId || `PAID-${application?.applicationId || applicationId || "UNKNOWN"}`;
   const paidAmount = Number(application?.totalFee || grandTotal || 0);
   const paymentAttemptKey = applicationId
     ? `payment_attempt_${applicationId}`
@@ -195,7 +210,18 @@ const Payment = () => {
   const continueAfterPayment = (transactionId, amount) => {
     if (paymentAttemptKey) sessionStorage.removeItem(paymentAttemptKey);
     toast.success("Payment successful. Continue your application.");
-    navigate(nextStep?.path || "/application/education", {
+    const latestApplication = {
+      ...application,
+      paymentStatus: "paid",
+      transactionId,
+      totalFee: amount,
+    };
+    const targetStep = getNextPendingApplicationStep(
+      latestApplication,
+      steps,
+      paymentStep,
+    );
+    navigate(targetStep?.path || nextStep?.path || "/application/education", {
       state: { applicationId, transactionId, amount },
     });
   };
@@ -262,6 +288,11 @@ const Payment = () => {
 
     if (isPaymentCompleted) {
       await handleContinueFromCompletedPayment();
+      return;
+    }
+
+    if (paymentDeadlinePassed) {
+      toast.error("Payment deadline has passed");
       return;
     }
 
@@ -523,43 +554,43 @@ const Payment = () => {
     return (
       <ApplicationLayout currentStep={paymentStep} title="Payment Gateway">
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <Card className="h-full border-green-200 bg-green-50">
-                <CardContent className="h-full p-8">
+              <Card className="flex h-full flex-col border-green-200 bg-green-50">
+                <CardContent className="flex h-full flex-col p-6 sm:p-8">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-6 h-6 text-green-700" />
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-green-100">
+                      <CheckCircle className="h-6 w-6 text-green-700" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold tracking-[0.18em] uppercase text-green-700">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-green-700">
                         Payment Completed
                       </p>
-                      <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                      <h2 className="mt-2 text-[28px] font-bold leading-tight text-gray-900">
                         Your application fee is already paid.
                       </h2>
-                      <p className="text-gray-600 mt-2">
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
                         You can continue the application from the next pending step. Re-opening this page will never start a second payment for the same application.
                       </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
-                        <div className="bg-white border border-green-100 rounded-xl p-4">
-                          <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Amount Paid</p>
-                          <p className="text-lg font-bold text-gray-900 mt-1">INR {paidAmount.toLocaleString("en-IN")}</p>
+                      <div className="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-3">
+                        <div className="rounded-xl border border-green-100 bg-white p-4 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Amount Paid</p>
+                          <p className="mt-2 text-lg font-bold text-gray-900">INR {paidAmount.toLocaleString("en-IN")}</p>
                         </div>
-                        <div className="bg-white border border-green-100 rounded-xl p-4">
-                          <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Status</p>
-                          <p className="text-lg font-bold text-green-700 mt-1">Paid</p>
+                        <div className="rounded-xl border border-green-100 bg-white p-4 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Status</p>
+                          <p className="mt-2 text-lg font-bold text-green-700">Paid</p>
                         </div>
-                        <div className="bg-white border border-green-100 rounded-xl p-4">
-                          <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Application ID</p>
-                          <p className="text-sm font-mono font-bold text-gray-900 mt-2 break-all">{application?.applicationId}</p>
+                        <div className="rounded-xl border border-green-100 bg-white p-4 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Application ID</p>
+                          <p className="mt-2 break-all font-mono text-sm font-bold text-gray-900">{application?.applicationId}</p>
                         </div>
                       </div>
 
-                      <div className="bg-white border border-green-100 rounded-xl p-4 mt-3">
-                        <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Transaction ID</p>
-                        <p className="text-sm font-mono font-bold text-gray-900 mt-2 break-all">{paidTransactionId}</p>
+                      <div className="mt-3 rounded-xl border border-green-100 bg-white p-4 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Transaction ID</p>
+                        <p className="mt-2 break-all font-mono text-sm font-bold text-gray-900">{paidTransactionId}</p>
                       </div>
                     </div>
                   </div>
@@ -567,36 +598,44 @@ const Payment = () => {
               </Card>
             </div>
 
-            <div className="space-y-5">
-              <Card className="h-full">
+            <div className="flex h-full flex-col space-y-5">
+              <Card className="flex h-full flex-col">
                 <CardHeader>
-                  <h3 className="font-semibold text-gray-900">Payment Summary</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Payment Summary</h3>
                 </CardHeader>
-                <CardContent className="flex h-[calc(100%-72px)] flex-col space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-700" />
-                    <p className="text-sm text-green-800 font-semibold">Payment verified</p>
+                <CardContent className="flex flex-1 flex-col space-y-4">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-3.5 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-700" />
+                    <p className="text-sm font-semibold text-green-800">Payment verified</p>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Application Fee</span>
-                      <span className="font-medium">INR {applicationFee.toLocaleString("en-IN")}</span>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-4 text-sm">
+                        <span className="text-gray-600">Application Fee</span>
+                        <span className="font-medium text-gray-900">INR {applicationFee.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 text-sm">
+                        <span className="text-gray-600">Processing Fee</span>
+                        <span className="font-medium text-gray-900">INR {Math.max(0, paidAmount - applicationFee).toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3 flex items-center justify-between gap-4">
+                        <span className="font-semibold text-gray-800">Total Paid</span>
+                        <span className="text-lg font-bold text-green-700">
+                          INR {paidAmount.toLocaleString("en-IN")}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Processing Fee</span>
-                      <span className="font-medium">INR {Math.max(0, paidAmount - applicationFee).toLocaleString("en-IN")}</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between">
-                      <span className="font-semibold text-gray-800">Total Paid</span>
-                      <span className="font-bold text-green-700 text-lg">
-                        INR {paidAmount.toLocaleString("en-IN")}
-                      </span>
-                    </div>
+                  </div>
+                  <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-700">Next step</p>
+                    <p className="mt-2 text-sm leading-6 text-orange-900">
+                      Continue the application from the next pending step. The payment will not be repeated for this application.
+                    </p>
                   </div>
                   <Button
                     onClick={handleContinueFromCompletedPayment}
                     disabled={processing}
-                    className="mt-auto w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    className="mt-auto w-full bg-orange-600 text-white shadow-sm hover:bg-orange-700"
                   >
                     {processing ? (
                       <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
@@ -629,7 +668,7 @@ const Payment = () => {
   return (
     <ApplicationLayout currentStep={paymentStep} title="Payment Gateway">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-6">
 
           {/* Left: Payment Methods */}
           <div className="lg:col-span-2 space-y-5">
@@ -673,12 +712,12 @@ const Payment = () => {
 
             {/* Method info cards */}
             {method === "upi" && (
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <Smartphone className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <Smartphone className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-blue-800">UPI Payment</p>
-                    <p className="text-xs text-blue-700 mt-0.5">
+                    <p className="text-sm font-semibold text-orange-800">UPI Payment</p>
+                    <p className="text-xs text-orange-700 mt-0.5">
                       After clicking Pay, a Razorpay popup will open. Enter your UPI ID or scan the QR code shown there.
                     </p>
                   </div>
@@ -687,12 +726,12 @@ const Payment = () => {
             )}
 
             {method === "upi_qr" && (
-              <Card className="border-purple-200 bg-purple-50">
+              <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <QrCode className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <QrCode className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-purple-800">UPI QR Code</p>
-                    <p className="text-xs text-purple-700 mt-0.5">
+                    <p className="text-sm font-semibold text-orange-800">UPI QR Code</p>
+                    <p className="text-xs text-orange-700 mt-0.5">
                       After clicking Pay, a QR code will appear in the Razorpay popup. Scan it with any UPI app to complete payment.
                     </p>
                   </div>
@@ -739,12 +778,12 @@ const Payment = () => {
           </div>
 
           {/* Right: Summary */}
-          <div className="space-y-5">
-            <Card>
+          <div className="flex h-full flex-col space-y-5">
+            <Card className="flex h-full flex-col">
               <CardHeader>
                 <h3 className="font-semibold text-gray-800">Payment Summary</h3>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex flex-1 flex-col space-y-4">
                 {candidateCategory && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
                     <IndianRupee className="w-4 h-4 text-orange-600 flex-shrink-0" />
@@ -780,6 +819,27 @@ const Payment = () => {
                   </div>
                 )}
 
+                <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                    <p className="text-sm font-semibold text-orange-900">Payment notes</p>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-start gap-2 text-xs text-orange-800">
+                      <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                      <span>Your payment is processed securely through Razorpay.</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-xs text-orange-800">
+                      <RefreshCw className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                      <span>If the window closes, you can reopen and continue from this application.</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-xs text-orange-800">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                      <span>Keep the Application ID saved for future reference and status checks.</span>
+                    </div>
+                  </div>
+                </div>
+
                 {applicationFee === 0 && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600" />
@@ -790,11 +850,13 @@ const Payment = () => {
                 {/* Pay button in summary too */}
                 <button
                   onClick={handlePay}
-                  disabled={processing}
-                  className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+                  disabled={processing || paymentDeadlinePassed}
+                  className="mt-auto w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {processing ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                  ) : paymentDeadlinePassed ? (
+                    "Payment Deadline Passed"
                   ) : grandTotal === 0 ? (
                     isEarlyPayment ? "Continue (No Fee)" : "Submit Application (Free)"
                   ) : (
@@ -807,7 +869,7 @@ const Payment = () => {
             {/* Razorpay branding */}
             <div className="text-center">
               <p className="text-xs text-gray-400">Payments powered by</p>
-              <p className="text-sm font-bold text-blue-700 mt-0.5">Razorpay</p>
+              <p className="text-sm font-bold text-orange-700 mt-0.5">Razorpay</p>
             </div>
           </div>
         </div>
@@ -827,11 +889,13 @@ const Payment = () => {
           </Button>
           <Button
             onClick={handlePay}
-            disabled={processing}
+            disabled={processing || paymentDeadlinePassed}
             className="bg-orange-600 hover:bg-orange-700 text-white px-8"
           >
             {processing ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+            ) : paymentDeadlinePassed ? (
+              "Payment Deadline Passed"
             ) : grandTotal === 0 ? (
               isEarlyPayment ? "Continue (No Fee)" : "Submit Application (Free)"
             ) : (
