@@ -8,10 +8,13 @@ const startJobStatusCron = () => {
   cron.schedule("0 * * * *", async () => {
     try {
       const now = new Date();
-      // Find all active jobs whose application deadline has passed
+      // Set to beginning of the day to ensure we only close jobs if their deadline was yesterday or earlier
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Find all active jobs whose application deadline is strictly before the start of today
       const expiredJobs = await Job.find({
         status: "active",
-        applicationDeadline: { $lt: now },
+        applicationDeadline: { $lt: startOfToday },
       });
 
       if (expiredJobs.length > 0) {

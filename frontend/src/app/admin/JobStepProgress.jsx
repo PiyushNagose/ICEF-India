@@ -32,6 +32,8 @@ const isJobAdvertisementConfigured = (job) => {
   )
 }
 
+const getEntityId = (value) => String(value?._id || value?.id || value || '')
+
 /**
  * Shared 6-step progress stepper for the Job creation flow.
  *
@@ -76,7 +78,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
 
   const selectedJobSchedules = jobId
     ? selectedJobSchedulesRaw.filter(
-        (schedule) => String(schedule.jobId?._id || schedule.jobId || '') === String(jobId),
+        (schedule) => getEntityId(schedule.jobId) === getEntityId(jobId),
       )
     : selectedJobSchedulesRaw
 

@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Loader2,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { adminService } from "../../services/admin.service";
@@ -210,7 +211,7 @@ const CmsCreate = () => {
   ];
 
   return (
-    <AdminLayout title="CMS — Create State Page">
+    <AdminLayout title="CMS - Create Landing Page">
       <div className="p-6">
         <div className="w-full">
           {/* Header */}
@@ -223,11 +224,11 @@ const CmsCreate = () => {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Create State Landing Page
+                Create Project Landing Page
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Configure a new local-level landing page for state-specific
-                recruitment drives.
+                Configure the public landing page candidates will open from
+                the official recruitment notification link.
               </p>
             </div>
           </div>
@@ -522,17 +523,18 @@ const CmsCreate = () => {
                 </button>
               </div>
 
-              {/* Pro Tip */}
-              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+              {/* Landing page tip */}
+              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
                 <div className="flex items-start gap-2">
-                  <span className="text-blue-500 text-sm mt-0.5">💡</span>
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
                   <div>
-                    <p className="text-xs font-bold text-blue-800 mb-1">
-                      Pro Tip
+                    <p className="text-xs font-bold text-orange-700 mb-1">
+                      Landing Page Tip
                     </p>
-                    <p className="text-xs text-blue-700 leading-relaxed">
-                      Regularly updating the announcements section improves
-                      engagement rates by up to 40% on state landing pages.
+                    <p className="text-xs text-orange-700 leading-relaxed">
+                      Keep notices, instructions, and helpdesk details aligned
+                      with the current project so candidates see one official
+                      source of truth.
                     </p>
                   </div>
                 </div>

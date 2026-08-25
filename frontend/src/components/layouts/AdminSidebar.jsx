@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Layers,
   FileBadge,
+  LayoutTemplate,
   ClipboardList,
   X
 } from 'lucide-react'
@@ -25,6 +26,7 @@ const menuItems = [
   { icon: Briefcase,       label: 'Jobs',                path: '/admin/jobs',             permission: ['jobs', 'view'] },
   { icon: Users,           label: 'Applications',        path: '/admin/applications',     permission: ['applications', 'view'] },
   { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards',      permission: ['admitCards', 'view'] },
+  { icon: LayoutTemplate,  label: 'Exam Templates',       path: '/admin/admit-card-templates', permission: ['admitCards', 'view'] },
   { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics',        permission: ['analytics', 'view'] },
   { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs',    permission: ['activityLogs', 'view'] },
   { icon: HeadphonesIcon,  label: 'Support',             path: '/admin/support',          permission: ['support', 'view'] },

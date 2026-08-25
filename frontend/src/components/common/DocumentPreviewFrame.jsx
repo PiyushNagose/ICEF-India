@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
 import { API_BASE_URL, STORAGE_KEYS } from "../../api/config";
 
@@ -36,11 +37,17 @@ const resolvePreviewSource = (src = "") => {
   return src;
 };
 
-const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" }) => {
+const DocumentPreviewFrame = ({
+  src,
+  title = "Document Preview",
+  className = "",
+  notifyOnError = false,
+}) => {
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [previewMime, setPreviewMime] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -57,6 +64,7 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
       setStatus("loading");
       setMessage("");
       setPreviewUrl("");
+      setPreviewMime("");
 
       if (isExternalSource(resolvedSrc) && !resolvedSrc.includes("/api/")) {
         setPreviewUrl(resolvedSrc);
@@ -76,8 +84,10 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
 
         const contentType = response.headers.get("content-type") || "";
         if (!response.ok || contentType.includes("application/json")) {
+          const errorMessage = await getPreviewError(response);
           setStatus("error");
-          setMessage(await getPreviewError(response));
+          setMessage(errorMessage);
+          if (notifyOnError) toast.error(errorMessage);
           return;
         }
 
@@ -88,11 +98,14 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
           return;
         }
         setPreviewUrl(objectUrl);
+        setPreviewMime(contentType);
         setStatus("ready");
       } catch {
         if (!active) return;
+        const errorMessage = "Unable to load preview. Please check your session and try again.";
         setStatus("error");
-        setMessage("Unable to load preview. Please check your session and try again.");
+        setMessage(errorMessage);
+        if (notifyOnError) toast.error(errorMessage);
       }
     };
 
@@ -102,7 +115,7 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [src, reloadKey]);
+  }, [src, reloadKey, notifyOnError]);
 
   if (status === "loading") {
     return (
@@ -153,7 +166,7 @@ const DocumentPreviewFrame = ({ src, title = "Document Preview", className = "" 
     );
   }
 
-  if (isPdfSource(sourceSignature)) {
+  if (isPdfSource(sourceSignature) || previewMime.includes("application/pdf") || previewMime.includes("text/html")) {
     return (
       <iframe
         key={`${displayUrl}-${reloadKey}`}

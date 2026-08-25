@@ -79,7 +79,7 @@ const buildSteps = (
     {
       key: "admit-format",
       label: "Admit Format",
-      helper: "Template and instructions",
+      helper: "Templates and schedule",
       icon: FileBadge,
       path: `/admin/admit-cards?project=${projectId}&focus=template${jobQuery}`,
       complete: Boolean(admitFormatComplete),
@@ -144,12 +144,16 @@ const ProjectFlowNav = ({
   const doLaterStep = doLaterTargetKey
     ? steps.find((step) => step.key === doLaterTargetKey)
     : null;
+  const nextStepCandidates =
+    workflowScope === "project"
+      ? steps.filter((step) => !step.optional)
+      : steps;
   const nextStep =
-    steps
+    nextStepCandidates
       .slice(currentIndex >= 0 ? currentIndex + 1 : 0)
       .find((step) => !step.complete) ||
-    steps.find((step) => !step.complete) ||
-    steps[steps.length - 1];
+    nextStepCandidates.find((step) => !step.complete) ||
+    null;
   const nextActionLabel =
     workflowScope === "project" && nextStep?.key === "publish"
       ? "Next: Publish / Verify"

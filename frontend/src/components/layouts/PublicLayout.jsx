@@ -410,7 +410,7 @@ const PublicLayout = ({ children }) => {
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-[12px] text-white/40">
               <Link to={projectHomePath} className="hover:text-orange-300 transition-colors">
-                Recruitment Page
+                Current Recruitment
               </Link>
               <Link to="/contact" className="hover:text-orange-300 transition-colors">
                 Support

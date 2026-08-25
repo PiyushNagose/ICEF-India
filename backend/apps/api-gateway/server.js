@@ -293,6 +293,7 @@ app.use("/api/admin/applications", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/analytics", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/cms", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use("/api/admin/exams", proxy(RECRUITMENT_URL, "Recruitment"));
+app.use("/api/admin/admit-card-templates", proxy(RECRUITMENT_URL, "Recruitment"));
 app.use(
   "/api/admin/standard-presets",
   proxy(RECRUITMENT_URL, "Recruitment"),

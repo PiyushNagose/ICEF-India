@@ -38,7 +38,6 @@ import {
 } from "../../utils/projectLifecycle";
 import {
   JOB_DRAFT_STORAGE_KEY,
-  readJobDraft,
   getJobWizardPath,
   getJobDraftResumePath,
   toJobDraftPayload,
@@ -64,17 +63,11 @@ const isJobAdvertisementConfigured = (job) => {
 const getJobTime = (job) =>
   new Date(job?.createdAt || job?.updatedAt || 0).getTime() || 0;
 
-const getDefaultReviewJob = (jobs = []) => {
-  const configuredJobs = jobs.filter(isJobAdvertisementConfigured);
-  const selectableJobs = configuredJobs.length ? configuredJobs : jobs;
-  const draftJobs = selectableJobs
-    .filter((job) => String(job.status || "").toLowerCase() !== "active")
-    .sort((a, b) => getJobTime(b) - getJobTime(a));
+const getEntityId = (value) =>
+  String(value?._id || value?.id || value || "");
 
-  if (draftJobs[0]) return draftJobs[0];
-
-  return [...selectableJobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null;
-};
+const getMostRecentJob = (jobs = []) =>
+  [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null;
 
 const getJobWorkflowSummary = (project, job) => {
   const workflows =
@@ -107,11 +100,6 @@ const ProjectDetails = () => {
   const [searchParams] = useSearchParams();
   const reviewMode = searchParams.get("review") === "1";
   const [selectedJobId, setSelectedJobId] = useState(searchParams.get("job") || "");
-  const storedDraft = readJobDraft();
-  const storedJobId =
-    storedDraft?.projectId && String(storedDraft.projectId) === String(id)
-      ? storedDraft?._jobId || ""
-      : "";
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-project", id],
@@ -130,14 +118,8 @@ const ProjectDetails = () => {
       jobs.find((job) => String(job._id) === String(selectedJobId)) || null;
     if (explicitJob) return explicitJob;
 
-    const storedDraftJob =
-      storedJobId && jobs.find((job) => String(job._id) === String(storedJobId));
-    if (storedDraftJob) return storedDraftJob;
-
-    if (reviewMode) return getDefaultReviewJob(jobs);
-
-    return null;
-  }, [jobs, reviewMode, selectedJobId, storedJobId]);
+    return getMostRecentJob(jobs);
+  }, [jobs, selectedJobId]);
   const { data: selectedJobData } = useQuery({
     queryKey: ["admin-project-selected-job", selectedJobSummary?._id],
     queryFn: () => adminService.getAdminJob(selectedJobSummary._id),
@@ -177,7 +159,7 @@ const ProjectDetails = () => {
     : selectedJobSchedulesData?.schedules || [];
   const selectedJobSchedules = selectedJob?._id
     ? selectedJobSchedulesRaw.filter(
-        (schedule) => String(schedule.jobId?._id || schedule.jobId || "") === String(selectedJob._id),
+        (schedule) => getEntityId(schedule.jobId) === getEntityId(selectedJob._id),
       )
     : selectedJobSchedulesRaw;
 
@@ -190,9 +172,7 @@ const ProjectDetails = () => {
       : false;
     const selectedJobIdIsValid =
       selectedJobId && jobs.some((job) => String(job._id) === String(selectedJobId));
-    const storedJobIsValid =
-      storedJobId && jobs.some((job) => String(job._id) === String(storedJobId));
-    const fallbackReviewJob = reviewMode ? getDefaultReviewJob(jobs) : null;
+    const fallbackJob = getMostRecentJob(jobs);
     const syncJobParam = (jobId) => {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("job", jobId);
@@ -219,16 +199,8 @@ const ProjectDetails = () => {
       return;
     }
 
-    if (!urlJobId && storedJobIsValid) {
-      if (selectedJobId !== storedJobId) {
-        setSelectedJobId(storedJobId);
-      }
-      if (reviewMode) syncJobParam(storedJobId);
-      return;
-    }
-
-    if (reviewMode && fallbackReviewJob?._id) {
-      const fallbackJobId = String(fallbackReviewJob._id);
+    if (fallbackJob?._id) {
+      const fallbackJobId = String(fallbackJob._id);
       if (selectedJobId !== fallbackJobId) {
         setSelectedJobId(fallbackJobId);
       }
@@ -249,7 +221,7 @@ const ProjectDetails = () => {
         { replace: true },
       );
     }
-  }, [jobs, location.hash, location.pathname, location.search, navigate, reviewMode, searchParams, selectedJobId, storedJobId]);
+  }, [jobs, location.hash, location.pathname, location.search, navigate, searchParams, selectedJobId]);
 
   const isPublished = Boolean(rawProject?.isPublished);
 
@@ -534,7 +506,7 @@ const ProjectDetails = () => {
     ],
   };
   const projectWorkflowReadiness = {
-    complete: projectPublishReady,
+    complete: false,
     checks: [
       {
         key: "landing",
@@ -547,41 +519,35 @@ const ProjectDetails = () => {
       {
         key: "job",
         label: "Job Advertisement",
-        complete: configuredJobCount > 0 || activeJobCount > 0,
+        complete: false,
         message: configuredJobCount > 0 || activeJobCount > 0
-          ? `${configuredJobCount || activeJobCount} job advertisement(s) ready.`
+          ? "Select a job to view its advertisement progress."
           : "Create at least one job advertisement.",
       },
       {
         key: "admit-format",
         label: "Admit Format",
         complete: false,
-        optional: true,
         message: "Job-specific. Select a job.",
       },
       {
         key: "centers",
         label: "Centers",
         complete: false,
-        optional: true,
         message: "Job-specific. Select a job.",
       },
       {
         key: "review",
         label: "Final Review",
-        complete: projectPublishReady,
-        optional: true,
-        message: projectPublishReady
-          ? "Project has landing CMS and a live job."
-          : "Select a job and publish it to complete the public flow.",
+        complete: false,
+        message: "Select a job and review it before publishing.",
       },
       {
         key: "publish",
         label: "Publish / Verify",
-        complete: projectPublishComplete,
-        optional: true,
+        complete: false,
         message: projectPublishComplete
-          ? "Project public URL is live."
+          ? "Project public URL is live. Select a job to manage job publish status."
           : "Release the public URL after a job is live.",
       },
     ],
@@ -633,8 +599,8 @@ const ProjectDetails = () => {
     {
       title: "Admit Card Format",
       description: selectedJob
-        ? `Template and instructions for ${selectedJob.title}.`
-        : "Template, title, and instructions.",
+        ? `Templates and schedule for ${selectedJob.title}.`
+        : "Templates, schedule, and print setup.",
       icon: FileBadge,
       action: () => navigate(`/admin/admit-cards?project=${id}&focus=template${selectedJob?._id ? `&job=${selectedJob._id}` : ""}`),
     },

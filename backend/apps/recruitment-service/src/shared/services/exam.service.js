@@ -9,6 +9,7 @@ const AdmitCard = require("../models/AdmitCard");
 const Application = require("../models/Application");
 const Job = require("../models/Job");
 const Project = require("../models/Project");
+const AdmitCardTemplate = require("../models/AdmitCardTemplate");
 const ApiError = require("../utils/ApiError");
 const { getPaginationParams } = require("../utils/helpers");
 const { paginationMeta } = require("../utils/ApiResponse");
@@ -35,6 +36,89 @@ const DEFAULT_INSTRUCTIONS = [
   "The Jharkhand Competitive Examination (Measures for Control and Prevention of Unfair Means in Recruitment) Act 2023 shall be applicable during examination process.",
   "In case of any discrepancy in the admit card, visit Commission Office after issuance of admit card.",
 ].map((text, index) => ({ order: index + 1, text }));
+
+const buildTemplateConfig = (template) => ({
+  templateId: template._id,
+  baseLayout: template.baseLayout || "standard",
+  logoUrl: template.logoUrl || "",
+  watermarkUrl: template.watermarkUrl || "",
+  primaryColor: template.primaryColor || "#f97316",
+  instructions: template.instructions || "",
+  organizationName: template.organizationName || "",
+  organizationNameLocal: template.organizationNameLocal || "",
+  documentTitle: template.documentTitle || "",
+  sealText: template.sealText || "",
+  provisionalNote: template.provisionalNote || "",
+  instructionHeading: template.instructionHeading || "",
+  photoBoxText: template.photoBoxText || "",
+  controllerTitle: template.controllerTitle || "",
+});
+
+const TEMPLATE_DEFAULTS = {
+  admit_card: {
+    name: "Standard",
+    baseLayout: "standard",
+    primaryColor: "#f97316",
+    organizationName: "Jharkhand Staff Selection Commission",
+    organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
+    documentTitle: "Admit Card",
+    sealText: "JSSC",
+    provisionalNote: DEFAULT_PROVISIONAL_NOTE,
+    instructionHeading: "Please read the instructions carefully given below in the admit card before appearing for the examination.",
+    photoBoxText: "Paste Photo Here\nSignature of Candidate\nbelow pasted Photo same as\nUploaded Signature",
+    controllerTitle: "Examination Controller",
+    instructions: "",
+  },
+  attendance_sheet: {
+    name: "Standard Attendance Sheet",
+    baseLayout: "standard",
+    primaryColor: "#f97316",
+    organizationName: "Jharkhand Staff Selection Commission",
+    organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
+    documentTitle: "ATTENDANCE SHEET",
+    sealText: "JSSC",
+    instructions: "Candidate signature and thumb impression must be verified by the invigilator.",
+  },
+};
+
+const resolveTemplateConfig = async (templateId, templateType = "admit_card") => {
+  let template = null;
+
+  if (templateId && mongoose.Types.ObjectId.isValid(String(templateId))) {
+    template = await AdmitCardTemplate.findOne({ _id: templateId, templateType });
+  }
+
+  const fallback = TEMPLATE_DEFAULTS[templateType] || TEMPLATE_DEFAULTS.admit_card;
+  if (!template) {
+    template =
+      (await AdmitCardTemplate.findOne({ name: fallback.name, templateType, isSystemDefault: true })) ||
+      (await AdmitCardTemplate.findOne({ templateType, isSystemDefault: true }).sort({ createdAt: 1 })) ||
+      (await AdmitCardTemplate.create({
+        name: fallback.name,
+        templateType,
+        baseLayout: fallback.baseLayout,
+        primaryColor: fallback.primaryColor,
+        organizationName: fallback.organizationName,
+        organizationNameLocal: fallback.organizationNameLocal,
+        documentTitle: fallback.documentTitle,
+        sealText: fallback.sealText,
+        provisionalNote: fallback.provisionalNote,
+        instructionHeading: fallback.instructionHeading,
+        photoBoxText: fallback.photoBoxText,
+        controllerTitle: fallback.controllerTitle,
+        isSystemDefault: true,
+        instructions: fallback.instructions,
+      }));
+  }
+
+  return buildTemplateConfig(template);
+};
+
+const resolveAdmitCardTemplateConfig = (templateId) =>
+  resolveTemplateConfig(templateId, "admit_card");
+
+const resolveAttendanceSheetTemplateConfig = (templateId) =>
+  resolveTemplateConfig(templateId, "attendance_sheet");
 
 const emitExamRealtime = (event, payload = {}, options = {}) => {
   try {
@@ -586,6 +670,11 @@ const createSchedule = async (data, userId) => {
   await assertSameJobScheduleConflicts(data);
   await assertScheduleCenterConflicts(data);
 
+  const [admitCardTemplateConfig, attendanceSheetTemplateConfig] = await Promise.all([
+    resolveAdmitCardTemplateConfig(data.admitCardTemplate),
+    resolveAttendanceSheetTemplateConfig(data.attendanceSheetTemplate),
+  ]);
+
   const schedule = await ExamSchedule.create({
     ...data,
     projectId: data.projectId || job.projectId,
@@ -594,6 +683,8 @@ const createSchedule = async (data, userId) => {
     provisionalNote: data.provisionalNote,
     instructions: data.instructions,
     selectedCenterIds: data.selectedCenterIds,
+    admitCardTemplateConfig,
+    attendanceSheetTemplateConfig,
     createdBy: userId,
     updatedBy: userId,
   });
@@ -647,6 +738,13 @@ const updateSchedule = async (id, data, userId) => {
   );
   if (data.examCode) data.examCode = normalizeCode(data.examCode);
   if (data.examDate) data.examDate = new Date(data.examDate);
+
+  if (Object.prototype.hasOwnProperty.call(data, "admitCardTemplate")) {
+    data.admitCardTemplateConfig = await resolveAdmitCardTemplateConfig(data.admitCardTemplate);
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "attendanceSheetTemplate")) {
+    data.attendanceSheetTemplateConfig = await resolveAttendanceSheetTemplateConfig(data.attendanceSheetTemplate);
+  }
 
   await clearGeneratedScheduleState(schedule, data);
   Object.assign(schedule, data, { updatedBy: userId });
@@ -1727,10 +1825,37 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const personal = application.personalDetails || {};
   const photoUrl = getDocumentUrl(application, "passport_photo");
   const signatureUrl = getDocumentUrl(application, "signature");
+  const tplConfig = schedule.admitCardTemplateConfig || {};
+  const baseLayout = tplConfig.baseLayout || "standard";
+  const logoUrl = tplConfig.logoUrl || schedule.admitCardLogoUrl;
+  const watermarkUrl = tplConfig.watermarkUrl;
+  const primaryColor = tplConfig.primaryColor || "#244a9b";
+  const organizationName = tplConfig.organizationName || schedule.commissionName || "Jharkhand Staff Selection Commission";
+  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Jharkhand Staff Selection Commission";
+  const documentTitle = tplConfig.documentTitle || "Admit Card";
+  const sealText = tplConfig.sealText || "JSSC";
+  const provisionalNote = tplConfig.provisionalNote || schedule.provisionalNote || DEFAULT_PROVISIONAL_NOTE;
+  const instructionHeading =
+    tplConfig.instructionHeading ||
+    "Please read the instructions carefully given below in the admit card before appearing for the examination.";
+  const photoBoxText = String(
+    tplConfig.photoBoxText ||
+      "Paste Photo Here\nSignature of Candidate\nbelow pasted Photo same as\nUploaded Signature",
+  )
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => escapeHtml(line))
+    .join("<br/>");
+  const controllerTitle = tplConfig.controllerTitle || "Examination Controller";
+
+  const templateInstructions = tplConfig.instructions
+    ? tplConfig.instructions.split('\n').filter(line => line.trim().length > 0).map((text, i) => ({ order: i + 1, text: text.trim() }))
+    : null;
+
   const papers = schedule.papers?.length
     ? schedule.papers
     : [{ name: "Paper I", numberOfQuestions: 100 }];
-  const instructions = [...(schedule.instructions || [])].sort(
+  const instructions = templateInstructions || [...(schedule.instructions || [])].sort(
     (a, b) => a.order - b.order,
   );
   const verificationPath = `/admit-cards/verify/${encodeURIComponent(admitCard.barcodeValue)}`;
@@ -1787,8 +1912,8 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .barcode { height: 27px; margin: 4px auto 5px; line-height: 0; overflow: hidden; white-space: nowrap; text-align: center; }
     .verify { font-size: 8px; font-weight: 700; margin-top: 2px; word-break: break-all; }
     .barcode span { height: 28px !important; vertical-align: top; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; border: 1px solid #244a9b; }
-    th, td { border: 1px solid #244a9b; padding: 4px 7px; vertical-align: middle; line-height: 1.12; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; border: 1px solid ${primaryColor}; }
+    th, td { border: 1px solid ${primaryColor}; padding: 4px 7px; vertical-align: middle; line-height: 1.12; }
     th { text-align: center; font-weight: 700; }
     .label { width: 25%; font-weight: 700; }
     .value { font-weight: 500; }
@@ -1809,9 +1934,9 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .controller { margin-top: 47px; text-align: right; padding-right: 78px; font-size: 12px; font-weight: 700; }
     .instructions-page { padding-top: 29px; }
     .instruction-sheet { width: 574px; margin: 0 auto; }
-    .instruction-box { border: 1px solid #244a9b; min-height: 627px; }
-    .note { border-bottom: 1px solid #244a9b; padding: 7px 8px; font-size: 10px; font-weight: 700; line-height: 1.25; text-align: justify; }
-    .instruction-head { border-bottom: 1px solid #244a9b; text-align: center; padding: 8px; font-size: 14px; font-weight: 700; line-height: 1.15; }
+    .instruction-box { border: 1px solid ${primaryColor}; min-height: 627px; }
+    .note { border-bottom: 1px solid ${primaryColor}; padding: 7px 8px; font-size: 10px; font-weight: 700; line-height: 1.25; text-align: justify; }
+    .instruction-head { border-bottom: 1px solid ${primaryColor}; text-align: center; padding: 8px; font-size: 14px; font-weight: 700; line-height: 1.15; }
     ol { margin: 12px 12px 24px 45px; padding: 0; font-size: 10px; font-weight: 700; line-height: 1.25; }
     li { padding: 8px 0 9px; border-bottom: 1px solid #aaa; }
     li:last-child { border-bottom: 1px solid #aaa; }
@@ -1834,7 +1959,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .logo-container img { max-width: 50px; max-height: 50px; object-fit: contain; }
   </style>
 </head>
-<body class="template-${schedule.admitCardTemplate || 'standard'}">
+<body class="template-${baseLayout}" ${watermarkUrl ? `style="background-image: url('${watermarkUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;"` : ""}>
   ${
     options.embed
       ? ""
@@ -1851,12 +1976,12 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   <section class="page">
     <div class="sheet">
       <div class="header">
-        ${schedule.admitCardLogoUrl ? `<div class="logo-container"><img src="${escapeHtml(schedule.admitCardLogoUrl)}" alt="Logo" /></div>` : `<div class="seal">JSSC</div>`}
-        <div class="commission">${escapeHtml(schedule.commissionName)}</div>
-        <div class="local">${escapeHtml(localCommission)}</div>
+        ${logoUrl ? `<div class="logo-container"><img src="${escapeHtml(logoUrl)}" alt="Logo" /></div>` : `<div class="seal" style="border-color: ${primaryColor}80; color: ${primaryColor}; box-shadow: inset 0 0 0 3px ${primaryColor}10, inset 0 0 0 5px ${primaryColor}20;">${escapeHtml(sealText)}</div>`}
+        <div class="commission">${escapeHtml(organizationName)}</div>
+        <div class="local">${escapeHtml(organizationNameLocal)}</div>
         <div class="exam">${escapeHtml(schedule.advertisementNo || "")}</div>
         <div class="exam">${escapeHtml(schedule.examName || schedule.examCode)}</div>
-        <div class="title">Admit Card</div>
+        <div class="title">${escapeHtml(documentTitle)}</div>
         <div class="barcode">${barcodeBars(admitCard.barcodeValue)}</div>
         <div class="verify">Verify: ${escapeHtml(verificationPath)}</div>
       </div>
@@ -1867,7 +1992,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
         <td class="label">Application Number</td><td class="value">${escapeHtml(application.applicationId)}</td>
         <td class="photo-cell" rowspan="8">
           <div class="photo-box">${photoUrl ? `<img src="${escapeHtml(photoUrl)}" />` : `<span class="photo-placeholder">Photo</span>`}</div>
-          <div class="paste-text"><div>Paste Photo Here<br/>Signature of Candidate<br/>below pasted Photo same as<br/>Uploaded Signature<small>(उम्मीदवारों को अपना पास फोटो के नीचे अपलोड किए गए हस्ताक्षर के समान ही हस्ताक्षर करना है ।)</small></div></div>
+          <div class="paste-text"><div>${photoBoxText}</div></div>
           <div class="sign-box">${signatureUrl ? `<img src="${escapeHtml(signatureUrl)}" />` : ""}</div>
         </td>
       </tr>
@@ -1896,15 +2021,15 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       ${schedule.gateClosingTime ? `<tr><td class="label">Gate Closing Time</td><td>${escapeHtml(schedule.gateClosingTime)}</td></tr>` : ""}
       <tr><td class="label">Exam Time</td><td>${escapeHtml(schedule.examStartTime)}${schedule.examEndTime ? ` to ${escapeHtml(schedule.examEndTime)}` : ""}</td></tr>
     </table>
-    <div class="controller">Examination Controller</div>
+    <div class="controller">${escapeHtml(controllerTitle)}</div>
     </div>
   </section>
 
   <section class="page instructions-page">
     <div class="instruction-sheet">
       <div class="instruction-box">
-        <div class="note">${escapeHtml(schedule.provisionalNote || DEFAULT_PROVISIONAL_NOTE)}</div>
-        <div class="instruction-head">Please read the instructions carefully given below in the admit card before appearing for the examination.</div>
+        <div class="note">${escapeHtml(provisionalNote)}</div>
+        <div class="instruction-head">${escapeHtml(instructionHeading)}</div>
         <ol>
           ${instructions.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}
         </ol>
@@ -1943,6 +2068,20 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
       "No allocations found for attendance sheet",
     );
   }
+
+  const tplConfig = schedule.attendanceSheetTemplateConfig || {};
+  const primaryColor = tplConfig.primaryColor || "#f97316";
+  const baseLayout = tplConfig.baseLayout || "standard";
+  const logoUrl = tplConfig.logoUrl || "";
+  const watermarkUrl = tplConfig.watermarkUrl || "";
+  const organizationName = tplConfig.organizationName || schedule.commissionName || "Jharkhand Staff Selection Commission";
+  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Jharkhand Staff Selection Commission";
+  const documentTitle = tplConfig.documentTitle || "ATTENDANCE SHEET";
+  const sealText = tplConfig.sealText || "JSSC";
+  const templateInstructions = String(tplConfig.instructions || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
   const pages = chunk(allocations, 6)
     .map((items) => {
@@ -1986,13 +2125,14 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
       }).join("");
 
       return `
-      <section class="page">
+      <section class="page template-${escapeHtml(baseLayout)}">
+        ${watermarkUrl ? `<img class="watermark" src="${escapeHtml(watermarkUrl)}" alt="" />` : ""}
         <div class="head">
-          <div class="seal">JSSC</div>
+          <div class="seal">${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" />` : escapeHtml(sealText)}</div>
           <div>
-            <h1>${escapeHtml(schedule.commissionName)}</h1>
-            <h2>${escapeHtml(schedule.commissionNameLocal)}</h2>
-            <p>ATTENDANCE SHEET</p>
+            <h1>${escapeHtml(organizationName)}</h1>
+            <h2>${escapeHtml(organizationNameLocal)}</h2>
+            <p>${escapeHtml(documentTitle)}</p>
           </div>
           <div></div>
         </div>
@@ -2008,6 +2148,13 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
           </tr>
         </table>
         <table class="candidates">${rows}</table>
+        ${
+          templateInstructions.length
+            ? `<div class="sheet-instructions"><strong>Instructions:</strong> ${templateInstructions
+                .map((line) => escapeHtml(line))
+                .join(" | ")}</div>`
+            : ""
+        }
         <table class="foot">
           <tr>
             <td>Total Candidates Present: __________________________</td>
@@ -2031,11 +2178,14 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
   <style>
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; }
+    :root { --primary: ${escapeHtml(primaryColor)}; }
     body { margin: 0; font-family: "Times New Roman", Times, serif; color: #000; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 30px 46px 18px; page-break-after: always; background: #fff; }
+    .page { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 30px 46px 18px; page-break-after: always; background: #fff; overflow: hidden; }
     .page:last-of-type { page-break-after: auto; }
+    .watermark { position: absolute; inset: 35% auto auto 50%; width: 290px; max-height: 290px; transform: translate(-50%, -50%); opacity: .06; object-fit: contain; pointer-events: none; }
     .head { display: grid; grid-template-columns: 82px 1fr 82px; align-items: center; text-align: center; margin-bottom: 5px; }
-    .seal { width: 48px; height: 48px; border: 2px solid #75a887; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1f6b43; font-family: Arial, sans-serif; font-size: 9px; font-weight: 700; box-shadow: inset 0 0 0 3px #eef7f1, inset 0 0 0 5px #c7ded0; }
+    .seal { width: 48px; height: 48px; border: 2px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-family: Arial, sans-serif; font-size: 9px; font-weight: 700; box-shadow: inset 0 0 0 3px #fff7ed, inset 0 0 0 5px #fed7aa; overflow: hidden; }
+    .seal img { width: 38px; height: 38px; object-fit: contain; }
     h1 { font-size: 16px; margin: 0; font-weight: 400; line-height: 1.05; }
     h2 { font-size: 16px; margin: 0; font-weight: 400; line-height: 1.05; }
     p { margin: 1px 0 0; font-size: 11px; line-height: 1.05; }
@@ -2056,7 +2206,13 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
     .mark span { display: inline-block; width: 1px; height: 22px; border-left: 1px solid #000; margin-left: 28px; vertical-align: middle; }
     .sign { width: 66px; text-align: center; padding: 0; background: #fafafa; }
     .sign img { max-width: 62px; max-height: 24px; object-fit: contain; }
+    .sheet-instructions { border: 1px solid #000; border-top: 0; padding: 4px 6px; font-size: 9px; line-height: 1.2; }
     .foot td { border-top: 0; height: 22px; font-size: 9px; }
+    .template-modern .head { border-bottom: 3px solid var(--primary); padding-bottom: 6px; margin-bottom: 8px; }
+    .template-compact { padding: 22px 38px 14px; }
+    .template-compact h1, .template-compact h2 { font-size: 14px; }
+    .template-compact table { font-size: 9px; }
+    .template-compact td { padding: 2px 4px; }
     .actions { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; }
     .actions button { border: 0; background: #111827; color: #fff; padding: 8px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; }
     @media print { .actions { display: none; } .page { margin: 0; } }

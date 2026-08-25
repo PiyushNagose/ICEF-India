@@ -16,7 +16,8 @@ const validate = (schema, source = "body") => {
         field: err.path.join("."),
         message: err.message,
       }));
-      throw new ApiError(400, "Validation failed", errors);
+      const detailedMessage = "Validation failed: " + errors.map(e => `${e.field} (${e.message})`).join(", ");
+      throw new ApiError(400, detailedMessage, errors);
     }
 
     // Replace the source with the parsed (and coerced) data

@@ -355,12 +355,13 @@ const Dashboard = () => {
                 </Badge>
               </div>
 
-              <div className="hover-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="hover-scroll min-h-0 flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
 
                 {topJobs.map((job, index) => (
                   <div
                     key={job._id || job.postCode}
                     className="
+                      flex-1
                       rounded-2xl border border-gray-100
                       p-3 flex items-center justify-between
                       hover:border-orange-200

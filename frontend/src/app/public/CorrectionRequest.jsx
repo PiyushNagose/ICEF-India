@@ -391,10 +391,10 @@ export default function CorrectionRequest() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
-            <div className="space-y-5">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-stretch">
+            <div className="flex flex-col gap-5 h-full">
           {/* Identity */}
-          <div className={`${panelClass} flex min-h-[462px] flex-col justify-between gap-5`}>
+          <div className={`${panelClass} flex min-h-[462px] flex-col justify-between gap-5 flex-1`}>
             <div className="space-y-5">
             <div className="border-b border-[#f0e8e0] pb-5">
               <h2 className="text-[24px] font-black leading-tight text-[#1f1d1b]">
@@ -877,7 +877,7 @@ export default function CorrectionRequest() {
           )}
             </div>
 
-            <aside className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start">
+            <aside className="flex flex-col gap-5 sm:flex-row lg:flex-col h-full">
               <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-6">
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -897,7 +897,7 @@ export default function CorrectionRequest() {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm p-6"
+              className="rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm p-6 flex-1"
             >
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
                   Before Submitting

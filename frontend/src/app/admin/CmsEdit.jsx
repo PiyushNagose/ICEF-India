@@ -411,7 +411,7 @@ const CmsEdit = () => {
 
   if (pageLoading || !form) {
     return (
-      <AdminLayout title="CMS - Edit State Page">
+      <AdminLayout title="CMS - Edit Landing Page">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
@@ -459,7 +459,7 @@ const CmsEdit = () => {
               <h1 className="text-2xl font-bold text-gray-900">
                 {projectId
                   ? "Project Landing Page CMS"
-                  : "Edit State Landing Page"}
+                  : "Edit Landing Page"}
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
                 Manage public portal content for {project?.name || stateName}

@@ -251,10 +251,10 @@ export default function CheckStatus() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-stretch">
             {/* Form */}
-            <div className="space-y-5">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
+            <div className="flex flex-col gap-5 h-full">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7 flex flex-col flex-1">
                 <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
                   <div>
                     <h2 className="flex items-center gap-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
@@ -359,19 +359,21 @@ export default function CheckStatus() {
                   )}
                 </div>
 
-                <button
-                  disabled={checkLoading || !otpVerified || !regNumber.trim()}
-                  onClick={handleCheckStatus}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:bg-[#efb38e] disabled:shadow-none"
-                >
-                  {checkLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      Check Status <ChevronRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                <div className="mt-auto pt-5">
+                  <button
+                    disabled={checkLoading || !otpVerified || !regNumber.trim()}
+                    onClick={handleCheckStatus}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:bg-[#efb38e] disabled:shadow-none"
+                  >
+                    {checkLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        Check Status <ChevronRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
                 </div>
               </div>
 
@@ -695,7 +697,7 @@ export default function CheckStatus() {
             </div>
 
             {/* Sidebar */}
-            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:self-start">
+            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm flex flex-col h-full">
               <div>
                 <h3 className="mb-4 text-[18px] font-black text-[#1f1d1b]">
                   Other Services
@@ -718,7 +720,7 @@ export default function CheckStatus() {
                 ))}
               </div>
 
-              <div className="mt-6">
+              <div className="mt-auto pt-6">
                 <div className="rounded-[8px] border border-amber-200 bg-[#fff8e6] p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-600" />

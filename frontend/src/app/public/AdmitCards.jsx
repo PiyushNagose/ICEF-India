@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import PublicLayout from "../../components/layouts/PublicLayout";
+import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
 import { jobService } from "../../services/job.service";
 import { publicService } from "../../services/public.service";
 import { showOtpToast } from "../../utils/otpToast";
@@ -95,10 +96,20 @@ const AdmitCards = () => {
     onSuccess: (result) => {
       toast.success(result?.message || "Admit card ready");
     },
+    onError: (err) => {
+      if (!err.toastShown) {
+        toast.error(err.message || "Admit card is not available yet");
+      }
+    },
   });
 
   const verifyMutation = useMutation({
     mutationFn: jobService.verifyPublicAdmitCard,
+    onError: (err) => {
+      if (!err.toastShown) {
+        toast.error(err.message || "Unable to verify this admit card");
+      }
+    },
   });
 
   useEffect(() => {
@@ -514,10 +525,11 @@ const AdmitCards = () => {
                   </button>
                 </div>
               </div>
-              <iframe
+              <DocumentPreviewFrame
                 title="Admit Card Preview"
                 src={previewUrl}
                 className="h-full w-full bg-white"
+                notifyOnError
               />
             </div>
           </div>

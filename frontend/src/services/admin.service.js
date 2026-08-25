@@ -184,34 +184,7 @@ export const adminService = {
     const response = await apiClient.get(`/admin/exams/schedules/${id}/stats`);
     return unwrapData(response);
   },
-  async previewExamAllocation(id, data = {}) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/preview`, data);
-    return unwrapData(response);
-  },
-  async runExamAllocation(id, data = {}) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/run`, data);
-    return unwrapData(response);
-  },
-  async queueExamAllocation(id, data = {}) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/run-job`, data);
-    return unwrapData(response);
-  },
-  async lockExamAllocation(id) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/allocation/lock`);
-    return unwrapData(response);
-  },
-  async getExamAllocations(id, params = {}) {
-    const response = await apiClient.get(`/admin/exams/schedules/${id}/allocations`, { params });
-    return unwrapData(response);
-  },
-  async generateAdmitCards(id) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/generate`);
-    return unwrapData(response);
-  },
-  async queueAdmitCardGeneration(id) {
-    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/generate-job`);
-    return unwrapData(response);
-  },
+
   async publishAdmitCards(id) {
     const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-cards/publish`);
     return unwrapData(response);
@@ -513,4 +486,22 @@ export const adminService = {
     const response = await apiClient.delete(`/admin/standard-presets/${id}`);
     return unwrapData(response);
   },
+
+  // ── Admit Card Templates ──────────────────────────────────────────────
+  async getAdmitCardTemplates(params = {}) {
+    const response = await apiClient.get('/admin/admit-card-templates', { params });
+    return unwrapData(response);
+  },
+  async createAdmitCardTemplate(data) {
+    const response = await apiClient.post('/admin/admit-card-templates', data);
+    return unwrapData(response);
+  },
+  async updateAdmitCardTemplate(id, data) {
+    const response = await apiClient.put(`/admin/admit-card-templates/${id}`, data);
+    return unwrapData(response);
+  },
+  async deleteAdmitCardTemplate(id) {
+    const response = await apiClient.delete(`/admin/admit-card-templates/${id}`);
+    return unwrapData(response);
+  }
 };

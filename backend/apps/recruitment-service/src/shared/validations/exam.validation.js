@@ -87,10 +87,11 @@ const createScheduleSchema = z.object({
   rollNumberStart: z.number().int().min(1).optional(),
   rollNumberPadding: z.number().int().min(3).max(12).optional(),
   papers: z.array(paperSchema).min(1),
-  instructions: z.array(instructionSchema).min(1),
-  provisionalNote: z.string().min(10).max(1000),
+  instructions: z.array(instructionSchema).optional(),
+  provisionalNote: z.string().max(1000).optional(),
   selectedCenterIds: z.array(objectId).min(1, "Select at least one exam center"),
-  admitCardTemplate: z.enum(["standard", "modern", "compact"]).optional(),
+  admitCardTemplate: z.string().optional(),
+  attendanceSheetTemplate: z.string().optional(),
   admitCardLogoUrl: z.string().url("Must be a valid URL").optional().or(z.literal('')),
 });
 

@@ -38,6 +38,7 @@ const adminApplicationRoutes = require("./src/routes/admin/application.routes");
 const adminAnalyticsRoutes = require("./src/routes/admin/analytics.routes");
 const adminCmsRoutes = require("./src/routes/admin/cms.routes");
 const adminExamRoutes = require("./src/routes/admin/exam.routes");
+const adminAdmitCardTemplateRoutes = require("./src/routes/admin/admitCardTemplate.routes");
 const candidateApplicationRoutes = require("./src/routes/candidate/application.routes");
 const candidateAdmitCardRoutes = require("./src/routes/candidate/admitCard.routes");
 
@@ -113,6 +114,7 @@ app.use("/api/admin/applications", adminApplicationRoutes);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
 app.use("/api/admin/cms", adminCmsRoutes);
 app.use("/api/admin/exams", adminExamRoutes);
+app.use("/api/admin/admit-card-templates", adminAdmitCardTemplateRoutes);
 app.use("/api/candidate/applications", candidateApplicationRoutes);
 app.use("/api/candidate/admit-cards", candidateAdmitCardRoutes);
 

@@ -227,8 +227,8 @@ const CmsHome = () => {
               Content Management
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Manage state-specific landing pages, official announcements, and
-              portal banners for nationwide recruitment synchronization.
+              Manage project landing pages, official announcements, notices,
+              and candidate-facing recruitment content.
             </p>
           </div>
           <button
@@ -236,7 +236,7 @@ const CmsHome = () => {
             className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-200"
           >
             <Plus className="w-4 h-4" />
-            Create State Page
+            Create Landing Page
           </button>
         </div>
 
@@ -244,7 +244,7 @@ const CmsHome = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={Layers}
-            label="Total State Pages"
+            label="Total Landing Pages"
             value={stats.total ?? 0}
             color="bg-orange-500"
             sub={stats.total > 0 ? "+2 New" : "—"}
@@ -273,7 +273,7 @@ const CmsHome = () => {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="font-semibold text-gray-900">
-              State Pages Overview
+              Landing Pages Overview
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               {/* Filter */}

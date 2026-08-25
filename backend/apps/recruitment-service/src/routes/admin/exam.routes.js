@@ -98,49 +98,6 @@ router.get(
   examController.getScheduleStats,
 );
 router.post(
-  "/schedules/:id/allocation/preview",
-  checkPermission("admitCards", "view"),
-  validate(allocationOptionsSchema),
-  examController.previewAllocation,
-);
-router.post(
-  "/schedules/:id/allocation/run",
-  checkPermission("admitCards", "edit"),
-  validate(allocationOptionsSchema),
-  auditLog("AdmitCards", "ALLOCATE"),
-  examController.allocateCandidates,
-);
-router.post(
-  "/schedules/:id/allocation/run-job",
-  checkPermission("admitCards", "edit"),
-  validate(allocationOptionsSchema),
-  auditLog("AdmitCards", "ALLOCATE"),
-  examController.enqueueAllocation,
-);
-router.post(
-  "/schedules/:id/allocation/lock",
-  checkPermission("admitCards", "edit"),
-  auditLog("AdmitCards", "LOCK"),
-  examController.lockAllocation,
-);
-router.get(
-  "/schedules/:id/allocations",
-  checkPermission("admitCards", "view"),
-  examController.listAllocations,
-);
-router.post(
-  "/schedules/:id/admit-cards/generate",
-  checkPermission("admitCards", "edit"),
-  auditLog("AdmitCards", "GENERATE"),
-  examController.generateAdmitCards,
-);
-router.post(
-  "/schedules/:id/admit-cards/generate-job",
-  checkPermission("admitCards", "edit"),
-  auditLog("AdmitCards", "GENERATE"),
-  examController.enqueueAdmitCardGeneration,
-);
-router.post(
   "/schedules/:id/admit-cards/publish",
   checkPermission("admitCards", "edit"),
   auditLog("AdmitCards", "PUBLISH"),

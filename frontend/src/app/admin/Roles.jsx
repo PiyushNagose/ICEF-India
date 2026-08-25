@@ -28,14 +28,18 @@ const getRoleType = (role) => {
 
 // Stacked avatar circles
 const AvatarStack = ({ count }) => {
-  const colors = ['bg-gray-700','bg-gray-500','bg-gray-400']
+  const colors = [
+    'bg-orange-600 text-white',
+    'bg-orange-100 text-orange-700',
+    'bg-orange-50 text-orange-600',
+  ]
   const show = Math.min(3, count || 0)
   const extra = (count || 0) - show
   return (
     <div className="flex items-center">
       <div className="flex -space-x-2">
         {Array.from({ length: show }).map((_, i) => (
-          <div key={i} className={`w-7 h-7 rounded-full ${colors[i]} border-2 border-white flex items-center justify-center text-white text-xs font-bold`}>
+          <div key={i} className={`w-7 h-7 rounded-full ${colors[i]} border-2 border-white flex items-center justify-center text-xs font-bold shadow-sm`}>
             {String.fromCharCode(65 + i)}
           </div>
         ))}
@@ -315,7 +319,7 @@ const Roles = () => {
               </p>
             </div>
           </div>
-          <button onClick={() => navigate('/admin/activity-logs')} className="bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex-shrink-0">
+          <button onClick={() => navigate('/admin/activity-logs')} className="bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-700 flex-shrink-0 rounded-xl">
             View Audit Logs
           </button>
         </div>

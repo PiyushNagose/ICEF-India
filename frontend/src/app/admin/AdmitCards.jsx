@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Building2, CalendarClock, CheckCircle2, Download, FileBadge,
-  Eye, Loader2, Lock, Play, Plus, Search, Send, Trash2, Users,
+  Eye, LayoutTemplate, Loader2, Lock, Plus, Send, Trash2, Users,
   X,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
@@ -44,11 +44,6 @@ const emptyPaper = {
   order: 1,
 }
 
-const emptyInstruction = {
-  text: '',
-  order: 1,
-}
-
 const emptySchedule = {
   jobId: '',
   examName: '',
@@ -60,12 +55,10 @@ const emptySchedule = {
   gateClosingTime: '',
   examStartTime: '',
   examEndTime: '',
-  provisionalNote: '',
   selectedCenterIds: [],
-  admitCardTemplate: 'standard',
-  admitCardLogoUrl: '',
+  admitCardTemplate: '',
+  attendanceSheetTemplate: '',
   papers: [{ ...emptyPaper }],
-  instructions: [{ ...emptyInstruction }],
 }
 
 const toTimeInputValue = (value) => {
@@ -104,11 +97,6 @@ const toDateInputValue = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
-const normalizeJobRef = (value) =>
-  String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-
 const isJobAdvertisementConfigured = (job) => {
   if (!job?._id) return false
   const posts = Array.isArray(job.posts) ? job.posts : []
@@ -132,6 +120,27 @@ const statusTone = {
   locked: 'bg-amber-50 text-amber-700',
   published: 'bg-green-50 text-green-700',
   cancelled: 'bg-red-50 text-red-700',
+}
+
+const getJobTime = (job) =>
+  new Date(job?.createdAt || job?.updatedAt || 0).getTime() || 0
+
+const getMostRecentJob = (jobs = []) =>
+  [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null
+
+const getEntityId = (value) => String(value?._id || value?.id || value || '')
+
+const useQueryErrorToast = (error, fallbackMessage) => {
+  const lastMessageRef = useRef('')
+
+  useEffect(() => {
+    if (!error) return
+    const message = error.message || fallbackMessage
+    const signature = `${message}-${error.status || ''}`
+    if (lastMessageRef.current === signature) return
+    lastMessageRef.current = signature
+    toast.error(message || fallbackMessage)
+  }, [error, fallbackMessage])
 }
 
 const mergeCenterIntoList = (items = [], center) => {
@@ -191,30 +200,30 @@ const AdmitCards = () => {
   const [previewAttendance, setPreviewAttendance] = useState(null)
   const [search, setSearch] = useState('')
 
-  const { data: centers = [], isLoading: centersLoading } = useQuery({
+  const { data: centers = [], isLoading: centersLoading, error: centersError } = useQuery({
     queryKey: ['exam-centers'],
     queryFn: () => adminService.getExamCenters({ limit: 100 }),
   })
 
-  const { data: projectData } = useQuery({
+  const { data: projectData, error: projectError } = useQuery({
     queryKey: ['admin-project-flow', projectId],
     queryFn: () => adminService.getProject(projectId),
     enabled: Boolean(projectId),
     staleTime: 30000,
   })
 
-  const { data: jobsData } = useQuery({
+  const { data: jobsData, error: jobsError } = useQuery({
     queryKey: ['admin-jobs-for-exams', projectId],
     queryFn: () => adminService.getAdminJobs({ limit: 100, ...(projectId ? { projectId } : {}) }),
   })
-  const { data: selectedJobData } = useQuery({
+  const { data: selectedJobData, error: selectedJobError } = useQuery({
     queryKey: ['admin-job-for-exams', selectedJobId],
     queryFn: () => adminService.getAdminJob(selectedJobId),
     enabled: Boolean(selectedJobId),
     staleTime: 30000,
   })
 
-  const { data: schedules = [], isLoading: schedulesLoading } = useQuery({
+  const { data: schedules = [], isLoading: schedulesLoading, error: schedulesError } = useQuery({
     queryKey: ['exam-schedules', projectId],
     queryFn: () => adminService.getExamSchedules({ limit: 100, ...(projectId ? { projectId } : {}) }),
   })
@@ -235,24 +244,10 @@ const AdmitCards = () => {
       const hydratedProjectId = String(hydratedJob.projectId?._id || hydratedJob.projectId || '')
       if (hydratedProjectId === String(projectId)) return hydratedJob
     }
-    if (jobs.length > 0) return jobs[0]
-    return hydratedJob
+    return null
   }, [jobs, selectedJobData, selectedJobId, projectId])
-  const matchedJobFromDraft = useMemo(() => {
-    const draftJobCode = normalizeJobRef(scheduleForm.examCode || scheduleForm.advertisementNo)
-    const draftJobName = normalizeJobRef(scheduleForm.examName)
-
-    return jobs.find((job) => {
-      const jobCode = normalizeJobRef(job.postCode)
-      const jobName = normalizeJobRef(job.title)
-      return (
-        (draftJobCode && jobCode === draftJobCode) ||
-        (draftJobName && jobName === draftJobName)
-      )
-    }) || null
-  }, [jobs, scheduleForm.advertisementNo, scheduleForm.examCode, scheduleForm.examName])
   const jobOptions = useMemo(() => {
-    const options = jobs.map((job) => ({
+    const options = [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a)).map((job) => ({
       value: job._id,
       label: `${job.title}${job.postCode ? ` (${job.postCode})` : ''}${job.status ? ` - ${job.status}` : ''}`,
     }))
@@ -271,7 +266,7 @@ const AdmitCards = () => {
     const list = Array.isArray(schedules) ? schedules : []
     if (!projectId) return list
     if (!selectedJob?._id) return []
-    return list.filter((schedule) => String(schedule.jobId?._id || schedule.jobId || '') === String(selectedJob._id))
+    return list.filter((schedule) => getEntityId(schedule.jobId) === getEntityId(selectedJob._id))
   }, [schedules, projectId, selectedJob])
 
   useEffect(() => {
@@ -289,8 +284,7 @@ const AdmitCards = () => {
         ? selectedJobId
         : '') ||
           formJobInCurrentJobs ||
-          matchedJobFromDraft?._id ||
-          jobs[0]?._id ||
+          getMostRecentJob(jobs)?._id ||
           ''
 
     if (nextJobId && nextJobId !== selectedJobId) {
@@ -310,7 +304,7 @@ const AdmitCards = () => {
         { replace: true },
       )
     }
-  }, [jobParam, jobs, matchedJobFromDraft, navigate, projectId, scheduleForm.jobId, searchParams, selectedJobId])
+  }, [jobParam, jobs, navigate, projectId, scheduleForm.jobId, searchParams, selectedJobId])
 
   useEffect(() => {
     if (!selectedJob?._id) return
@@ -324,17 +318,6 @@ const AdmitCards = () => {
       examCode: sameJob ? prev.examCode || selectedJob.postCode || '' : selectedJob.postCode || '',
       advertisementNo: sameJob ? prev.advertisementNo || selectedJob.postCode || '' : selectedJob.postCode || '',
       examDate: sameJob ? prev.examDate || toDateInputValue(selectedJob.examDate) : toDateInputValue(selectedJob.examDate),
-      provisionalNote:
-        prev.provisionalNote ||
-        'Admit-card access depends on eligibility checks.',
-      instructions:
-        prev.instructions?.some((instruction) => instruction.text)
-          ? prev.instructions
-          : [
-              { text: 'Carry a printed admit card and valid photo ID.', order: 1 },
-              { text: 'Report before gate closing time.', order: 2 },
-              { text: 'Follow all exam-center instructions.', order: 3 },
-            ],
     }))
   }, [selectedJob, scheduleForm.jobId])
 
@@ -363,8 +346,7 @@ const AdmitCards = () => {
     const admitFormatComplete = Boolean(
       selectedSchedule?.examName &&
       selectedSchedule?.examDate &&
-      Array.isArray(selectedSchedule?.instructions) &&
-      selectedSchedule.instructions.length > 0,
+      (selectedSchedule?.admitCardTemplate || selectedSchedule?.admitCardTemplateConfig?.templateId),
     )
     const centersComplete = Boolean(selectedSchedule?.selectedCenterIds?.length)
     const publishComplete = Boolean(
@@ -393,19 +375,50 @@ const AdmitCards = () => {
 
   const activeScheduleId = selectedSchedule?._id
 
-  const { data: statsData } = useQuery({
+  const { data: statsData, error: statsError } = useQuery({
     queryKey: ['exam-schedule-stats', activeScheduleId],
     queryFn: () => adminService.getExamScheduleStats(activeScheduleId),
     enabled: Boolean(activeScheduleId),
   })
 
-  const { data: admitCards = [] } = useQuery({
+  const { data: admitCards = [], error: admitCardsError } = useQuery({
     queryKey: ['schedule-admit-cards', activeScheduleId],
     queryFn: () => adminService.getScheduleAdmitCards(activeScheduleId, { limit: 20, search }),
     enabled: Boolean(activeScheduleId),
   })
 
-  const { data: bulkJobData } = useQuery({
+  const { data: admitCardTemplates = [], error: admitCardTemplatesError } = useQuery({
+    queryKey: ['admit-card-templates'],
+    queryFn: () => adminService.getAdmitCardTemplates(),
+  })
+
+  const admitCardTemplateOptions = useMemo(
+    () => admitCardTemplates.filter((template) => (template.templateType || 'admit_card') === 'admit_card'),
+    [admitCardTemplates],
+  )
+  const attendanceSheetTemplateOptions = useMemo(
+    () => admitCardTemplates.filter((template) => template.templateType === 'attendance_sheet'),
+    [admitCardTemplates],
+  )
+
+  const defaultTemplateId = useMemo(() => {
+    const defaultTemplate =
+      admitCardTemplateOptions.find((template) => template.isSystemDefault && template.baseLayout === 'standard') ||
+      admitCardTemplateOptions.find((template) => template.isSystemDefault) ||
+      admitCardTemplateOptions[0]
+    return defaultTemplate?._id || ''
+  }, [admitCardTemplateOptions])
+  const activeTemplateId = scheduleForm.admitCardTemplate || defaultTemplateId
+  const defaultAttendanceTemplateId = useMemo(() => {
+    const defaultTemplate =
+      attendanceSheetTemplateOptions.find((template) => template.isSystemDefault && template.baseLayout === 'standard') ||
+      attendanceSheetTemplateOptions.find((template) => template.isSystemDefault) ||
+      attendanceSheetTemplateOptions[0]
+    return defaultTemplate?._id || ''
+  }, [attendanceSheetTemplateOptions])
+  const activeAttendanceTemplateId = scheduleForm.attendanceSheetTemplate || defaultAttendanceTemplateId
+
+  const { data: bulkJobData, error: bulkJobError } = useQuery({
     queryKey: ['exam-bulk-job', activeBulkJobId],
     queryFn: () => adminService.getBulkExamJob(activeBulkJobId),
     enabled: Boolean(activeBulkJobId),
@@ -414,6 +427,16 @@ const AdmitCards = () => {
       return status === 'queued' || status === 'running' ? 2500 : false
     },
   })
+
+  useQueryErrorToast(centersError, 'Could not load exam centers. Please refresh and try again.')
+  useQueryErrorToast(projectError, 'Could not load project details for admit cards.')
+  useQueryErrorToast(jobsError, 'Could not load jobs for admit-card setup.')
+  useQueryErrorToast(selectedJobError, 'Could not load the selected job. Please choose another job.')
+  useQueryErrorToast(schedulesError, 'Could not load exam schedules.')
+  useQueryErrorToast(statsError, 'Could not load admit-card statistics.')
+  useQueryErrorToast(admitCardsError, 'Could not load generated admit cards.')
+  useQueryErrorToast(admitCardTemplatesError, 'Could not load document templates. Standard templates will be used if available.')
+  useQueryErrorToast(bulkJobError, 'Could not check bulk job progress.')
 
   const createCenter = useMutation({
     mutationFn: adminService.createExamCenter,
@@ -452,7 +475,11 @@ const AdmitCards = () => {
     mutationFn: adminService.createExamSchedule,
     onSuccess: (data) => {
       toast.success('Exam schedule created')
-      setScheduleForm(emptySchedule)
+      setScheduleForm((prev) => ({
+        ...emptySchedule,
+        admitCardTemplate: prev.admitCardTemplate,
+        attendanceSheetTemplate: prev.attendanceSheetTemplate,
+      }))
       queryClient.invalidateQueries({ queryKey: ['exam-schedules'] })
       setSelectedScheduleId(data?.schedule?._id || '')
       if (projectId) {
@@ -563,10 +590,6 @@ const AdmitCards = () => {
       ? 'bg-green-500'
       : 'bg-orange-600'
   const allocationSteps = [
-    { type: 'preview', label: 'Preview Capacity', helper: 'Check eligible candidates and available seats.', icon: Search },
-    { type: 'allocate', label: 'Bulk Allocate', helper: 'Allocate eligible candidates.', icon: Play },
-    { type: 'lock', label: 'Lock List', helper: 'Freeze the allocation list.', icon: Lock },
-    { type: 'generate', label: 'Bulk Generate', helper: 'Generate cards for the locked list.', icon: FileBadge },
     { type: 'publish', label: 'Publish Window', helper: 'Open on-demand admit cards.', icon: Send, primary: true },
   ]
 
@@ -646,25 +669,9 @@ const AdmitCards = () => {
         order: index + 1,
       }))
       .filter((paper) => paper.name || paper.numberOfQuestions)
-    const instructions = scheduleForm.instructions
-      .map((instruction, index) => ({
-        text: instruction.text.trim(),
-        order: index + 1,
-      }))
-      .filter((instruction) => instruction.text)
 
     if (papers.length === 0 || papers.some((paper) => !paper.name || !paper.numberOfQuestions)) {
       toast.error('Add complete paper details before creating the schedule')
-      return
-    }
-
-    if (instructions.length === 0) {
-      toast.error('Add admit card instructions before creating the schedule')
-      return
-    }
-
-    if (!scheduleForm.provisionalNote.trim()) {
-      toast.error('Add the official provisional note before creating the schedule')
       return
     }
     if (!scheduleForm.selectedCenterIds?.length) {
@@ -676,19 +683,31 @@ const AdmitCards = () => {
       toast.error('Select a job before creating the schedule')
       return
     }
+    if (!scheduleForm.examName?.trim() || !scheduleForm.examCode?.trim()) {
+      toast.error('Exam name and code are required. Please select a job.')
+      return
+    }
+    if (!scheduleForm.examDate) {
+      toast.error('Select an exam date')
+      return
+    }
+    if (!scheduleForm.reportingTime || !scheduleForm.gateClosingTime || !scheduleForm.examStartTime) {
+      toast.error('Please select reporting time, gate closing time, and exam start time')
+      return
+    }
 
     createSchedule.mutate({
       ...scheduleForm,
       jobId: scheduleJobId,
+      admitCardTemplate: activeTemplateId || undefined,
+      attendanceSheetTemplate: activeAttendanceTemplateId || undefined,
       examDate: new Date(scheduleForm.examDate).toISOString(),
       reportingTime: formatTimeForDisplay(scheduleForm.reportingTime),
-      gateClosingTime: formatTimeForDisplay(scheduleForm.gateClosingTime) || undefined,
+      gateClosingTime: formatTimeForDisplay(scheduleForm.gateClosingTime),
       examStartTime: formatTimeForDisplay(scheduleForm.examStartTime),
       examEndTime: formatTimeForDisplay(scheduleForm.examEndTime) || undefined,
-      provisionalNote: scheduleForm.provisionalNote.trim() || undefined,
       selectedCenterIds: scheduleForm.selectedCenterIds,
       papers,
-      instructions,
     })
   }
 
@@ -778,34 +797,6 @@ const AdmitCards = () => {
     }))
   }
 
-  const updateInstruction = (index, value) => {
-    setScheduleForm((prev) => ({
-      ...prev,
-      instructions: prev.instructions.map((instruction, instructionIndex) => (
-        instructionIndex === index ? { ...instruction, text: value } : instruction
-      )),
-    }))
-  }
-
-  const addInstruction = () => {
-    setScheduleForm((prev) => ({
-      ...prev,
-      instructions: [...prev.instructions, { ...emptyInstruction, order: prev.instructions.length + 1 }],
-    }))
-  }
-
-  const removeInstruction = (index) => {
-    setScheduleForm((prev) => ({
-      ...prev,
-      instructions: prev.instructions.length === 1
-        ? [{ ...emptyInstruction }]
-        : prev.instructions.filter((_, instructionIndex) => instructionIndex !== index).map((instruction, instructionIndex) => ({
-          ...instruction,
-          order: instructionIndex + 1,
-        })),
-    }))
-  }
-
   return (
     <AdminLayout title="Admit Cards">
       <div className="min-h-full p-5 pt-6 md:p-6 md:pt-7 space-y-5">
@@ -814,7 +805,7 @@ const AdmitCards = () => {
             <h1 className="text-2xl font-bold text-gray-900">Admit Cards</h1>
             <p className="text-sm text-gray-500 mt-1">
               {projectId
-                ? 'Configure admit-card template, centers, schedules, and release window for this project.'
+                ? 'Select print templates, set the schedule, and prepare cards for this project.'
                 : 'Manage exam centers, schedules, allocation, generation, and publication.'}
             </p>
           </div>
@@ -1233,110 +1224,132 @@ const AdmitCards = () => {
 
                   <div className="grid grid-cols-1 gap-5 border-t border-gray-100 pt-5 mt-2">
                     <div className="space-y-2">
-                      <span className="text-xs font-semibold text-gray-600">Admit Card Template Layout</span>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-xs font-semibold text-gray-600">Admit Card Template</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate('/admin/admit-card-templates?type=admit_card')}
+                          className="h-9 border-orange-200 bg-orange-50 px-3 text-xs font-bold text-orange-700 shadow-sm hover:bg-orange-100"
+                        >
+                          <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" /> Manage Admit Templates
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {[
-                          { id: 'standard', name: 'Standard', desc: 'Classic official layout' },
-                          { id: 'modern', name: 'Modern', desc: 'Softer borders, rounded' },
-                          { id: 'compact', name: 'Compact', desc: 'Tighter spacing, smaller text' }
-                        ].map((tpl) => (
+                            {admitCardTemplateOptions.map((tpl) => (
                           <div 
-                            key={tpl.id}
-                            onClick={() => setScheduleForm({ ...scheduleForm, admitCardTemplate: tpl.id })}
-                            className={`cursor-pointer border rounded-lg p-3 transition-all ${scheduleForm.admitCardTemplate === tpl.id ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500 shadow-sm' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
+                            key={tpl._id}
+                            onClick={() => setScheduleForm({ ...scheduleForm, admitCardTemplate: tpl._id })}
+                            className={`cursor-pointer border rounded-lg p-3 transition-all ${activeTemplateId === tpl._id ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500 shadow-sm' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
                           >
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${scheduleForm.admitCardTemplate === tpl.id ? 'border-orange-500 bg-white' : 'border-gray-300 bg-white'}`}>
-                                {scheduleForm.admitCardTemplate === tpl.id && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                              </div>
-                              <span className="font-semibold text-sm text-gray-900">{tpl.name}</span>
-                            </div>
-                            
-                            {/* Wireframe Preview */}
-                            <div className={`w-full h-24 mt-2 border border-gray-200 bg-white flex flex-col gap-1 overflow-hidden pointer-events-none
-                              ${tpl.id === 'modern' ? 'rounded-lg shadow-sm p-2' : 'rounded-sm p-2'}
-                              ${tpl.id === 'compact' ? 'gap-0 p-1.5' : ''}
-                            `}>
-                              <div className={`flex items-start ${tpl.id === 'compact' ? 'gap-1 mb-0.5' : 'gap-2 mb-1'}`}>
-                                <div className={`bg-gray-200 shrink-0 ${tpl.id === 'compact' ? 'w-4 h-4' : 'w-6 h-6'} ${tpl.id === 'modern' ? 'rounded' : 'rounded-full'}`}></div>
-                                <div className="space-y-1 flex-1 mt-0.5">
-                                  <div className={`bg-gray-200 w-3/4 rounded-full ${tpl.id === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
-                                  <div className={`bg-gray-100 w-1/2 rounded-full ${tpl.id === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${activeTemplateId === tpl._id ? 'border-orange-500 bg-white' : 'border-gray-300 bg-white'}`}>
+                                  {activeTemplateId === tpl._id && <div className="w-2 h-2 rounded-full bg-orange-500" />}
                                 </div>
-                                <div className={`bg-gray-200 shrink-0 ${tpl.id === 'compact' ? 'w-6 h-8' : 'w-8 h-10'} ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'}`}></div>
+                                <span className="font-semibold text-sm text-gray-900 truncate block" title={tpl.name}>{tpl.name}</span>
                               </div>
-                              <div className={`bg-gray-100 w-full ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'} ${tpl.id === 'compact' ? 'h-4 mt-0.5' : 'h-5 mt-1'}`}></div>
-                              <div className={`bg-gray-100 w-full ${tpl.id === 'modern' ? 'rounded' : 'rounded-sm'} ${tpl.id === 'compact' ? 'h-4' : 'h-5'}`}></div>
+                              {tpl.isSystemDefault && (
+                                <span className="text-[10px] shrink-0 uppercase font-bold tracking-wider text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Default</span>
+                              )}
                             </div>
                             
-                            <p className="text-[11px] text-gray-500 mt-2 text-center font-medium">{tpl.desc}</p>
+                            {/* Wireframe Preview based on dynamic baseLayout */}
+                            <div className={`w-full h-24 mt-2 border border-gray-200 bg-white flex flex-col gap-1 overflow-hidden pointer-events-none
+                              ${tpl.baseLayout === 'modern' ? 'rounded-lg shadow-sm p-2' : 'rounded-sm p-2'}
+                              ${tpl.baseLayout === 'compact' ? 'gap-0 p-1.5' : ''}
+                            `} style={{ borderColor: tpl.primaryColor }}>
+                              <div className={`flex items-start ${tpl.baseLayout === 'compact' ? 'gap-1 mb-0.5' : 'gap-2 mb-1'}`}>
+                                <div className={`bg-gray-200 shrink-0 ${tpl.baseLayout === 'compact' ? 'w-4 h-4' : 'w-6 h-6'} ${tpl.baseLayout === 'modern' ? 'rounded' : 'rounded-full'}`}></div>
+                                <div className="space-y-1 flex-1 mt-0.5">
+                                  <div className={`bg-gray-200 w-3/4 rounded-full ${tpl.baseLayout === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
+                                  <div className={`bg-gray-100 w-1/2 rounded-full ${tpl.baseLayout === 'compact' ? 'h-1' : 'h-1.5'}`}></div>
+                                </div>
+                              </div>
+                              <div className={`bg-gray-50 w-full rounded-sm ${tpl.baseLayout === 'compact' ? 'h-3 mb-0.5' : 'h-5 mb-1'}`}></div>
+                              <div className={`bg-gray-50 w-full rounded-sm ${tpl.baseLayout === 'compact' ? 'h-3 mb-0.5' : 'h-5 mb-1'}`}></div>
+                              <div className="flex gap-1 flex-1">
+                                <div className="bg-gray-50 w-1/2 rounded-sm h-full"></div>
+                                <div className="bg-gray-50 w-1/2 rounded-sm h-full"></div>
+                              </div>
+                            </div>
+                            
+                            <p className="text-[11px] text-gray-500 mt-2 text-center font-medium capitalize">{tpl.baseLayout} Layout</p>
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    <label className="block">
-                      <span className="text-xs font-semibold text-gray-600">Admit Card Logo URL (Optional)</span>
-                      <input
-                        type="url"
-                        value={scheduleForm.admitCardLogoUrl}
-                        onChange={(e) => setScheduleForm({ ...scheduleForm, admitCardLogoUrl: e.target.value })}
-                        placeholder="https://example.com/logo.png"
-                        className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="block">
-                    <span className="text-xs font-semibold text-gray-600">Provisional Note</span>
-                    <textarea
-                      value={scheduleForm.provisionalNote}
-                      onChange={(e) => setScheduleForm({ ...scheduleForm, provisionalNote: e.target.value })}
-                      placeholder="Official provisional note printed before instructions"
-                      rows={3}
-                      className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                  </label>
-
-                  <div className="border border-gray-200 rounded-xl p-3 space-y-3 bg-white">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">Candidate Instructions</p>
-                        <p className="text-xs text-gray-500">Add final instructions exactly as they should appear on page 2.</p>
+                    <div className="space-y-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-xs font-semibold text-gray-600">Attendance Sheet Template</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate('/admin/admit-card-templates?type=attendance_sheet')}
+                          className="h-9 border-orange-200 bg-orange-50 px-3 text-xs font-bold text-orange-700 shadow-sm hover:bg-orange-100"
+                        >
+                          <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" /> Manage Attendance Templates
+                        </Button>
                       </div>
-                      <Button type="button" variant="outline" onClick={addInstruction} className="h-9 shrink-0 px-3 text-xs">
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Add
-                      </Button>
-                    </div>
-                    {scheduleForm.instructions.map((instruction, index) => (
-                      <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="h-8 min-w-8 px-2 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-500 flex items-center justify-center">
-                            {index + 1}
-                          </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {attendanceSheetTemplateOptions.map((tpl) => (
                           <button
                             type="button"
-                            onClick={() => removeInstruction(index)}
-                            className="h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-red-600 hover:border-red-200 flex items-center justify-center"
-                            aria-label="Remove instruction"
+                            key={tpl._id}
+                            onClick={() => setScheduleForm({ ...scheduleForm, attendanceSheetTemplate: tpl._id })}
+                            className={`text-left border rounded-lg p-3 transition-all ${activeAttendanceTemplateId === tpl._id ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500 shadow-sm' : 'border-gray-200 hover:border-orange-300 bg-white'}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <div className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${activeAttendanceTemplateId === tpl._id ? 'border-orange-500 bg-white' : 'border-gray-300 bg-white'}`}>
+                                  {activeAttendanceTemplateId === tpl._id && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                                </div>
+                                <span className="font-semibold text-sm text-gray-900 truncate block" title={tpl.name}>{tpl.name}</span>
+                              </div>
+                              {tpl.isSystemDefault && (
+                                <span className="text-[10px] shrink-0 uppercase font-bold tracking-wider text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Default</span>
+                              )}
+                            </div>
+
+                            <div
+                              className={`w-full h-24 mt-2 border bg-white flex flex-col gap-1 overflow-hidden pointer-events-none ${tpl.baseLayout === 'modern' ? 'rounded-lg shadow-sm p-2' : 'rounded-sm p-2'} ${tpl.baseLayout === 'compact' ? 'gap-0 p-1.5' : ''}`}
+                              style={{ borderColor: tpl.primaryColor || '#f97316' }}
+                            >
+                              <div className="grid grid-cols-[18px_1fr_18px] items-center gap-1">
+                                <div className="h-4 w-4 rounded-full bg-orange-100" />
+                                <div className="space-y-1">
+                                  <div className="h-1.5 w-4/5 rounded-full bg-gray-200" />
+                                  <div className="h-1.5 w-1/2 rounded-full bg-gray-100" />
+                                </div>
+                                <div />
+                              </div>
+                              <div className="grid grid-cols-2 border border-gray-200 text-[8px] text-gray-400">
+                                <span className="border-r border-gray-200 px-1 py-0.5">Center</span>
+                                <span className="px-1 py-0.5">Date</span>
+                              </div>
+                              <div className="space-y-1">
+                                {[1, 2, 3].map((row) => (
+                                  <div key={row} className="grid grid-cols-[12px_1fr_28px] gap-1">
+                                    <div className="h-2 rounded bg-gray-100" />
+                                    <div className="h-2 rounded bg-gray-100" />
+                                    <div className="h-2 rounded bg-gray-100" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 mt-2 text-center font-medium capitalize">{tpl.baseLayout} Layout</p>
                           </button>
-                        </div>
-                        <textarea
-                          value={instruction.text}
-                          onChange={(e) => updateInstruction(index, e.target.value)}
-                          placeholder="Instruction text"
-                          rows={2}
-                          className="min-h-[72px] w-full resize-y px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          required
-                        />
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
 
-                  <Button type="submit" disabled={createSchedule.isPending} className="w-full bg-gray-900 hover:bg-gray-800 text-white">
+                  <div className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-sm font-medium leading-6 text-orange-900">
+                    Commission name, document title, logo/seal text, instructions, and attendance-sheet wording come from the selected templates.
+                  </div>
+
+                  <Button type="submit" disabled={createSchedule.isPending} className="w-full bg-orange-600 text-white shadow-lg shadow-orange-500/20 hover:bg-orange-700 disabled:bg-orange-300">
                     {createSchedule.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Create Schedule
                   </Button>
@@ -1768,6 +1781,7 @@ const AdmitCards = () => {
                 <DocumentPreviewFrame
                   title={`Admit card ${previewAdmitCard.rollNumber}`}
                   src={adminService.getAdminAdmitCardHtmlUrl(previewAdmitCard._id)}
+                  notifyOnError
                 />
               </div>
             </div>
@@ -1801,6 +1815,7 @@ const AdmitCards = () => {
                 <DocumentPreviewFrame
                   title={`Attendance sheet ${previewAttendance.center?.centerCode || ''}`}
                   src={adminService.getCenterAttendanceSheetHtmlUrl(previewAttendance.scheduleId, previewAttendance.centerId)}
+                  notifyOnError
                 />
               </div>
             </div>

@@ -152,12 +152,12 @@ const Contact = () => {
       />
 
       <section className={`${publicContainer} py-8 lg:py-10`}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-stretch">
           <motion.div
             variants={fadeUp}
             initial="hidden"
             animate="visible"
-            className="rounded border border-[#ded4c8] bg-white shadow-sm"
+            className="rounded border border-[#ded4c8] bg-white shadow-sm flex flex-col h-full"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eadfd2] p-5">
               <div>
@@ -179,7 +179,7 @@ const Contact = () => {
             </div>
 
             {mode === "raise" ? (
-              <form onSubmit={submit} className="p-5 lg:p-6">
+              <form onSubmit={submit} className="p-5 lg:p-6 flex flex-col flex-1">
                 {submitted && (
                   <div className="mb-5 rounded border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
                     <div className="flex items-center gap-2 font-black">
@@ -292,17 +292,19 @@ const Contact = () => {
                   </Field>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded bg-[#e65f16] text-sm font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(230,95,22,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Send className="h-4 w-4" />
-                  {submitting ? "Submitting..." : "Submit Ticket"}
-                </button>
+                <div className="mt-auto pt-5">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded bg-[#e65f16] text-sm font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(230,95,22,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Send className="h-4 w-4" />
+                    {submitting ? "Submitting..." : "Submit Ticket"}
+                  </button>
+                </div>
               </form>
             ) : (
-              <div className="p-5 lg:p-6">
+              <div className="p-5 lg:p-6 flex flex-col flex-1">
                 <form
                   onSubmit={fetchTicket}
                   className="grid gap-4 border-b border-[#eadfd2] pb-5 md:grid-cols-[1fr_1fr_auto]"
@@ -446,7 +448,7 @@ const Contact = () => {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start"
+            className="flex flex-col gap-5 sm:grid sm:grid-cols-2 lg:flex lg:flex-col h-full"
           >
             <div className="rounded border border-[#ded4c8] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
@@ -489,7 +491,7 @@ const Contact = () => {
             <HelpPanel />
             <Link
               to="/check-status"
-              className="flex h-12 items-center justify-center rounded bg-[#e46a1d] text-xs font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#cb5d16]"
+              className="mt-auto flex h-12 shrink-0 items-center justify-center rounded bg-[#e46a1d] text-xs font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#cb5d16]"
             >
               View Application Status
             </Link>

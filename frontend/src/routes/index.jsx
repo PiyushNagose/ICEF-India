@@ -54,6 +54,7 @@ const JobReview = lazy(() => import("../app/admin/JobReview"));
 const StandardsSettings = lazy(() => import("../app/admin/StandardsSettings"));
 const AdminApplications = lazy(() => import("../app/admin/Applications"));
 const AdminAdmitCards = lazy(() => import("../app/admin/AdmitCards"));
+const AdminAdmitCardTemplates = lazy(() => import("../app/admin/AdmitCardTemplates"));
 const ActivityLogs = lazy(() => import("../app/admin/ActivityLogs"));
 const EmployeeActivityDetails = lazy(
   () => import("../app/admin/EmployeeActivityDetails"),
@@ -379,6 +380,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute role="admin" permission={["admitCards", "view"]}>
               <AdminAdmitCards />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/admit-card-templates"
+          element={
+            <ProtectedRoute role="admin" permission={["admitCards", "view"]}>
+              <AdminAdmitCardTemplates />
             </ProtectedRoute>
           }
         />
