@@ -247,14 +247,10 @@ export default function CorrectionRequest() {
       return;
     }
     const hasInvalidCorrection = corrections.some(
-      (c) => !c.field || !c.newValue || !c.reason,
+      (c) => !c.field || !c.newValue,
     );
     if (hasInvalidCorrection) {
       toast.error("Fill in all correction fields");
-      return;
-    }
-    if (!overallReason.trim()) {
-      toast.error("Please provide an overall reason for correction");
       return;
     }
 
@@ -272,7 +268,7 @@ export default function CorrectionRequest() {
           newValue: c.newValue,
           reason: c.reason?.trim(),
         })),
-        overallReason,
+        overallReason: overallReason.trim(),
       });
       setSubmitted(data);
       toast.success("Correction request submitted!");
@@ -391,10 +387,14 @@ export default function CorrectionRequest() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-stretch">
-            <div className="flex flex-col gap-5 h-full">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
+            <div className="flex flex-col gap-5">
           {/* Identity */}
-          <div className={`${panelClass} flex min-h-[462px] flex-col justify-between gap-5 flex-1`}>
+          <div
+            className={`${panelClass} flex flex-col gap-5 ${
+              otpVerified ? "" : "min-h-[360px] justify-between"
+            }`}
+          >
             <div className="space-y-5">
             <div className="border-b border-[#f0e8e0] pb-5">
               <h2 className="text-[24px] font-black leading-tight text-[#1f1d1b]">
@@ -819,7 +819,7 @@ export default function CorrectionRequest() {
 
                     <div>
                       <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
-                        Reason for this Correction *
+                        Reason for this Correction
                       </label>
                       <Input
                         placeholder="e.g. Typo in name, wrong date entered"
@@ -836,7 +836,7 @@ export default function CorrectionRequest() {
                 {/* Overall reason */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-widest text-[#4a4440] mb-1.5">
-                    Overall Reason / Supporting Notes *
+                    Overall Reason / Supporting Notes
                   </label>
                   <textarea
                     rows={3}
@@ -877,44 +877,87 @@ export default function CorrectionRequest() {
           )}
             </div>
 
-            <aside className="flex flex-col gap-5 sm:flex-row lg:flex-col h-full">
-              <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-6">
-                <div className="flex items-start gap-3">
-                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div className="text-sm text-amber-800">
-                    <p className="text-sm font-black">Correction Window</p>
-                    <p className="mt-1 text-sm font-medium leading-6">
-                      Corrections can only be submitted during the official
-                      correction window. Check your recruitment notification for
-                      exact dates. Only 1 correction request is allowed per
-                      application.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
+            <aside className="self-start lg:sticky lg:top-24">
               <motion.div
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm p-6 flex-1"
+              className="rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm"
             >
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
-                  Before Submitting
-                </p>
-                <div className="mt-4 grid gap-4 text-sm font-medium leading-6 text-[#4a4540]">
-                  {[
-                    "Keep the registration number from your submitted application.",
-                    "Use the same mobile number used during application.",
-                    "Request only fields that require correction.",
-                    "Keep supporting documents ready for admin review.",
-                  ].map((item) => (
-                    <div key={item} className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      <span>{item}</span>
+                <div className="border-b border-[#f0e8e0] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-amber-50 text-amber-700">
+                      <Info className="h-5 w-5" />
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
+                        Correction Window
+                      </p>
+                      <p className="mt-2 text-sm font-black text-[#1f1d1b]">
+                        {correctionWindowState.label}
+                      </p>
+                      <p className="mt-1 text-sm font-medium leading-6 text-[#6d6761]">
+                        {correctionWindowState.message} Only one correction
+                        request is allowed per application.
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                <div className={`${selectedApplication ? "border-b border-[#f0e8e0]" : ""} p-5`}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
+                    Before Submitting
+                  </p>
+                  <div className="mt-4 grid gap-3 text-sm font-medium leading-6 text-[#4a4540]">
+                    {[
+                      "Keep the registration number from your submitted application.",
+                      "Use the same mobile number used during application.",
+                      "Request only fields that require correction.",
+                      "Keep supporting documents ready for admin review.",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedApplication && (
+                  <div className="grid gap-4 p-5">
+                    <div className="rounded-[8px] border border-emerald-100 bg-emerald-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <Phone className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+                        <div>
+                          <p className="text-sm font-black text-[#1f1d1b]">
+                            Need Help?
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-[#5f5752]">
+                            Call 1800-123-4567 during office hours.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate("/check-status", {
+                          state: {
+                            lookup: {
+                              registrationNumber:
+                                selectedApplication.registrationNumber,
+                              mobile,
+                            },
+                          },
+                        })
+                      }
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-[6px] border border-orange-200 bg-white px-4 text-xs font-black uppercase tracking-[0.14em] text-[#e46a1d] transition hover:bg-orange-50"
+                    >
+                      Check Application Status
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </motion.div>
             </aside>
           </div>

@@ -63,6 +63,17 @@ const acceptFromFormats = (formats = []) => {
   return accept.length ? accept.join(",") : "application/pdf,image/jpeg,image/png";
 };
 
+const resolveMaxSizeKB = (doc = {}) => {
+  const value =
+    doc.maxSizeKB ??
+    doc.maxFileSizeKB ??
+    doc.maxFileSize ??
+    doc.maxSize ??
+    5120;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 5120;
+};
+
 const Documents = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,7 +121,8 @@ const Documents = () => {
       `${(doc.formats || []).join(", ") || "PDF/JPG/PNG"} accepted`,
     required: doc.required !== false,
     accept: acceptFromFormats(doc.formats),
-    maxKB: doc.maxSizeKB || 500,
+    formats: doc.formats || [],
+    maxKB: resolveMaxSizeKB(doc),
   }));
   const steps = buildApplicationSteps(job, app);
   const currentStep = steps.find((step) => step.type === "documents")?.id || 1;
@@ -324,6 +336,20 @@ const Documents = () => {
                         )}
                       </div>
                       <p className="text-sm text-gray-500">{doc.description}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                        <span>
+                          Formats:{" "}
+                          <span className="font-semibold text-gray-700">
+                            {doc.formats?.length ? doc.formats.join(", ") : "PDF, JPG, PNG"}
+                          </span>
+                        </span>
+                        <span>
+                          Max size:{" "}
+                          <span className="font-semibold text-gray-700">
+                            {doc.maxKB} KB
+                          </span>
+                        </span>
+                      </div>
                       {isUploaded && uploadedInfo && (
                         <p className="text-xs text-green-600 mt-0.5">
                           ✓ {uploadedInfo.name} ({uploadedInfo.sizeKB}KB)

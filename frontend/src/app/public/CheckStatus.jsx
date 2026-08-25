@@ -146,6 +146,71 @@ const UpdateIcon = ({ status }) =>
     <Clock className="h-4 w-4" />
   );
 
+const getCorrectionSummary = (result, correctionDisplayStatus) => {
+  const request = result?.activeCorrectionRequest;
+  const correction = result?.correction;
+  if (!request && (!correction || correction.status === "none")) return null;
+
+  const status =
+    correctionDisplayStatus === "resolved"
+      ? "approved"
+      : request?.status || correction?.status || "pending";
+  const reviewedAt = request?.reviewedAt || correction?.submittedAt;
+  const requestedAt = request?.requestedAt || correction?.requestedAt;
+  const comments = request?.reviewComments || correction?.note;
+
+  if (["approved", "resolved"].includes(status)) {
+    return {
+      title: "Correction accepted and applied",
+      message:
+        comments ||
+        "Your correction has been approved and updated in the application record.",
+      date: reviewedAt || requestedAt,
+      badge: "Accepted",
+      wrap: "border-green-200 bg-green-50",
+      icon: "bg-green-100 text-green-700",
+      badgeClass: "border-green-200 bg-white text-green-700",
+    };
+  }
+  if (status === "rejected") {
+    return {
+      title: "Correction rejected",
+      message:
+        comments ||
+        "Your correction request was reviewed and rejected by the verification team.",
+      date: reviewedAt || requestedAt,
+      badge: "Rejected",
+      wrap: "border-red-200 bg-red-50",
+      icon: "bg-red-100 text-red-700",
+      badgeClass: "border-red-200 bg-white text-red-700",
+    };
+  }
+  if (status === "more_info_needed") {
+    return {
+      title: "More information required",
+      message:
+        comments ||
+        "The verification team needs more information for this correction request.",
+      date: reviewedAt || requestedAt,
+      badge: "Action Needed",
+      wrap: "border-orange-200 bg-orange-50",
+      icon: "bg-orange-100 text-orange-700",
+      badgeClass: "border-orange-200 bg-white text-orange-700",
+    };
+  }
+  return {
+    title: "Correction request under review",
+    message:
+      comments ||
+      "Your correction request has been forwarded to the verification team.",
+    date: requestedAt,
+    badge: "Pending Review",
+    wrap: "border-orange-200 bg-orange-50",
+    icon: "bg-orange-100 text-orange-700",
+    badgeClass: "border-orange-200 bg-white text-orange-700",
+  };
+};
+
 export default function CheckStatus() {
   const navigate = useNavigate();
 
@@ -173,6 +238,10 @@ export default function CheckStatus() {
   const correctionWindowState = result?.correctionWindow
     ? getDateWindowState(result.correctionWindow)
     : null;
+  const correctionSummary = getCorrectionSummary(
+    result,
+    correctionDisplayStatus,
+  );
 
   const handleSendOTP = async () => {
     if (!/^[6-9]\d{9}$/.test(mobile)) {
@@ -251,10 +320,10 @@ export default function CheckStatus() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-stretch">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
             {/* Form */}
-            <div className="flex flex-col gap-5 h-full">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7 flex flex-col flex-1">
+            <div className="flex flex-col gap-5">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
                 <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
                   <div>
                     <h2 className="flex items-center gap-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
@@ -359,7 +428,7 @@ export default function CheckStatus() {
                   )}
                 </div>
 
-                <div className="mt-auto pt-5">
+                <div className="pt-5">
                   <button
                     disabled={checkLoading || !otpVerified || !regNumber.trim()}
                     onClick={handleCheckStatus}
@@ -440,6 +509,59 @@ export default function CheckStatus() {
                     </div>
                     </div>
                   </div>
+
+                  {correctionSummary && (
+                    <motion.div
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="visible"
+                      className={`rounded-[8px] border p-5 shadow-sm ${correctionSummary.wrap}`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span
+                            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${correctionSummary.icon}`}
+                          >
+                            {correctionSummary.badge === "Rejected" ? (
+                              <AlertCircle className="h-5 w-5" />
+                            ) : correctionSummary.badge === "Accepted" ? (
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : (
+                              <Clock className="h-5 w-5" />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#e46a1d]">
+                              Correction Status
+                            </p>
+                            <h3 className="mt-1 text-lg font-black text-[#1f1d1b]">
+                              {correctionSummary.title}
+                            </h3>
+                            <p className="mt-1 text-sm font-medium leading-6 text-[#5f5752]">
+                              {correctionSummary.message}
+                            </p>
+                            {result.activeCorrectionRequest?.requestId && (
+                              <p className="mt-2 font-mono text-xs font-black text-[#4a4440]">
+                                {result.activeCorrectionRequest.requestId}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${correctionSummary.badgeClass}`}
+                          >
+                            {correctionSummary.badge}
+                          </span>
+                          {correctionSummary.date && (
+                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#7a7168]">
+                              {fmt(correctionSummary.date)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
 
                   {result.updates?.length > 0 && (
                     <motion.div
@@ -697,7 +819,7 @@ export default function CheckStatus() {
             </div>
 
             {/* Sidebar */}
-            <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm flex flex-col h-full">
+            <aside className="self-start rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:sticky lg:top-24">
               <div>
                 <h3 className="mb-4 text-[18px] font-black text-[#1f1d1b]">
                   Other Services
@@ -720,7 +842,7 @@ export default function CheckStatus() {
                 ))}
               </div>
 
-              <div className="mt-auto pt-6">
+              <div className="pt-6">
                 <div className="rounded-[8px] border border-amber-200 bg-[#fff8e6] p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-600" />

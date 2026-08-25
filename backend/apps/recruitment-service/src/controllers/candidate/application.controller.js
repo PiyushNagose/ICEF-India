@@ -1252,6 +1252,25 @@ const finalizeApplication = asyncHandler(async (req, res) => {
     );
   }
 
+  // Registration number is the durable proof that the final submission already
+  // happened. Treat retries as success so candidates never see duplicate-key
+  // errors after landing on the success screen.
+  if (app.registrationNumber) {
+    if (app.paymentStatus !== "paid") app.paymentStatus = "paid";
+    if (!["submitted", "approved"].includes(app.status)) app.status = "approved";
+    app.submittedAt = app.submittedAt || new Date();
+    await app.save();
+    return res.status(StatusCodes.OK).json(
+      new ApiResponse(StatusCodes.OK, "Application already submitted", {
+        _id: app._id,
+        applicationId: app.applicationId,
+        registrationNumber: app.registrationNumber,
+        status: app.status,
+        submittedAt: app.submittedAt,
+      }),
+    );
+  }
+
   assertApplicationCompleteForJob(app);
   assertPaymentWindowOpen(app.jobId);
 
@@ -1271,7 +1290,32 @@ const finalizeApplication = asyncHandler(async (req, res) => {
 
   await ensurePublicRegistrationNumber(app);
 
-  await app.save();
+  try {
+    await app.save();
+  } catch (err) {
+    if (
+      err?.code === 11000 &&
+      (err?.keyPattern?.registrationNumber || err?.message?.includes("registrationNumber"))
+    ) {
+      const latest = await Application.findOne({
+        _id: req.params.id,
+        candidateId: req.user.id,
+      }).populate("jobId");
+
+      if (latest?.registrationNumber) {
+        return res.status(StatusCodes.OK).json(
+          new ApiResponse(StatusCodes.OK, "Application already submitted", {
+            _id: latest._id,
+            applicationId: latest.applicationId,
+            registrationNumber: latest.registrationNumber,
+            status: latest.status,
+            submittedAt: latest.submittedAt,
+          }),
+        );
+      }
+    }
+    throw err;
+  }
 
   // Notify candidate — payment success
   await notify({

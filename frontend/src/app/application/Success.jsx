@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -34,6 +34,7 @@ const Success = () => {
   const [showAcknowledgement, setShowAcknowledgement] = useState(false);
   const [finalizingSubmit, setFinalizingSubmit] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+  const finalizeStartedRef = useRef(false);
 
   const { data: appData, isLoading, refetch } = useQuery({
     queryKey: ["application-success", rawApplicationId],
@@ -70,6 +71,12 @@ const Success = () => {
         minute: "2-digit",
       });
   const totalAmount = app?.totalFee || amount;
+  const isSubmittedApplication = ["submitted", "approved"].includes(
+    String(app?.status || "").toLowerCase(),
+  );
+  const isPaymentPaid =
+    String(app?.paymentStatus || "").toLowerCase() === "paid" ||
+    Number(app?.totalFee || totalAmount || 0) === 0;
 
   // Clear draft and fire correction toast on mount
   useEffect(() => {
@@ -89,15 +96,26 @@ const Success = () => {
 
   useEffect(() => {
     const finalizeEarlyPaidDraft = async () => {
+      const alreadyFinalized =
+        ["submitted", "approved"].includes(app?.status) ||
+        Boolean(app?.registrationNumber || location.state?.registrationNumber);
+      const paymentAlreadyDone =
+        app?.paymentStatus === "paid" || Boolean(app?.transactionId || stateTransactionId);
+      const shouldFinalizeFromSuccess =
+        location.state?.needsFinalization === true && paymentAlreadyDone;
+
       if (
         !app ||
         correctionMode ||
-        ["submitted", "approved"].includes(app.status) ||
-        finalizingSubmit
+        alreadyFinalized ||
+        finalizingSubmit ||
+        finalizeStartedRef.current ||
+        !shouldFinalizeFromSuccess
       ) {
         return;
       }
 
+      finalizeStartedRef.current = true;
       setFinalizingSubmit(true);
       try {
         const finalTransactionId =
@@ -113,6 +131,10 @@ const Success = () => {
         );
         await refetch();
       } catch (err) {
+        if (/registration number already exists/i.test(err?.message || "")) {
+          await refetch();
+          return;
+        }
         toast.error(err.message || "Final submission failed. Please try again.");
       } finally {
         setFinalizingSubmit(false);
@@ -122,6 +144,40 @@ const Success = () => {
     finalizeEarlyPaidDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app?._id, app?.status, correctionMode]);
+
+  const handleFinalSubmit = async () => {
+    if (!rawApplicationId || finalizingSubmit) return;
+
+    if (!isPaymentPaid) {
+      navigate("/application/payment", { state: { applicationId: rawApplicationId } });
+      return;
+    }
+
+    setFinalizingSubmit(true);
+    try {
+      const finalTransactionId =
+        app?.transactionId ||
+        stateTransactionId ||
+        (Number(app?.totalFee || totalAmount || 0) === 0
+          ? `FREE-${Date.now()}`
+          : "");
+      await candidateService.finalizeApplication(
+        rawApplicationId,
+        finalTransactionId,
+        draft.declaration || "",
+      );
+      await refetch();
+      toast.success("Application submitted successfully.");
+    } catch (err) {
+      if (/registration number already exists/i.test(err?.message || "")) {
+        await refetch();
+        return;
+      }
+      toast.error(err.message || "Final submission failed. Please try again.");
+    } finally {
+      setFinalizingSubmit(false);
+    }
+  };
 
   const handleDownloadAcknowledgement = () => {
     setShowAcknowledgement(true);
@@ -304,6 +360,73 @@ const Success = () => {
                 : "Loading application details..."}
             </span>
           </div>
+        ) : !isSubmittedApplication ? (
+          <div className="mx-auto max-w-3xl">
+            <Card className="no-print border-orange-200 shadow-sm">
+              <CardContent className="p-8">
+                <div className="mb-6 flex items-start gap-4">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-orange-100">
+                    <FileText className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">
+                      Final Submission
+                    </p>
+                    <h1 className="mt-2 text-2xl font-bold text-gray-900">
+                      Review complete. Submit your application.
+                    </h1>
+                    <p className="mt-2 text-base text-gray-600">
+                      Your post selection is saved. Click Submit Application to
+                      generate your registration number and official receipt.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 border-y border-orange-100 py-5 sm:grid-cols-2">
+                  <DetailBox label="Application ID">
+                    <span className="font-mono font-semibold text-gray-900">
+                      {applicationId}
+                    </span>
+                  </DetailBox>
+                  <DetailBox label="Payment Status">
+                    <span
+                      className={
+                        isPaymentPaid
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-orange-600"
+                      }
+                    >
+                      {isPaymentPaid ? "Paid" : "Payment Pending"}
+                    </span>
+                  </DetailBox>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    className="bg-orange-600 px-6 hover:bg-orange-700"
+                    onClick={handleFinalSubmit}
+                    disabled={finalizingSubmit}
+                  >
+                    {finalizingSubmit ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                    )}
+                    Submit Application
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                    onClick={() => navigate("/application/post-selection", {
+                      state: { applicationId: rawApplicationId },
+                    })}
+                  >
+                    Back to Post Selection
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <>
             <section className="no-print mb-8 text-center">
@@ -313,13 +436,8 @@ const Success = () => {
               <h1 className="mb-2 text-3xl font-bold text-gray-800">
                 Application Submitted Successfully!
               </h1>
-              <p className="text-lg text-gray-600">
-                Your application has been submitted and payment has been
-                processed successfully.
-              </p>
-              <p className="mt-2 text-base font-semibold text-orange-600">
-                Application submitted successfully. Download and save your
-                application receipt for future reference.
+              <p className="text-lg font-semibold text-orange-600">
+                Download and save your application receipt for future reference.
               </p>
               {app && (
                 <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">

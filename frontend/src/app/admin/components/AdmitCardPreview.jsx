@@ -4,7 +4,7 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
     baseLayout = 'standard',
     logoUrl = '',
     watermarkUrl = '',
-    primaryColor = '#244a9b',
+    primaryColor = '#f97316',
     organizationName = 'Jharkhand Staff Selection Commission',
     organizationNameLocal = 'Jharkhand Staff Selection Commission',
     documentTitle = 'Admit Card',

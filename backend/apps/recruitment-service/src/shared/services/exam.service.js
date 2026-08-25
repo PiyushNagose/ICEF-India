@@ -120,6 +120,58 @@ const resolveAdmitCardTemplateConfig = (templateId) =>
 const resolveAttendanceSheetTemplateConfig = (templateId) =>
   resolveTemplateConfig(templateId, "attendance_sheet");
 
+const TEMPLATE_TEXT_FIELDS = [
+  "organizationName",
+  "organizationNameLocal",
+  "documentTitle",
+  "sealText",
+  "provisionalNote",
+  "instructionHeading",
+  "photoBoxText",
+  "controllerTitle",
+];
+
+const toPlainTemplateConfig = (config = {}) => {
+  if (!config) return {};
+  if (typeof config.toObject === "function") return config.toObject();
+  return { ...config };
+};
+
+const mergeTemplateDefaults = (templateType, config = {}) => {
+  const fallback = TEMPLATE_DEFAULTS[templateType] || TEMPLATE_DEFAULTS.admit_card;
+  const merged = {
+    ...fallback,
+    ...toPlainTemplateConfig(config),
+    primaryColor: config.primaryColor || fallback.primaryColor || "#f97316",
+    baseLayout: config.baseLayout || fallback.baseLayout || "standard",
+    instructions: config.instructions || fallback.instructions || "",
+  };
+
+  TEMPLATE_TEXT_FIELDS.forEach((field) => {
+    merged[field] = merged[field] || fallback[field] || "";
+  });
+
+  return merged;
+};
+
+const resolveScheduleTemplateConfig = async (schedule, templateType = "admit_card") => {
+  const snapshotKey =
+    templateType === "attendance_sheet"
+      ? "attendanceSheetTemplateConfig"
+      : "admitCardTemplateConfig";
+  const snapshot = toPlainTemplateConfig(schedule?.[snapshotKey]);
+  const templateId = snapshot.templateId;
+
+  if (templateId && mongoose.Types.ObjectId.isValid(String(templateId))) {
+    const template = await AdmitCardTemplate.findOne({ _id: templateId, templateType });
+    if (template) {
+      return mergeTemplateDefaults(templateType, buildTemplateConfig(template));
+    }
+  }
+
+  return mergeTemplateDefaults(templateType, snapshot);
+};
+
 const emitExamRealtime = (event, payload = {}, options = {}) => {
   try {
     const eventPayload = { ...payload, timestamp: new Date() };
@@ -1825,11 +1877,11 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const personal = application.personalDetails || {};
   const photoUrl = getDocumentUrl(application, "passport_photo");
   const signatureUrl = getDocumentUrl(application, "signature");
-  const tplConfig = schedule.admitCardTemplateConfig || {};
+  const tplConfig = await resolveScheduleTemplateConfig(schedule, "admit_card");
   const baseLayout = tplConfig.baseLayout || "standard";
   const logoUrl = tplConfig.logoUrl || schedule.admitCardLogoUrl;
   const watermarkUrl = tplConfig.watermarkUrl;
-  const primaryColor = tplConfig.primaryColor || "#244a9b";
+  const primaryColor = tplConfig.primaryColor || "#f97316";
   const organizationName = tplConfig.organizationName || schedule.commissionName || "Jharkhand Staff Selection Commission";
   const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Jharkhand Staff Selection Commission";
   const documentTitle = tplConfig.documentTitle || "Admit Card";
@@ -1855,9 +1907,11 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const papers = schedule.papers?.length
     ? schedule.papers
     : [{ name: "Paper I", numberOfQuestions: 100 }];
-  const instructions = templateInstructions || [...(schedule.instructions || [])].sort(
-    (a, b) => a.order - b.order,
-  );
+  const instructions =
+    templateInstructions ||
+    (schedule.instructions?.length
+      ? [...schedule.instructions].sort((a, b) => a.order - b.order)
+      : DEFAULT_INSTRUCTIONS);
   const verificationPath = `/admit-cards/verify/${encodeURIComponent(admitCard.barcodeValue)}`;
 
   const venue = [
@@ -2069,7 +2123,7 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
     );
   }
 
-  const tplConfig = schedule.attendanceSheetTemplateConfig || {};
+  const tplConfig = await resolveScheduleTemplateConfig(schedule, "attendance_sheet");
   const primaryColor = tplConfig.primaryColor || "#f97316";
   const baseLayout = tplConfig.baseLayout || "standard";
   const logoUrl = tplConfig.logoUrl || "";

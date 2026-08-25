@@ -183,7 +183,12 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
 
       {template.instructions && (
         <div className="border-x border-b border-gray-950 p-1.5 text-[9px]">
-          <strong>Instructions:</strong> {template.instructions}
+          <strong>Instructions:</strong>{' '}
+          {String(template.instructions)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .join(' | ')}
         </div>
       )}
 

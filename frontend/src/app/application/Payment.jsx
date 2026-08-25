@@ -55,6 +55,7 @@ const isPastDeadline = (value) => {
   if (!value) return false;
   const deadline = new Date(value);
   if (Number.isNaN(deadline.getTime())) return false;
+  deadline.setHours(23, 59, 59, 999);
   return deadline.getTime() < Date.now();
 };
 
