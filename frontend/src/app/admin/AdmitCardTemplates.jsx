@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import {
+  ArrowLeft,
   ClipboardList,
   Edit2,
   Image as ImageIcon,
@@ -201,10 +202,13 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
 }
 
 const AdmitCardTemplates = () => {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const requestedType = searchParams.get('type')
+  const returnTo = searchParams.get('returnTo')
+  const canReturnToAdmitFormat = returnTo?.startsWith('/admin/admit-cards')
   const initialType = TEMPLATE_TYPES.some((type) => type.id === requestedType) ? requestedType : 'admit_card'
   const [activeType, setActiveType] = useState(initialType)
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -395,6 +399,15 @@ const AdmitCardTemplates = () => {
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-8">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div>
+            {canReturnToAdmitFormat && (
+              <button
+                type="button"
+                onClick={() => navigate(returnTo)}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to Admit Format
+              </button>
+            )}
             <p className="text-xs uppercase tracking-[0.24em] font-bold text-orange-600">Templates</p>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mt-1">
               <ActiveIcon className="text-orange-500" /> {activeMeta.title}
@@ -408,7 +421,7 @@ const AdmitCardTemplates = () => {
                 type="button"
                 onClick={() => {
                   setActiveType(type.id)
-                  setSearchParams({ type: type.id })
+                  setSearchParams(returnTo ? { type: type.id, returnTo } : { type: type.id })
                 }}
                 className={`h-10 px-4 rounded-lg text-sm font-semibold transition-all ${
                   activeType === type.id

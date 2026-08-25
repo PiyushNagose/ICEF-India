@@ -61,6 +61,20 @@ const emptySchedule = {
   papers: [{ ...emptyPaper }],
 }
 
+const buildTemplateReturnPath = ({ projectId, focus, jobId }) => {
+  const params = new URLSearchParams()
+  if (projectId) params.set('project', projectId)
+  if (focus) params.set('focus', focus)
+  if (jobId) params.set('job', jobId)
+  return `/admin/admit-cards?${params.toString()}`
+}
+
+const buildTemplateManagerPath = ({ type, projectId, focus, jobId }) => {
+  const params = new URLSearchParams({ type })
+  params.set('returnTo', buildTemplateReturnPath({ projectId, focus, jobId }))
+  return `/admin/admit-card-templates?${params.toString()}`
+}
+
 const toTimeInputValue = (value) => {
   const text = String(value || '').trim()
   if (!text) return ''
@@ -802,11 +816,18 @@ const AdmitCards = () => {
       <div className="min-h-full p-5 pt-6 md:p-6 md:pt-7 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admit Cards</h1>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
+              {projectId ? 'Project Lifecycle' : 'Admit Card Operations'}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-gray-900">
+              {projectId ? 'Admit Setup' : 'All Admit Card Schedules'}
+            </h1>
             <p className="text-sm text-gray-500 mt-1">
               {projectId
-                ? 'Select print templates, set the schedule, and prepare cards for this project.'
-                : 'Manage exam centers, schedules, allocation, generation, and publication.'}
+                ? selectedJob
+                  ? `Job-scoped setup for ${selectedJob.title}${selectedJob.postCode ? ` (${selectedJob.postCode})` : ''}.`
+                  : 'Select a job to manage its templates, schedules, centers, and card release.'
+                : 'Manage schedules across all projects, including allocation, generation, attendance sheets, and publication.'}
             </p>
           </div>
           <Button
@@ -846,10 +867,10 @@ const AdmitCards = () => {
                     Job Context
                   </p>
                   <h2 className="mt-1 text-lg font-bold text-gray-900">
-                    Select the job this admit-card setup should follow
+                    Admit setup for selected job
                   </h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Centers, schedules, admit-card generation, and publication stay scoped to the selected job.
+                    Switch jobs in this project to view or continue that job's admit-card progress.
                   </p>
                 </div>
                 <div className="w-full lg:w-[420px]">
@@ -1229,7 +1250,12 @@ const AdmitCards = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => navigate('/admin/admit-card-templates?type=admit_card')}
+                          onClick={() => navigate(buildTemplateManagerPath({
+                            type: 'admit_card',
+                            projectId,
+                            focus: 'template',
+                            jobId: selectedJob?._id,
+                          }))}
                           className="h-9 border-orange-200 bg-orange-50 px-3 text-xs font-bold text-orange-700 shadow-sm hover:bg-orange-100"
                         >
                           <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" /> Manage Admit Templates
@@ -1285,7 +1311,12 @@ const AdmitCards = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => navigate('/admin/admit-card-templates?type=attendance_sheet')}
+                          onClick={() => navigate(buildTemplateManagerPath({
+                            type: 'attendance_sheet',
+                            projectId,
+                            focus: 'template',
+                            jobId: selectedJob?._id,
+                          }))}
                           className="h-9 border-orange-200 bg-orange-50 px-3 text-xs font-bold text-orange-700 shadow-sm hover:bg-orange-100"
                         >
                           <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" /> Manage Attendance Templates
@@ -1361,7 +1392,9 @@ const AdmitCards = () => {
           <div className="grid min-w-0 content-stretch gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.65fr)] xl:grid-rows-[auto_auto_minmax(520px,1fr)]">
             <Card className="self-start xl:col-span-2">
               <CardHeader>
-                <h2 className="font-semibold text-gray-900">Selected Exam Lifecycle</h2>
+                <h2 className="font-semibold text-gray-900">
+                  {projectId ? 'Selected Job Admit Lifecycle' : 'Selected Exam Lifecycle'}
+                </h2>
               </CardHeader>
               <CardContent>
                 {selectedSchedule ? (
@@ -1402,7 +1435,16 @@ const AdmitCards = () => {
             <Card className="flex min-h-[500px] min-w-0 flex-col overflow-hidden">
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-semibold text-gray-900">Exam Schedules</h2>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">
+                      {projectId ? 'Schedules for Selected Job' : 'All Exam Schedules'}
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {projectId
+                        ? 'Only schedules linked to the selected project job are shown here.'
+                        : 'Use this list for cross-project schedule operations.'}
+                    </p>
+                  </div>
                   {schedulesLoading && <Loader2 className="w-4 h-4 animate-spin text-orange-600" />}
                 </div>
               </CardHeader>

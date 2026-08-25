@@ -327,7 +327,10 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
 
         {/* Main Content */}
         <div className="min-w-0 min-h-0">
-          <main className="hover-scroll h-full overflow-y-auto p-4 lg:p-6">
+          <main
+            data-scroll-root="true"
+            className="application-page-scroll hover-scroll h-full overflow-y-auto p-4 lg:p-6"
+          >
             <div className="application-page-root min-h-full w-full">
               {title && (
                 <h1 className="text-2xl font-bold text-gray-800 mb-6">

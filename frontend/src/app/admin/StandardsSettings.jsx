@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Award, Edit, Loader2, Plus, Save, Trash2, Users, X } from "lucide-react";
+import { ArrowLeft, Award, Edit, Loader2, Plus, Save, Trash2, Users, X } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -70,8 +71,12 @@ const cleanCriteria = (criteria) =>
     .filter((item) => item.label && (item.male || item.female || item.value || item.notes));
 
 const StandardsSettings = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const returnTo = searchParams.get("returnTo");
+  const canReturnToEligibility = returnTo?.startsWith("/admin/jobs/create/eligibility");
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(clone(emptyForm));
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, preset: null });
@@ -253,6 +258,15 @@ const StandardsSettings = () => {
       <div className="min-h-full bg-[#f7f4ee] p-6">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
+            {canReturnToEligibility && (
+              <button
+                type="button"
+                onClick={() => navigate(returnTo)}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to Eligibility
+              </button>
+            )}
             <p className="mb-1 text-xs font-bold uppercase tracking-normal text-orange-500">
               Admin Settings
             </p>

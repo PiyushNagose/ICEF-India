@@ -182,7 +182,10 @@ const Success = () => {
           </div>
         </header>
 
-        <main className="application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6">
+        <main
+          data-scroll-root="true"
+          className="application-page-scroll application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6"
+        >
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
@@ -288,7 +291,10 @@ const Success = () => {
         </div>
       </header>
 
-      <main className="application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6">
+      <main
+        data-scroll-root="true"
+        className="application-page-scroll application-page-root hover-scroll flex-1 min-h-0 overflow-y-auto p-6"
+      >
         {isLoading || finalizingSubmit ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />

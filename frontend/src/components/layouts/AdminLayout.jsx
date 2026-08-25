@@ -82,7 +82,10 @@ const AdminLayout = ({ children, title }) => {
         </div>
 
         {/* PAGE CONTENT with animation */}
-        <main className="hover-scroll flex-1 min-h-0 overflow-auto">
+        <main
+          data-scroll-root="true"
+          className="admin-page-scroll hover-scroll flex-1 min-h-0 overflow-auto"
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

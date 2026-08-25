@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
@@ -66,6 +66,7 @@ const formatCriterionValue = (item = {}) => {
 
 const JobEligibility = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const savedDraft = (() => {
     try {
@@ -129,6 +130,8 @@ const JobEligibility = () => {
   const selectedPreset = standardPresets.find(
     (preset) => preset._id === formData.standardPresetId,
   )
+
+  const standardsSettingsPath = `/admin/standards-settings?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`
 
   const handleInputChange = (field, value) => {
     if (field.includes('.')) {
@@ -780,8 +783,8 @@ const JobEligibility = () => {
 
                 <Button
                   variant="outline"
-                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                  onClick={() => window.open('/admin/standards-settings', '_blank', 'noopener,noreferrer')}
+                  className="w-full border-orange-200 bg-orange-50 font-bold text-orange-700 shadow-sm hover:bg-orange-100"
+                  onClick={() => navigate(standardsSettingsPath)}
                 >
                   Manage Standards Settings
                 </Button>

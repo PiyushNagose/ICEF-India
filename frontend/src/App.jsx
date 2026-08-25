@@ -5,39 +5,60 @@ import AppRoutes from './routes'
 import GlobalPageLoader from './components/common/GlobalPageLoader'
 
 const ScrollToTop = () => {
-  const { pathname, search, hash } = useLocation()
+  const { pathname, search, hash, key } = useLocation()
 
   useEffect(() => {
-    const scrollTargets = () => {
-      document.documentElement.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-      document.body.scrollTo?.({ top: 0, left: 0, behavior: 'auto' })
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
 
-      document
-        .querySelectorAll(
-          '.hover-scroll, main, [data-scroll-container], .admin-page-root, .customer-motion-root',
-        )
-        .forEach((node) => {
-          if (node && typeof node.scrollTo === 'function') {
-            node.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    const getScrollRoots = () => {
+      const roots = [
+        document.scrollingElement,
+        document.documentElement,
+        document.body,
+        ...document.querySelectorAll(
+          '[data-scroll-root="true"], .admin-page-scroll, .application-page-scroll, .customer-motion-root, .application-page-root',
+        ),
+      ]
+
+      return [...new Set(roots)].filter(
+        (node) => node && typeof node.scrollTo === 'function',
+      )
+    }
+
+    const scrollRootsToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      getScrollRoots().forEach((node) => {
+        node.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      })
+    }
+
+    const scrollToHashTarget = () => {
+      if (!hash) return false
+      const targetId = decodeURIComponent(hash.slice(1))
+      if (!targetId) return false
+      const target = document.getElementById(targetId)
+      if (!target) return false
+
+      target.scrollIntoView({ block: 'start', behavior: 'auto' })
+      return true
+    }
+
+    const timers = [0, 80, 180, 360].map((delay) =>
+      window.setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (!scrollToHashTarget()) {
+            scrollRootsToTop()
           }
         })
-    }
+      }, delay),
+    )
 
-    if (hash) {
-      requestAnimationFrame(() => {
-        const target = document.getElementById(hash.slice(1))
-        if (target) {
-          target.scrollIntoView({ block: 'start', behavior: 'auto' })
-        } else {
-          scrollTargets()
-        }
-      })
-      return
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer))
     }
-
-    requestAnimationFrame(scrollTargets)
-  }, [pathname, search, hash])
+  }, [pathname, search, hash, key])
 
   return null
 }
