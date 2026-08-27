@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "../../hooks/useDebounce";
 import toast from "react-hot-toast";
@@ -132,14 +132,15 @@ const CandidateAvatar = ({ name }) => {
 
 const Applications = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
-  const [selectedJobId, setSelectedJobId] = useState("");
 
   const status = activeTab === "all" ? undefined : activeTab;
+  const selectedJobId = searchParams.get("job") || "";
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-applications", status, debouncedSearch, selectedJobId, page],
@@ -372,7 +373,10 @@ const Applications = () => {
   };
 
   const handleJobChange = (jobId) => {
-    setSelectedJobId(jobId);
+    const nextParams = new URLSearchParams(searchParams);
+    if (jobId) nextParams.set("job", jobId);
+    else nextParams.delete("job");
+    setSearchParams(nextParams, { replace: true });
     setPage(1);
   };
 

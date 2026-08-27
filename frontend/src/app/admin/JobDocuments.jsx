@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import JobStepProgress from './JobStepProgress'
+import { getJobWizardPath } from '../../utils/jobDraft'
 import { 
   ArrowRight,
   ArrowLeft,
@@ -24,6 +25,7 @@ const JobDocuments = () => {
     }
   })()
   const projectId = searchParams.get('project') || savedDraft.projectId || null
+  const jobId = searchParams.get('job') || savedDraft._jobId || ''
   const returnToReview = searchParams.get('returnTo') === 'review'
   
   const [documents, setDocuments] = useState(() => {
@@ -118,12 +120,12 @@ const JobDocuments = () => {
       })),
     }))
     navigate(returnToReview
-      ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ''}`
-      : `/admin/jobs/create/payment${projectId ? `?project=${projectId}` : ''}`)
+      ? getJobWizardPath('review', projectId, jobId)
+      : getJobWizardPath('payment', projectId, jobId))
   }
 
   const handleBack = () => {
-    navigate(`/admin/jobs/create/form-builder${projectId ? `?project=${projectId}` : ''}`)
+    navigate(getJobWizardPath('form-builder', projectId, jobId, { returnToReview }))
   }
 
   return (

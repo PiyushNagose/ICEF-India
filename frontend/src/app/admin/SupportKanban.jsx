@@ -101,7 +101,13 @@ const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
 
 const candidateName = (t) =>
-  t.raisedBy?.fullName || t.candidateId?.fullName || "Candidate";
+  t.raisedBy?.fullName ||
+  t.candidateId?.fullName ||
+  t.guestContact?.name ||
+  t.raisedByEmail ||
+  t.guestContact?.email ||
+  t.guestContact?.mobile ||
+  "Public candidate";
 
 // ── Static overlay card (no dnd hooks) ───────────────────────────────────────
 const OverlayCard = ({ ticket }) => {
@@ -315,6 +321,7 @@ const SupportKanban = () => {
     onSuccess: (_, vars) => {
       toast.success(`Moved to "${vars.status}"`);
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["admin-support-stats"] });
     },
     onError: (err) => {
@@ -460,24 +467,24 @@ const SupportKanban = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-3 shadow-sm">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-400" />
             <input
               type="text"
               placeholder="Search tickets, IDs, candidates..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+              className="w-full pl-9 pr-8 py-2 border border-orange-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white shadow-sm"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-600">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Filter className="w-4 h-4 text-gray-400" />
+            <Filter className="w-4 h-4 text-orange-500" />
             {["", "low", "medium", "high", "critical"].map((p) => {
               const cfg = p ? getPriority(p) : null;
               const active = priorityFilter === p;
@@ -487,8 +494,8 @@ const SupportKanban = () => {
                   onClick={() => setPriorityFilter(p)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                     active
-                      ? p ? `${cfg.bg} ${cfg.text} border-transparent` : "bg-gray-900 text-white border-transparent"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                      ? p ? `${cfg.bg} ${cfg.text} border-transparent shadow-sm` : "bg-orange-600 text-white border-orange-600 shadow-sm"
+                      : "bg-white text-gray-600 border-orange-100 hover:border-orange-300 hover:text-orange-700"
                   }`}
                 >
                   {p ? p.charAt(0).toUpperCase() + p.slice(1) : "All"}

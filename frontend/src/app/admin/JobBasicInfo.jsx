@@ -18,7 +18,7 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { saveJobDraftProgress } from "../../utils/jobDraft";
+import { getJobWizardPath, saveJobDraftProgress } from "../../utils/jobDraft";
 
 const STORAGE_KEY = "job_draft";
 
@@ -53,6 +53,7 @@ const JobBasicInfo = () => {
     }
   })();
   const projectId = urlProjectId || savedDraft.projectId || null;
+  const jobId = searchParams.get("job") || savedDraft._jobId || "";
   const originalApplicationStartDate = toDateOnly(savedDraft.applicationStartDate);
   const isExistingJobDraft = !!savedDraft._jobId;
 
@@ -390,8 +391,8 @@ const JobBasicInfo = () => {
     saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 1 });
     navigate(
       returnToReview
-        ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ""}`
-        : `/admin/jobs/create/eligibility${projectId ? `?project=${projectId}` : ""}`,
+        ? getJobWizardPath("review", projectId, jobId)
+        : getJobWizardPath("eligibility", projectId, jobId),
     );
   };
 

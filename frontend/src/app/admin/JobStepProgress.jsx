@@ -4,7 +4,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '../../components/ui/Card'
 import ProjectFlowNav from '../../components/admin/ProjectFlowNav'
 import { adminService } from '../../services/admin.service'
-import { readJobDraft } from '../../utils/jobDraft'
+import {
+  getJobWizardPath,
+  inferJobWizardCompletedStep,
+  readJobDraft,
+} from '../../utils/jobDraft'
 
 const steps = [
   { id: 1, name: 'Basic Info',    path: '/admin/jobs/create/basic-info' },
@@ -45,9 +49,16 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const draft = readJobDraft()
+  const routeJobId = searchParams.get('job') || ''
   const draftMatchesProject =
     !projectId || !draft?.projectId || String(draft.projectId) === String(projectId)
-  const jobId = draftMatchesProject ? draft?._jobId || null : null
+  const draftMatchesJob =
+    !routeJobId || !draft?._jobId || String(draft._jobId) === String(routeJobId)
+  const draftMatchesContext = draftMatchesProject && draftMatchesJob
+  const jobId = routeJobId || (draftMatchesContext ? draft?._jobId || null : null)
+  const draftCompletedStep = draftMatchesContext
+    ? Math.max(Number(draft.completedStep) || 0, inferJobWizardCompletedStep(draft))
+    : 0
   const { data: projectData } = useQuery({
     queryKey: ['admin-project-flow', projectId],
     queryFn: () => adminService.getProject(projectId),
@@ -153,14 +164,12 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   const handleStepClick = (step) => {
     if (!clickable) return
     if (step.id < currentStep) {
-      const params = new URLSearchParams()
-      if (projectId) params.set('project', projectId)
-      if (jobId) params.set('job', jobId)
-      if (currentStep === steps.length || searchParams.get('returnTo') === 'review') {
-        params.set('returnTo', 'review')
-      }
-      const query = params.toString()
-      navigate(`${step.path}${query ? `?${query}` : ''}`)
+      navigate(
+        getJobWizardPath(step.id, projectId, jobId, {
+          returnToReview:
+            currentStep === steps.length || searchParams.get('returnTo') === 'review',
+        }),
+      )
     }
   }
 
@@ -172,12 +181,12 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
           current="job"
           className="mb-4"
           workflowScope="job"
-          publishComplete={draftMatchesProject && jobIsPublished}
+          publishComplete={draftMatchesContext && jobIsPublished}
           jobId={job?._id}
           contextLabel="Current Job"
           contextValue={job
             ? `${job.title}${job.postCode ? ` - ${job.postCode}` : ''}`
-            : draftMatchesProject && draft?.projectId
+            : draftMatchesContext && draft?.projectId
               ? 'Draft job'
               : 'New job'}
         />
@@ -195,8 +204,9 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
           <div className="grid w-full min-w-[760px] grid-cols-[repeat(11,minmax(0,1fr))] items-center gap-2 overflow-x-auto pb-1 sm:min-w-0">
             {steps.map((step, index) => {
               const isActive    = step.id === currentStep
-              const isCompleted = step.id < currentStep
-              const isClickable = clickable && isCompleted
+              const isCompleted = step.id < currentStep || step.id <= draftCompletedStep
+              const activeComplete = isActive && isCompleted
+              const isClickable = clickable && isCompleted && !isActive
 
               return (
                 <>
@@ -210,7 +220,9 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
                     <div
                       className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200 ${
                         isCompleted
-                          ? 'bg-green-600 text-white shadow-sm'
+                          ? activeComplete
+                            ? 'bg-orange-600 text-white shadow-md ring-4 ring-orange-100'
+                            : 'bg-green-600 text-white shadow-sm'
                           : isActive
                           ? 'bg-orange-600 text-white shadow-md ring-4 ring-orange-100'
                           : 'bg-gray-100 text-gray-500'
@@ -225,7 +237,9 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
                     <span
                       className={`hidden min-w-0 truncate text-xs font-semibold transition-colors sm:block ${
                         isCompleted
-                          ? 'text-green-600'
+                          ? activeComplete
+                            ? 'text-orange-600'
+                            : 'text-green-600'
                           : isActive
                           ? 'text-orange-600'
                           : 'text-gray-400'

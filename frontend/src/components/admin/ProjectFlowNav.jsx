@@ -63,7 +63,7 @@ const buildSteps = (
       label: "Landing CMS",
       helper: "Public project page",
       icon: Globe2,
-      path: `/admin/cms/edit/${state}?project=${projectId}`,
+      path: `/admin/cms/edit/${state}?project=${projectId}${jobQuery}`,
       complete: completeMap.get("landing"),
       optional: optionalMap.get("landing"),
     },
@@ -72,7 +72,9 @@ const buildSteps = (
       label: "Job Advertisement",
       helper: "Posts, form, fees, payment",
       icon: FileText,
-      path: `/admin/jobs/create/basic-info?project=${projectId}${jobQuery}`,
+      path: jobId
+        ? `/admin/jobs/create/review?project=${projectId}${jobQuery}`
+        : `/admin/jobs/create/basic-info?project=${projectId}`,
       complete: Boolean(jobStepComplete),
       optional: optionalMap.get("job"),
     },
@@ -223,6 +225,7 @@ const ProjectFlowNav = ({
         {steps.map((step, index) => {
           const Icon = step.icon;
           const active = step.key === current;
+          const activeComplete = active && step.complete;
 
           return (
             <button
@@ -233,7 +236,9 @@ const ProjectFlowNav = ({
                 navigate(step.path);
               }}
               className={`group flex min-h-[136px] w-full flex-col rounded-2xl border p-4 text-left transition-all ${
-                step.complete
+                activeComplete
+                  ? "border-orange-400 bg-green-50/70 shadow-[0_12px_26px_rgba(34,197,94,0.12)]"
+                  : step.complete
                   ? "border-green-200 bg-green-50/50 hover:border-green-300 hover:bg-green-50"
                   : active
                     ? "border-orange-500 bg-orange-50 shadow-[0_12px_26px_rgba(234,88,12,0.12)]"
@@ -244,7 +249,9 @@ const ProjectFlowNav = ({
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold leading-none ${
                     step.complete
-                      ? "bg-green-600 text-white"
+                      ? activeComplete
+                        ? "bg-orange-600 text-white"
+                        : "bg-green-600 text-white"
                       : active
                         ? "bg-orange-600 text-white"
                         : "bg-gray-100 text-gray-500"
@@ -255,7 +262,9 @@ const ProjectFlowNav = ({
                 <Icon
                   className={`h-4 w-4 shrink-0 ${
                     step.complete
-                      ? "text-green-600"
+                      ? activeComplete
+                        ? "text-orange-600"
+                        : "text-green-600"
                       : active
                         ? "text-orange-600"
                         : "text-gray-400 group-hover:text-orange-500"
@@ -273,7 +282,9 @@ const ProjectFlowNav = ({
                   <span
                     className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${
                       step.complete
-                        ? "bg-green-100 text-green-700"
+                        ? activeComplete
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-green-100 text-green-700"
                         : active
                           ? "bg-orange-100 text-orange-700"
                           : "bg-gray-100 text-gray-500"

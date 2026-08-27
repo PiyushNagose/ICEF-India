@@ -27,6 +27,7 @@ import {
   clearCmsPreviewDraft,
   openProjectPreview,
 } from "../../utils/cmsPreview";
+import { getJobWizardPath } from "../../utils/jobDraft";
 
 const Section = ({ icon: Icon, title, children, action, className = "" }) => (
   <div
@@ -170,7 +171,6 @@ const CmsEdit = () => {
     queryFn: () =>
       adminService.getAdminJobs({
         limit: 200,
-        status: "active",
         ...(projectId ? { projectId } : {}),
       }),
   });
@@ -199,11 +199,16 @@ const CmsEdit = () => {
       ? `/admin/jobs/create/review?project=${projectId}${amendmentJobId ? `&job=${amendmentJobId}` : ""}`
       : "";
   const nextPath = projectId
-    ? amendmentReturnPath || `/admin/jobs/create/basic-info?project=${projectId}`
+    ? amendmentReturnPath ||
+      (amendmentJobId
+        ? getJobWizardPath("review", projectId, amendmentJobId)
+        : getJobWizardPath("basic-info", projectId))
     : "/admin/cms";
-  const returnPath = projectId ? `/admin/projects/${projectId}` : "/admin/cms";
+  const returnPath = projectId
+    ? `/admin/projects/${projectId}${amendmentJobId ? `?job=${amendmentJobId}` : ""}`
+    : "/admin/cms";
   const projectDetailsPath = projectId
-    ? `/admin/projects/${projectId}`
+    ? `/admin/projects/${projectId}${amendmentJobId ? `?job=${amendmentJobId}` : ""}`
     : "/admin/cms";
 
   // Populate form once data loaded

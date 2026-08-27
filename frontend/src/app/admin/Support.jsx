@@ -19,15 +19,15 @@ import { adminService } from "../../services/admin.service";
 
 // Model uses title-case: Open, In Progress, Resolved, Closed
 const PRIORITY_COLORS = {
-  Low: "bg-green-100 text-green-800",
-  Medium: "bg-yellow-100 text-yellow-800",
+  Low: "bg-emerald-100 text-emerald-800",
+  Medium: "bg-amber-100 text-amber-800",
   High: "bg-orange-100 text-orange-800",
   Critical: "bg-red-100 text-red-800",
 };
 const STATUS_COLORS = {
   Open: "bg-red-100 text-red-800",
-  "In Progress": "bg-yellow-100 text-yellow-800",
-  Resolved: "bg-green-100 text-green-800",
+  "In Progress": "bg-amber-100 text-amber-800",
+  Resolved: "bg-emerald-100 text-emerald-800",
   Closed: "bg-gray-100 text-gray-800",
 };
 
@@ -73,13 +73,13 @@ const Support = () => {
     {
       title: "IN PROGRESS",
       value: count("In Progress"),
-      color: "border-l-yellow-500",
+      color: "border-l-amber-500",
       icon: Clock,
     },
     {
       title: "RESOLVED",
       value: count("Resolved"),
-      color: "border-l-green-500",
+      color: "border-l-emerald-500",
       icon: CheckCircle,
     },
     {
@@ -137,6 +137,7 @@ const Support = () => {
           <Button
             variant="outline"
             onClick={() => navigate("/admin/support/kanban")}
+            className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
           >
             <LayoutGrid className="w-4 h-4 mr-2" />
             Kanban View
@@ -185,12 +186,12 @@ const Support = () => {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="relative max-w-sm rounded-2xl border border-orange-100 bg-orange-50/60 p-3 shadow-sm">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-400" />
           <input
             type="text"
             placeholder="Search by subject, ticket ID, or candidate..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+            className="w-full pl-9 pr-4 py-2 border border-orange-100 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

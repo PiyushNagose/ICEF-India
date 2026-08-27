@@ -25,12 +25,12 @@ import Badge from "../../components/ui/Badge";
 import { adminService } from "../../services/admin.service";
 
 const PRIORITY_COLORS = {
-  low: "bg-green-100 text-green-800",
-  medium: "bg-yellow-100 text-yellow-800",
+  low: "bg-emerald-100 text-emerald-800",
+  medium: "bg-amber-100 text-amber-800",
   high: "bg-orange-100 text-orange-800",
   critical: "bg-red-100 text-red-800",
-  Low: "bg-green-100 text-green-800",
-  Medium: "bg-yellow-100 text-yellow-800",
+  Low: "bg-emerald-100 text-emerald-800",
+  Medium: "bg-amber-100 text-amber-800",
   High: "bg-orange-100 text-orange-800",
   Critical: "bg-red-100 text-red-800",
 };
@@ -38,10 +38,10 @@ const PRIORITY_COLORS = {
 const STATUS_COLORS = {
   open: "bg-red-100 text-red-800",
   Open: "bg-red-100 text-red-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  "In Progress": "bg-yellow-100 text-yellow-800",
-  resolved: "bg-green-100 text-green-800",
-  Resolved: "bg-green-100 text-green-800",
+  in_progress: "bg-amber-100 text-amber-800",
+  "In Progress": "bg-amber-100 text-amber-800",
+  resolved: "bg-emerald-100 text-emerald-800",
+  Resolved: "bg-emerald-100 text-emerald-800",
   closed: "bg-gray-100 text-gray-800",
   Closed: "bg-gray-100 text-gray-800",
 };
@@ -485,8 +485,8 @@ const SupportTicketDetails = () => {
                   {/* Current status badge */}
                   <div className="mb-3 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 flex items-center gap-2">
                     {ticket.status === "Open" && <AlertCircle className="w-4 h-4 text-red-500" />}
-                    {(ticket.status === "In Progress" || ticket.status === "in_progress") && <Clock className="w-4 h-4 text-yellow-500" />}
-                    {(ticket.status === "Resolved" || ticket.status === "resolved") && <CheckCircle className="w-4 h-4 text-green-500" />}
+                    {(ticket.status === "In Progress" || ticket.status === "in_progress") && <Clock className="w-4 h-4 text-amber-500" />}
+                    {(ticket.status === "Resolved" || ticket.status === "resolved") && <CheckCircle className="w-4 h-4 text-emerald-500" />}
                     {(ticket.status === "Closed" || ticket.status === "closed") && <XCircle className="w-4 h-4 text-gray-500" />}
                     <span className="text-sm font-semibold text-orange-700">
                       Current: {ticket.status?.replace("_", " ")}
@@ -512,8 +512,8 @@ const SupportTicketDetails = () => {
                             disabled={isUpdating}
                             className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700"
                           >
-                            {s === "In Progress" && <Clock className="w-4 h-4 inline mr-2 text-yellow-500" />}
-                            {s === "Resolved" && <CheckCircle className="w-4 h-4 inline mr-2 text-green-500" />}
+                            {s === "In Progress" && <Clock className="w-4 h-4 inline mr-2 text-amber-500" />}
+                            {s === "Resolved" && <CheckCircle className="w-4 h-4 inline mr-2 text-emerald-500" />}
                             {s === "Closed" && <XCircle className="w-4 h-4 inline mr-2 text-gray-500" />}
                             Move to {s}
                           </button>
@@ -668,7 +668,7 @@ const SupportTicketDetails = () => {
                     </div>
                     <div className="flex justify-between gap-3">
                       <span className="text-xs text-gray-500">Status</span>
-                      <span className="text-sm font-semibold text-green-700">
+                      <span className="text-sm font-semibold text-emerald-700">
                         {linkedPayment.status}
                       </span>
                     </div>
@@ -717,7 +717,7 @@ const SupportTicketDetails = () => {
                   )}
                   {ticket.resolvedAt && (
                     <div className="flex gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-gray-900">
                           Resolved

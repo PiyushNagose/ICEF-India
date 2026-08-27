@@ -274,6 +274,27 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
     );
   }
 
+  const changedEditableFields = Object.keys(body)
+    .filter((field) => field !== "amendmentReason")
+    .flatMap((field) => {
+      if (field === "paymentConfig") {
+        return ["paymentDeadline", "refundPolicy"].filter((key) =>
+          bodyNestedChanged(body, job, "paymentConfig", key),
+        ).map((key) => `paymentConfig.${key}`);
+      }
+      return bodyFieldChanged(body, job, field) ? [field] : [];
+    });
+
+  if (
+    changedEditableFields.length > 0 &&
+    !String(body.amendmentReason || "").trim()
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Add an amendment reason before saving published job changes after candidates have applied.",
+    );
+  }
+
   if (
     (admitReleased || admitWindowPublished) &&
     ((pathTouched(paths, "examDate") && bodyFieldChanged(body, job, "examDate")) ||

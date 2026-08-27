@@ -8,7 +8,7 @@ import Button from '../../components/ui/Button'
 import JobStepProgress from './JobStepProgress'
 import CustomSelect from '../../components/ui/CustomSelect'
 import { adminService } from '../../services/admin.service'
-import { saveJobDraftProgress } from '../../utils/jobDraft'
+import { getJobWizardPath, saveJobDraftProgress } from '../../utils/jobDraft'
 import { 
   ArrowRight,
   ArrowLeft,
@@ -76,6 +76,7 @@ const JobEligibility = () => {
     }
   })()
   const projectId = searchParams.get('project') || savedDraft.projectId || null
+  const jobId = searchParams.get('job') || savedDraft._jobId || ''
   const returnToReview = searchParams.get('returnTo') === 'review'
 
   const [formData, setFormData] = useState(() => {
@@ -315,12 +316,12 @@ const JobEligibility = () => {
     if (!validateStep()) return
     saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 2 })
     navigate(returnToReview
-      ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ''}`
-      : `/admin/jobs/create/form-builder${projectId ? `?project=${projectId}` : ''}`)
+      ? getJobWizardPath('review', projectId, jobId)
+      : getJobWizardPath('form-builder', projectId, jobId))
   }
 
   const handleBack = () => {
-    navigate(`/admin/jobs/create/basic-info${projectId ? `?project=${projectId}` : ''}`)
+    navigate(getJobWizardPath('basic-info', projectId, jobId, { returnToReview }))
   }
 
 

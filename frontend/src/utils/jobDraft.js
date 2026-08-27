@@ -39,12 +39,18 @@ export const writeJobDraft = (draft) => {
   return next
 }
 
-export const getJobWizardPath = (stepKeyOrId = 'basic-info', projectId = '', jobId = '') => {
+export const getJobWizardPath = (
+  stepKeyOrId = 'basic-info',
+  projectId = '',
+  jobId = '',
+  { returnToReview = false } = {},
+) => {
   const step =
     typeof stepKeyOrId === 'number' ? getStepById(stepKeyOrId) : getStepByKey(stepKeyOrId)
   const params = new URLSearchParams()
   if (projectId) params.set('project', projectId)
   if (jobId) params.set('job', jobId)
+  if (returnToReview) params.set('returnTo', 'review')
   const query = params.toString()
   return `${step.path}${query ? `?${query}` : ''}`
 }

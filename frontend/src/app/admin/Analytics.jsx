@@ -8,10 +8,11 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
-import KpiDateRangeFilter, {
+import KpiDateRangeFilter from '../../components/common/KpiDateRangeFilter'
+import {
   DEFAULT_KPI_DATE_RANGE,
   getKpiDateRangeParams,
-} from '../../components/common/KpiDateRangeFilter'
+} from '../../components/common/kpiDateRange'
 import { adminService } from '../../services/admin.service'
 
 const Analytics = () => {

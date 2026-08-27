@@ -16,6 +16,30 @@ const {
 let ticketCounter = 1000;
 const generateTicketId = () => `TKT-${Date.now()}-${++ticketCounter}`;
 
+const STATUS_VALUES = ["Open", "In Progress", "Resolved", "Closed"];
+const PRIORITY_VALUES = ["Low", "Medium", "High", "Critical"];
+
+const normalizeOption = (value, allowedValues) => {
+  if (!value || typeof value !== "string") return value;
+  const normalizedValue = value.toLowerCase().replace(/[_-]+/g, " ").trim();
+  return (
+    allowedValues.find(
+      (option) => option.toLowerCase() === normalizedValue,
+    ) || value
+  );
+};
+
+const normalizeTicketData = (data = {}) => {
+  const normalized = { ...data };
+  if (normalized.status) {
+    normalized.status = normalizeOption(normalized.status, STATUS_VALUES);
+  }
+  if (normalized.priority) {
+    normalized.priority = normalizeOption(normalized.priority, PRIORITY_VALUES);
+  }
+  return normalized;
+};
+
 const createTicket = async (data, candidateId, email) => {
   const ticket = await SupportTicket.create({
     ...data,
@@ -38,8 +62,10 @@ const createTicket = async (data, candidateId, email) => {
 const getAdminTickets = async (query) => {
   const { page, limit, skip } = getPaginationParams(query);
   const filter = {};
-  if (query.status) filter.status = query.status;
-  if (query.priority) filter.priority = query.priority;
+  if (query.status) filter.status = normalizeOption(query.status, STATUS_VALUES);
+  if (query.priority) {
+    filter.priority = normalizeOption(query.priority, PRIORITY_VALUES);
+  }
   if (query.category) filter.category = query.category;
   if (query.assignedTo) filter.assignedTo = query.assignedTo;
 
@@ -66,21 +92,37 @@ const getTicketById = async (id) => {
 };
 
 const updateTicket = async (id, data, updatedBy) => {
-  const ticket = await SupportTicket.findByIdAndUpdate(id, data, { new: true });
+  const updates = normalizeTicketData(data);
+  const ticket = await SupportTicket.findByIdAndUpdate(id, updates, {
+    new: true,
+  });
   if (!ticket) throw new ApiError(404, "Ticket not found");
 
-  if (data.status === "Resolved") {
-    ticket.resolvedAt = new Date();
+  if (updates.status === "Resolved") {
+    ticket.resolvedAt = ticket.resolvedAt || new Date();
     await ticket.save();
 
     // Notify candidate
-    emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_RESOLVED, {
-      ticketId: ticket.ticketId,
-      message: "Your support ticket has been resolved.",
-    });
+    if (ticket.raisedBy) {
+      emitToCandidate(
+        ticket.raisedBy.toString(),
+        SOCKET_EVENTS.TICKET_RESOLVED,
+        {
+          ticketId: ticket.ticketId,
+          message: "Your support ticket has been resolved.",
+        },
+      );
+    }
 
     // Send email notification
-    await sendTicketResolvedEmail(ticket.raisedByEmail, ticket.ticketId);
+    if (ticket.raisedByEmail) {
+      await sendTicketResolvedEmail(ticket.raisedByEmail, ticket.ticketId);
+    }
+  }
+
+  if (updates.status === "Closed" && !ticket.closedAt) {
+    ticket.closedAt = new Date();
+    await ticket.save();
   }
 
   return ticket;
@@ -97,14 +139,18 @@ const addReply = async (ticketId, message, sentBy, sentByModel, sentByName) => {
   // Notify the other party
   if (sentByModel === "Employee") {
     // Admin replied — notify candidate
-    emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_REPLY, {
-      ticketId: ticket.ticketId,
-      message,
-      from: sentByName,
-    });
+    if (ticket.raisedBy) {
+      emitToCandidate(ticket.raisedBy.toString(), SOCKET_EVENTS.TICKET_REPLY, {
+        ticketId: ticket.ticketId,
+        message,
+        from: sentByName,
+      });
+    }
 
     // Send email notification
-    await sendTicketReplyEmail(ticket.raisedByEmail, ticket.ticketId, message);
+    if (ticket.raisedByEmail) {
+      await sendTicketReplyEmail(ticket.raisedByEmail, ticket.ticketId, message);
+    }
   } else {
     // Candidate replied — notify assigned admin
     emitToAdmins(SOCKET_EVENTS.TICKET_REPLY, {

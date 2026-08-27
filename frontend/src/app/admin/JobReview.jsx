@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { adminService } from "../../services/admin.service";
-import { readJobDraft, toJobDraftPayload } from "../../utils/jobDraft";
+import { getJobWizardPath, readJobDraft, toJobDraftPayload } from "../../utils/jobDraft";
 
 const STORAGE_KEY = "job_draft";
 
@@ -258,6 +258,34 @@ const valuesEqual = (a, b) =>
   JSON.stringify(normalizeForCompare(a)) ===
   JSON.stringify(normalizeForCompare(b));
 
+const CHANGE_LABELS = {
+  title: "job title",
+  description: "job description",
+  applicationDeadline: "application deadline",
+  correctionStartDate: "correction start date",
+  correctionDeadline: "correction deadline",
+  admitCardReleaseDate: "admit-card release date",
+  examDate: "exam date",
+  resultDate: "result publish date",
+  "paymentConfig.paymentDeadline": "payment deadline",
+  "paymentConfig.refundPolicy": "refund policy",
+};
+
+const getChangedFieldLabels = (payload = {}) => {
+  const labels = [];
+  Object.keys(payload).forEach((key) => {
+    if (key === "amendmentReason") return;
+    if (key === "paymentConfig") {
+      Object.keys(payload.paymentConfig || {}).forEach((subKey) => {
+        labels.push(CHANGE_LABELS[`paymentConfig.${subKey}`] || subKey);
+      });
+      return;
+    }
+    labels.push(CHANGE_LABELS[key] || key);
+  });
+  return [...new Set(labels)];
+};
+
 const buildChangedUpdatePayload = (draft, serverJob) => {
   const nextPayload = buildUpdatePayload(draft);
   if (!serverJob?._id) return nextPayload;
@@ -434,6 +462,52 @@ const JobReview = () => {
     queryClient.invalidateQueries({ queryKey: ["public-projects"] });
   };
 
+  const publishJobAmendmentNotice = async ({ reason, updatePayload, job }) => {
+    const projectSlug = project?.publicSlug || project?.slug || hydratedJob?.projectId?.publicSlug;
+    const state = project?.state || hydratedJob?.projectId?.state || "All";
+    if (!effectiveProjectId || !state) return;
+
+    const jobLabel = `${job?.title || draft.title || "Selected job"}${
+      job?.postCode || draft.postCode ? ` (${job?.postCode || draft.postCode})` : ""
+    }`;
+    const changedLabels = getChangedFieldLabels(updatePayload);
+    const text = `Official amendment for ${jobLabel}: ${reason.trim()}${
+      changedLabels.length ? ` Updated: ${changedLabels.join(", ")}.` : ""
+    }`;
+    const link = projectSlug ? `/apply/${projectSlug}` : "";
+
+    try {
+      const response = await adminService.getCmsPage(state, { projectId: effectiveProjectId });
+      const page = response?.page || response || {};
+      const announcements = Array.isArray(page.announcements) ? page.announcements : [];
+      const alreadyAdded = announcements.some((item) => item.text === text);
+      const nextAnnouncements = alreadyAdded
+        ? announcements
+        : [{ text, link, priority: "high" }, ...announcements];
+
+      await adminService.updateCmsPage(
+        state,
+        {
+          announcements: nextAnnouncements,
+          sectionVisibility: {
+            ...(page.sectionVisibility || {}),
+            notices: true,
+          },
+          status: "published",
+        },
+        { projectId: effectiveProjectId },
+      );
+      await adminService.publishCmsPage(state, { projectId: effectiveProjectId });
+      queryClient.invalidateQueries({ queryKey: ["admin-cms-page", state, effectiveProjectId] });
+      toast.success("Official amendment notice published on the public page.");
+    } catch (noticeError) {
+      toast.error(
+        noticeError?.message ||
+          "Job saved, but the public amendment notice could not be published.",
+      );
+    }
+  };
+
   const readStoredDraft = () => {
     try {
       const storedDraft = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
@@ -565,6 +639,11 @@ const JobReview = () => {
             amendmentReason: amendmentReason.trim(),
           },
         });
+        await publishJobAmendmentNotice({
+          reason: amendmentReason.trim(),
+          updatePayload,
+          job: hydratedJob || draft,
+        });
         return jobId;
       }
       if (err?.status !== 404) throw err;
@@ -669,7 +748,7 @@ const JobReview = () => {
 
   const editStep = (step) =>
     navigate(
-      `/admin/jobs/create/${step}?${effectiveProjectId ? `project=${effectiveProjectId}&` : ""}returnTo=review`,
+      getJobWizardPath(step, effectiveProjectId, draftJobId, { returnToReview: true }),
     );
 
   return (
@@ -1231,9 +1310,7 @@ const JobReview = () => {
             <Button
               variant="outline"
               onClick={() =>
-                navigate(
-                  `/admin/jobs/create/payment${effectiveProjectId ? `?project=${effectiveProjectId}` : ""}`,
-                )
+                navigate(getJobWizardPath("payment", effectiveProjectId, draftJobId))
               }
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

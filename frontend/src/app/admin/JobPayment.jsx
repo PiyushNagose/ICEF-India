@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import AppDatePicker from "../../components/ui/AppDatePicker";
 import JobStepProgress from "./JobStepProgress";
-import { saveJobDraftProgress } from "../../utils/jobDraft";
+import { getJobWizardPath, saveJobDraftProgress } from "../../utils/jobDraft";
 import {
   ArrowRight,
   ArrowLeft,
@@ -78,6 +78,7 @@ const JobPayment = () => {
     }
   })();
   const projectId = searchParams.get("project") || savedDraft.projectId || null;
+  const jobId = searchParams.get("job") || savedDraft._jobId || "";
   const returnToReview = searchParams.get("returnTo") === "review";
 
   const [config, setConfig] = useState(() => {
@@ -200,9 +201,7 @@ const JobPayment = () => {
       return
     }
     saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 5 })
-    navigate(
-      `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ""}`,
-    )
+    navigate(getJobWizardPath("review", projectId, jobId))
   }
 
   const generalFee = Number(config.general) || 0;
@@ -563,9 +562,7 @@ const JobPayment = () => {
           <div className="flex justify-between items-center pt-4 border-t border-gray-200">
             <Button
               onClick={() =>
-                navigate(
-                  `/admin/jobs/create/documents${projectId ? `?project=${projectId}` : ""}`,
-                )
+                navigate(getJobWizardPath("documents", projectId, jobId, { returnToReview }))
               }
               variant="outline"
               className="px-6"

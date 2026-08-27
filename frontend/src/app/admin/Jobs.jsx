@@ -227,7 +227,7 @@ const Jobs = () => {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
       const projectId = draft.projectId
       navigate(
-        `/admin/jobs/create/${step}${projectId ? `?project=${projectId}` : ''}`
+        `/admin/jobs/create/${step}${projectId ? `?project=${projectId}&job=${job._id}` : `?job=${job._id}`}`
       )
     } catch (err) {
       toast.error(err.message || 'Unable to open draft job')

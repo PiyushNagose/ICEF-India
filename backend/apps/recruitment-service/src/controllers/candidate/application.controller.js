@@ -1423,7 +1423,7 @@ const submitCorrection = asyncHandler(async (req, res) => {
   // Admin notification link — go straight to the support ticket if one exists,
   // otherwise fall back to the application detail page.
   const adminLink = linkedTicketId
-    ? `/admin/support/tickets/${linkedTicketId}`
+    ? `/admin/support/ticket/${linkedTicketId}`
     : `/admin/applications/${app._id}`;
 
   // Notify candidate

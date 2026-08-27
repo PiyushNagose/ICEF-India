@@ -116,57 +116,56 @@ export default function CenterWizard() {
     const savedCenter = centerData.center || centerData.data?.center || centerData
     const savedRooms = centerData.rooms || centerData.data?.rooms || []
 
-    setCenter({
-      centerCode: savedCenter.centerCode || '',
-      name: savedCenter.name || '',
-      addressLine1: savedCenter.addressLine1 || '',
-      addressLine2: savedCenter.addressLine2 || '',
-      landmark: savedCenter.landmark || '',
-      city: savedCenter.city || '',
-      district: savedCenter.district || '',
-      state: savedCenter.state || '',
-      pincode: savedCenter.pincode || '',
-      contactName: savedCenter.contact?.name || '',
-      contactPhone: savedCenter.contact?.phone || '',
-      contactEmail: savedCenter.contact?.email || '',
-      active: savedCenter.active !== false,
-    })
-    setRooms(
-      savedRooms.length > 0
-        ? savedRooms.map((room) => ({
-            _id: room._id || '',
-            roomCode: room.roomCode || '',
-            roomName: room.roomName || '',
-            block: room.block || '',
-            floor: room.floor || '',
-            capacity: room.capacity || '',
-            usableCapacity: room.usableCapacity || '',
-            seatPrefix: room.seatPrefix || '',
-            active: room.active !== false,
-            wheelchairAccess: Boolean(room.accessibility?.wheelchairAccess),
-            groundFloor: Boolean(room.accessibility?.groundFloor),
-          }))
-        : [createRoom()],
-    )
+    const timer = setTimeout(() => {
+      setCenter({
+        centerCode: savedCenter.centerCode || '',
+        name: savedCenter.name || '',
+        addressLine1: savedCenter.addressLine1 || '',
+        addressLine2: savedCenter.addressLine2 || '',
+        landmark: savedCenter.landmark || '',
+        city: savedCenter.city || '',
+        district: savedCenter.district || '',
+        state: savedCenter.state || '',
+        pincode: savedCenter.pincode || '',
+        contactName: savedCenter.contact?.name || '',
+        contactPhone: savedCenter.contact?.phone || '',
+        contactEmail: savedCenter.contact?.email || '',
+        active: savedCenter.active !== false,
+      })
+      setRooms(
+        savedRooms.length > 0
+          ? savedRooms.map((room) => ({
+              _id: room._id || '',
+              roomCode: room.roomCode || '',
+              roomName: room.roomName || '',
+              block: room.block || '',
+              floor: room.floor || '',
+              capacity: room.capacity || '',
+              usableCapacity: room.usableCapacity || '',
+              seatPrefix: room.seatPrefix || '',
+              active: room.active !== false,
+              wheelchairAccess: Boolean(room.accessibility?.wheelchairAccess),
+              groundFloor: Boolean(room.accessibility?.groundFloor),
+            }))
+          : [createRoom()],
+      )
+    }, 0)
+
+    return () => clearTimeout(timer)
   }, [centerData, isEditMode])
 
   useEffect(() => {
     const pincode = String(center.pincode || '').replace(/\D/g, '').slice(0, 6)
-    if (pincode !== center.pincode) {
-      setCenter((prev) => ({ ...prev, pincode }))
-      return
-    }
 
     if (pincode.length !== 6) {
-      setPincodeStatus('')
       return
     }
 
     const controller = new AbortController()
-    setPincodeStatus('Fetching location...')
 
     const timer = setTimeout(async () => {
       try {
+        setPincodeStatus('Fetching location...')
         const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
           signal: controller.signal,
         })
@@ -210,7 +209,13 @@ export default function CenterWizard() {
   }
 
   const updateCenter = (field, value) => {
-    setCenter((prev) => ({ ...prev, [field]: value }))
+    const nextValue = field === 'pincode'
+      ? String(value || '').replace(/\D/g, '').slice(0, 6)
+      : value
+    if (field === 'pincode' && String(nextValue).length !== 6) {
+      setPincodeStatus('')
+    }
+    setCenter((prev) => ({ ...prev, [field]: nextValue }))
     setFormErrors((prev) => {
       if (!prev[field]) return prev
       const next = { ...prev }

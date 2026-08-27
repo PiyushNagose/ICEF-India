@@ -457,7 +457,8 @@ const ProjectDetails = () => {
       title: "VIEW APPS",
       icon: Eye,
       color: "bg-blue-100 text-blue-600",
-      action: () => navigate("/admin/applications"),
+      action: () =>
+        navigate(`/admin/applications${selectedJob?._id ? `?job=${selectedJob._id}` : ""}`),
     },
     {
       title: "ANALYTICS",
@@ -545,7 +546,7 @@ const ProjectDetails = () => {
       {
         key: "review",
         label: "Final Review",
-        complete: Boolean(publishSectionOpen || publishComplete),
+        complete: Boolean(reviewReady || publishComplete),
         message: reviewReady
           ? "Selected job is ready for publish."
           : "Verify the selected job before publishing.",
@@ -633,7 +634,10 @@ const ProjectDetails = () => {
       title: "Landing Page CMS",
       description: "Hero, banners, notices, and links.",
       icon: Globe2,
-      action: () => navigate(`/admin/cms/edit/${encodeURIComponent(project.state || "All")}?project=${id}`),
+      action: () =>
+        navigate(
+          `/admin/cms/edit/${encodeURIComponent(project.state || "All")}?project=${id}${selectedJob?._id ? `&job=${selectedJob._id}` : ""}`,
+        ),
     },
     {
       title: "Job Advertisement & Payment",

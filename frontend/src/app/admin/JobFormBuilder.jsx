@@ -7,7 +7,7 @@ import CustomSelect from '../../components/ui/CustomSelect'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import JobStepProgress from './JobStepProgress'
-import { 
+import {
   ArrowRight,
   ArrowLeft,
   Plus,
@@ -27,6 +27,7 @@ import {
   Phone,
   GripVertical
 } from 'lucide-react'
+import { getJobWizardPath } from '../../utils/jobDraft'
 
 const BUILT_IN_SECTIONS = [
   {
@@ -114,6 +115,7 @@ const JobFormBuilder = () => {
     }
   })()
   const projectId = searchParams.get('project') || savedDraft.projectId || null
+  const jobId = searchParams.get('job') || savedDraft._jobId || ''
   const returnToReview = searchParams.get('returnTo') === 'review'
 
   const [formSections, setFormSections] = useState(() => {
@@ -371,12 +373,12 @@ const JobFormBuilder = () => {
       })),
     }))
     navigate(returnToReview
-      ? `/admin/jobs/create/review${projectId ? `?project=${projectId}` : ''}`
-      : `/admin/jobs/create/documents${projectId ? `?project=${projectId}` : ''}`)
+      ? getJobWizardPath('review', projectId, jobId)
+      : getJobWizardPath('documents', projectId, jobId))
   }
 
   const handleBack = () => {
-    navigate(`/admin/jobs/create/eligibility${projectId ? `?project=${projectId}` : ''}`)
+    navigate(getJobWizardPath('eligibility', projectId, jobId, { returnToReview }))
   }
 
 

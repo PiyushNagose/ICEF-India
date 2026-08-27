@@ -21,10 +21,11 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
-import KpiDateRangeFilter, {
+import KpiDateRangeFilter from '../../components/common/KpiDateRangeFilter'
+import {
   DEFAULT_KPI_DATE_RANGE,
   getKpiDateRangeParams,
-} from '../../components/common/KpiDateRangeFilter'
+} from '../../components/common/kpiDateRange'
 import { dashboardService } from '../../services/dashboard.service'
 import { adminService } from '../../services/admin.service'
 import {

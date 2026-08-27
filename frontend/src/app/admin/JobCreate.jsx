@@ -1,7 +1,12 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AdminLayout from '../../components/layouts/AdminLayout'
-import { JOB_DRAFT_STORAGE_KEY, readJobDraft, getJobDraftResumePath } from '../../utils/jobDraft'
+import {
+  JOB_DRAFT_STORAGE_KEY,
+  getJobDraftResumePath,
+  getJobWizardPath,
+  readJobDraft,
+} from '../../utils/jobDraft'
 
 const JobCreate = () => {
   const navigate = useNavigate()
@@ -9,6 +14,7 @@ const JobCreate = () => {
   
   useEffect(() => {
     const projectId = searchParams.get('project')
+    const jobId = searchParams.get('job')
     const mode = searchParams.get('mode')
     const draft = readJobDraft()
 
@@ -18,15 +24,15 @@ const JobCreate = () => {
         JOB_DRAFT_STORAGE_KEY,
         JSON.stringify({ projectId }),
       )
-      navigate(`/admin/jobs/create/basic-info${projectId ? `?project=${projectId}` : ''}`, { replace: true })
+      navigate(getJobWizardPath('basic-info', projectId, ''), { replace: true })
       return
     }
 
     if (draft?.projectId && (draft._jobId || draft.title || draft.postCode || draft.department)) {
-      navigate(getJobDraftResumePath(draft), { replace: true })
+      navigate(getJobDraftResumePath(draft, { jobId: jobId || draft._jobId }), { replace: true })
       return
     }
-    navigate(`/admin/jobs/create/basic-info${projectId ? `?project=${projectId}` : ''}`, { replace: true })
+    navigate(getJobWizardPath('basic-info', projectId, jobId), { replace: true })
   }, [navigate, searchParams])
 
   return (
