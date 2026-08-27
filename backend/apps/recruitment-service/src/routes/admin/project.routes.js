@@ -27,12 +27,23 @@ router.get(
   checkPermission("projects", "view"),
   projectController.getProject,
 );
+router.get(
+  "/:id/preview",
+  checkPermission("projects", "view"),
+  projectController.getProjectPreview,
+);
 router.post(
   "/",
   checkPermission("projects", "create"),
   validate(createProjectSchema),
   auditLog("Projects", "CREATE"),
   projectController.createProject,
+);
+router.put(
+  "/:id/publish",
+  checkPermission("projects", "publish"),
+  auditLog("Projects", "PUBLISH"),
+  projectController.publishProject,
 );
 router.put(
   "/:id",

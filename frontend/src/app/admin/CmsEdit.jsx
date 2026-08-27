@@ -22,6 +22,11 @@ import AdminLayout from "../../components/layouts/AdminLayout";
 import { adminService } from "../../services/admin.service";
 import BannerImageUpload from "../../components/ui/BannerImageUpload";
 import ProjectFlowNav from "../../components/admin/ProjectFlowNav";
+import {
+  stashCmsPreviewDraft,
+  clearCmsPreviewDraft,
+  openProjectPreview,
+} from "../../utils/cmsPreview";
 
 const Section = ({ icon: Icon, title, children, action, className = "" }) => (
   <div
@@ -130,6 +135,9 @@ const CmsEdit = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project");
+  const amendmentType = searchParams.get("amendment");
+  const amendmentJobId = searchParams.get("job");
+  const isFormAmendment = amendmentType === "form-sections";
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState(null);
@@ -175,8 +183,23 @@ const CmsEdit = () => {
           String(projectId),
       )
     : rawJobs;
+  const amendmentJob = amendmentJobId
+    ? allJobs.find((job) => String(job._id) === String(amendmentJobId))
+    : null;
+  const amendmentJobLabel = amendmentJob
+    ? `${amendmentJob.title || "Selected job"}${amendmentJob.postCode ? ` (${amendmentJob.postCode})` : ""}`
+    : "the selected job";
+  const amendmentNoticeText = `Official amendment: Application form fields for ${amendmentJobLabel} have been updated. Candidates should review the latest instructions before applying or requesting correction.`;
+  const amendmentNoticeLink =
+    project?.publicSlug || project?.slug
+      ? `/apply/${project.publicSlug || project.slug}`
+      : "";
+  const amendmentReturnPath =
+    isFormAmendment && projectId
+      ? `/admin/jobs/create/review?project=${projectId}${amendmentJobId ? `&job=${amendmentJobId}` : ""}`
+      : "";
   const nextPath = projectId
-    ? `/admin/jobs/create/basic-info?project=${projectId}`
+    ? amendmentReturnPath || `/admin/jobs/create/basic-info?project=${projectId}`
     : "/admin/cms";
   const returnPath = projectId ? `/admin/projects/${projectId}` : "/admin/cms";
   const projectDetailsPath = projectId
@@ -195,6 +218,7 @@ const CmsEdit = () => {
       heroTitle: p.heroTitle || defaults.heroTitle,
       heroSubtitle: p.heroSubtitle || defaults.heroSubtitle,
       bannerImage: p.bannerImage || "",
+      bannerImageSize: p.bannerImageSize || 0,
       featuredJobs: p.featuredJobs || [],
       announcements: p.announcements?.length
         ? p.announcements
@@ -228,6 +252,40 @@ const CmsEdit = () => {
       status: p.status || "draft",
     });
   }, [form, pageData, project, projectId, stateName]);
+
+  useEffect(() => {
+    if (!form || !isFormAmendment) return;
+    if (amendmentJobId && !jobsData) return;
+    const alreadyAdded = form.announcements?.some(
+      (item) => item.text === amendmentNoticeText,
+    );
+    if (alreadyAdded) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- query/context params prefill the editable CMS draft once.
+    setForm((current) => ({
+      ...current,
+      announcements: [
+        {
+          text: amendmentNoticeText,
+          link: amendmentNoticeLink,
+          priority: "high",
+        },
+        ...(current.announcements || []),
+      ],
+      sectionVisibility: {
+        ...current.sectionVisibility,
+        notices: true,
+      },
+    }));
+    toast.success("Official amendment notice drafted. Review and publish it.");
+  }, [
+    amendmentJobId,
+    amendmentNoticeLink,
+    amendmentNoticeText,
+    form,
+    isFormAmendment,
+    jobsData,
+  ]);
 
   const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
   const setQL = (key, val) =>
@@ -368,6 +426,27 @@ const CmsEdit = () => {
     sectionVisibility: form.sectionVisibility,
   });
 
+  // Stash the current (possibly unsaved) draft and open the public preview in a
+  // new tab. Only meaningful for project landing pages, which have a public URL.
+  const handlePreview = () => {
+    if (!projectId) return;
+    stashCmsPreviewDraft(projectId, {
+      heroTitle: form.heroTitle,
+      heroSubtitle: form.heroSubtitle,
+      bannerImage: form.bannerImage,
+      featuredJobs: form.featuredJobs,
+      announcements: form.announcements,
+      instructions: form.instructions,
+      downloads: form.downloads,
+      faqs: form.faqs,
+      helpdesk: form.helpdesk,
+      sectionVisibility: form.sectionVisibility,
+      quickLinks: form.quickLinks,
+      status: form.status,
+    });
+    openProjectPreview(projectId, { draft: true });
+  };
+
   const { mutate: saveUpdate, isPending: isSaving } = useMutation({
     mutationFn: (data) =>
       adminService.updateCmsPage(
@@ -377,10 +456,17 @@ const CmsEdit = () => {
       ),
     onSuccess: () => {
       toast.success(projectId ? "Landing page saved." : "Page saved as draft");
+      clearCmsPreviewDraft(projectId);
       queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
       queryClient.invalidateQueries({
         queryKey: ["admin-cms-page", stateName, projectId],
       });
+      if (project?.publicSlug || project?.slug) {
+        queryClient.invalidateQueries({
+          queryKey: ["public-project", project.publicSlug || project.slug],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["public-projects"] });
       if (projectId) navigate(nextPath);
     },
     onError: (err) => toast.error(err.message || "Failed to save"),
@@ -400,10 +486,17 @@ const CmsEdit = () => {
     },
     onSuccess: () => {
       toast.success(projectId ? "Landing page published." : "Page published");
+      clearCmsPreviewDraft(projectId);
       queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
       queryClient.invalidateQueries({
         queryKey: ["admin-cms-page", stateName, projectId],
       });
+      if (project?.publicSlug || project?.slug) {
+        queryClient.invalidateQueries({
+          queryKey: ["public-project", project.publicSlug || project.slug],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["public-projects"] });
       navigate(nextPath);
     },
     onError: (err) => toast.error(err.message || "Failed to publish"),
@@ -505,7 +598,11 @@ const CmsEdit = () => {
                     <Label>Banner Image</Label>
                     <BannerImageUpload
                       value={form.bannerImage}
-                      onChange={(url) => set("bannerImage", url)}
+                      size={form.bannerImageSize}
+                      onChange={(url, size) => {
+                        set("bannerImage", url);
+                        set("bannerImageSize", size || 0);
+                      }}
                     />
                   </div>
                 </div>
@@ -824,6 +921,16 @@ const CmsEdit = () => {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+                {projectId && (
+                  <button
+                    onClick={handlePreview}
+                    disabled={isSaving || isPublishing}
+                    className="w-full py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Preview
+                  </button>
+                )}
                 <button
                   onClick={() => saveAndPublish(buildPayload())}
                   disabled={isPublishing || isSaving}
@@ -1081,6 +1188,16 @@ const CmsEdit = () => {
               >
                 Cancel
               </button>
+              {projectId && (
+                <button
+                  onClick={handlePreview}
+                  disabled={isSaving || isPublishing}
+                  className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  Preview
+                </button>
+              )}
               <button
                 onClick={() =>
                   saveUpdate({ ...buildPayload(), status: "draft" })

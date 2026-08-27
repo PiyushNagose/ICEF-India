@@ -8,6 +8,19 @@ const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const Employee = require("../../shared/models/Employee");
 const SupportTicket = require("../../shared/models/SupportTicket");
 
+const buildDateFilter = ({ startDate, endDate }) => {
+  if (!startDate || !endDate) return {};
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return {};
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  return { createdAt: { $gte: start, $lte: end } };
+};
+
 const getTickets = asyncHandler(async (req, res) => {
   const result = await supportService.getAdminTickets(req.query);
   res
@@ -85,18 +98,22 @@ const verifyPayment = asyncHandler(async (req, res) => {
 });
 
 const getStats = asyncHandler(async (req, res) => {
+  const dateFilter = buildDateFilter(req.query);
   const [statusStats, priorityStats, categoryStats, recentTickets] =
     await Promise.all([
       SupportTicket.aggregate([
+        { $match: dateFilter },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
       SupportTicket.aggregate([
+        { $match: dateFilter },
         { $group: { _id: "$priority", count: { $sum: 1 } } },
       ]),
       SupportTicket.aggregate([
+        { $match: dateFilter },
         { $group: { _id: "$category", count: { $sum: 1 } } },
       ]),
-      SupportTicket.find()
+      SupportTicket.find(dateFilter)
         .populate("raisedBy", "fullName email")
         .sort({ createdAt: -1 })
         .limit(5)

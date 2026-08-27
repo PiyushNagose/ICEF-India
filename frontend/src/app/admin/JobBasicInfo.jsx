@@ -22,6 +22,23 @@ import { saveJobDraftProgress } from "../../utils/jobDraft";
 
 const STORAGE_KEY = "job_draft";
 
+/** Today at local midnight - used as the min bound for new job dates */
+const todayDate = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+const todayISO = () => {
+  const d = todayDate()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+/** Convert YYYY-MM-DD string to a local midnight Date object */
+const toDate = (s) => s ? new Date(s + 'T00:00:00') : undefined
+const toDateOnly = (value) => value ? String(value).split("T")[0] : ""
+
 const JobBasicInfo = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,6 +53,8 @@ const JobBasicInfo = () => {
     }
   })();
   const projectId = urlProjectId || savedDraft.projectId || null;
+  const originalApplicationStartDate = toDateOnly(savedDraft.applicationStartDate);
+  const isExistingJobDraft = !!savedDraft._jobId;
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -182,6 +201,7 @@ const JobBasicInfo = () => {
     } else if (Number(formData.applicationFee.general) < 0) {
       e["applicationFee.general"] = "Fee cannot be negative";
     }
+    // ── Required date fields ──
     [
       ["applicationStartDate", "Application start date is required"],
       ["applicationDeadline", "Application deadline is required"],
@@ -193,12 +213,29 @@ const JobBasicInfo = () => {
     ].forEach(([field, message]) => {
       if (!formData[field]) e[field] = message;
     });
+    // New jobs cannot be backdated. Existing jobs can keep their historical start date.
+    if (
+      formData.applicationStartDate &&
+      formData.applicationStartDate < todayISO() &&
+      !isExistingJobDraft &&
+      formData.applicationStartDate !== originalApplicationStartDate
+    ) {
+      e.applicationStartDate = "Application start date cannot be in the past";
+    }
+    // ── Sequential date chain ──
     if (
       formData.applicationStartDate &&
       formData.applicationDeadline &&
       formData.applicationStartDate > formData.applicationDeadline
     ) {
       e.applicationDeadline = "Application deadline must be after application start";
+    }
+    if (
+      formData.applicationDeadline &&
+      formData.correctionStartDate &&
+      formData.correctionStartDate < formData.applicationDeadline
+    ) {
+      e.correctionStartDate = "Correction start must be on or after application deadline";
     }
     if (
       formData.correctionStartDate &&
@@ -208,11 +245,11 @@ const JobBasicInfo = () => {
       e.correctionDeadline = "Correction deadline must be after correction start";
     }
     if (
-      formData.applicationDeadline &&
-      formData.examDate &&
-      formData.applicationDeadline > formData.examDate
+      formData.correctionDeadline &&
+      formData.admitCardReleaseDate &&
+      formData.admitCardReleaseDate < formData.correctionDeadline
     ) {
-      e.examDate = "Exam date must be after application deadline";
+      e.admitCardReleaseDate = "Admit card release must be on or after correction deadline";
     }
     if (
       formData.admitCardReleaseDate &&
@@ -220,6 +257,13 @@ const JobBasicInfo = () => {
       formData.admitCardReleaseDate > formData.examDate
     ) {
       e.admitCardReleaseDate = "Admit card release must be on or before exam date";
+    }
+    if (
+      formData.applicationDeadline &&
+      formData.examDate &&
+      formData.applicationDeadline > formData.examDate
+    ) {
+      e.examDate = "Exam date must be after application deadline";
     }
     if (formData.examDate && formData.resultDate && formData.examDate > formData.resultDate) {
       e.resultDate = "Result publish date must be after exam date";
@@ -838,12 +882,13 @@ const JobBasicInfo = () => {
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Application Start
+                      Application Start <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.applicationStartDate}
                       onChange={(val) => set("applicationStartDate", val)}
                       placeholder="Select application start"
+                      minDate={isExistingJobDraft ? undefined : todayDate()}
                     />
                     {errors.applicationStartDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -853,12 +898,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Application Deadline
+                      Application Deadline <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.applicationDeadline}
                       onChange={(val) => set("applicationDeadline", val)}
                       placeholder="Select deadline"
+                      minDate={toDate(formData.applicationStartDate) || todayDate()}
                     />
                     {errors.applicationDeadline && (
                       <p className="text-red-500 text-xs mt-1">
@@ -868,12 +914,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Correction Start
+                      Correction Start <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.correctionStartDate}
                       onChange={(val) => set("correctionStartDate", val)}
-                      placeholder="Optional correction start"
+                      placeholder="Correction window start"
+                      minDate={toDate(formData.applicationDeadline) || toDate(formData.applicationStartDate) || todayDate()}
                     />
                     {errors.correctionStartDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -883,12 +930,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Correction Deadline
+                      Correction Deadline <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.correctionDeadline}
                       onChange={(val) => set("correctionDeadline", val)}
-                      placeholder="Optional correction deadline"
+                      placeholder="Correction window end"
+                      minDate={toDate(formData.correctionStartDate) || toDate(formData.applicationDeadline) || todayDate()}
                     />
                     {errors.correctionDeadline && (
                       <p className="text-red-500 text-xs mt-1">
@@ -898,12 +946,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Admit Card Release
+                      Admit Card Release <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.admitCardReleaseDate}
                       onChange={(val) => set("admitCardReleaseDate", val)}
                       placeholder="Visible/download from"
+                      minDate={toDate(formData.correctionDeadline) || toDate(formData.applicationDeadline) || todayDate()}
                     />
                     {errors.admitCardReleaseDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -913,12 +962,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tentative Exam Date
+                      Tentative Exam Date <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.examDate}
                       onChange={(val) => set("examDate", val)}
                       placeholder="Select exam date"
+                      minDate={toDate(formData.admitCardReleaseDate) || toDate(formData.applicationDeadline) || todayDate()}
                     />
                     {errors.examDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -928,12 +978,13 @@ const JobBasicInfo = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Result Publish Date
+                      Result Publish Date <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={formData.resultDate}
                       onChange={(val) => set("resultDate", val)}
                       placeholder="Select expected result date"
+                      minDate={toDate(formData.examDate) || todayDate()}
                     />
                     {errors.resultDate && (
                       <p className="text-red-500 text-xs mt-1">

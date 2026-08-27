@@ -7,6 +7,17 @@ const permissionSchema = z
     edit: z.boolean().default(false),
     delete: z.boolean().default(false),
     download: z.boolean().default(false),
+    publish: z.boolean().default(false),
+    approve: z.boolean().default(false),
+    reject: z.boolean().default(false),
+    assign: z.boolean().default(false),
+    resolve: z.boolean().default(false),
+    refund: z.boolean().default(false),
+    reconcile: z.boolean().default(false),
+    publishWindow: z.boolean().default(false),
+    generateOnDemand: z.boolean().default(false),
+    bulkGenerate: z.boolean().default(false),
+    attendance: z.boolean().default(false),
   })
   .optional();
 
@@ -20,10 +31,14 @@ const createRoleSchema = z.object({
       analytics: permissionSchema,
       employees: permissionSchema,
       paymentSettings: permissionSchema,
+      payments: permissionSchema,
       support: permissionSchema,
       projects: permissionSchema,
       results: permissionSchema,
       admitCards: permissionSchema,
+      cms: permissionSchema,
+      activityLogs: permissionSchema,
+      standardsSettings: permissionSchema,
     })
     .optional(),
 });

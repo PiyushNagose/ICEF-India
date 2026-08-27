@@ -40,7 +40,7 @@ router.put(
 );
 router.put(
   "/:id/publish",
-  checkPermission("jobs", "edit"),
+  checkPermission("jobs", "publish"),
   auditLog("Jobs", "PUBLISH"),
   jobController.publishJob,
 );

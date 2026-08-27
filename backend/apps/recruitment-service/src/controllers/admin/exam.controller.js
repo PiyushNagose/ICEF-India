@@ -13,6 +13,7 @@ const {
 const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
+const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
 
 const emitExamRealtime = (event, payload = {}, options = {}) => {
   try {
@@ -26,7 +27,7 @@ const emitExamRealtime = (event, payload = {}, options = {}) => {
 };
 
 const listCenters = asyncHandler(async (req, res) => {
-  const result = await examService.listCenters(req.query);
+  const result = await examService.listCenters(req.query, req.user);
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam centers fetched", result.centers, result.meta));
@@ -46,7 +47,7 @@ const createCenter = asyncHandler(async (req, res) => {
 });
 
 const getCenter = asyncHandler(async (req, res) => {
-  const result = await examService.getCenter(req.params.id);
+  const result = await examService.getCenter(req.params.id, req.user);
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam center fetched", result));
@@ -65,8 +66,35 @@ const updateCenter = asyncHandler(async (req, res) => {
     .json(new ApiResponse(StatusCodes.OK, "Exam center updated", { center }));
 });
 
+const deleteCenter = asyncHandler(async (req, res) => {
+  const result = await examService.deleteCenter(req.params.id, req.user);
+  await saveAuditLog(req, `${result.softDeleted ? "Soft-deleted" : result.deleted ? "Deleted" : "Deactivated"} exam center: ${result.center.centerCode}`);
+  if (result.softDeleted) {
+    await notifyAdmins({
+      type: "system_audit",
+      title: "Exam center removal requested",
+      message: `Employee removed exam center "${result.center.name}". It is hidden from employee views and still visible to admin/superadmin.`,
+      link: "/admin/centers",
+      metadata: {
+        action: "soft_delete",
+        resource: "exam_center",
+        resourceId: String(result.center._id),
+        actorId: String(req.user.id),
+      },
+    });
+  }
+  emitExamRealtime(SOCKET_EVENTS.EXAM_CENTER_CHANGED, {
+    action: result.softDeleted ? "soft_deleted" : result.deleted ? "deleted" : "deactivated",
+    centerId: result.center._id,
+    centerCode: result.center.centerCode,
+  });
+  res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(StatusCodes.OK, result.message, result));
+});
+
 const listRooms = asyncHandler(async (req, res) => {
-  const result = await examService.listRooms(req.params.centerId);
+  const result = await examService.listRooms(req.params.centerId, req.user);
   res
     .status(StatusCodes.OK)
     .json(new ApiResponse(StatusCodes.OK, "Exam rooms fetched", result));
@@ -429,11 +457,44 @@ const downloadBulkJob = asyncHandler(async (req, res) => {
   res.download(job.result.filePath, job.result.fileName);
 });
 
+const downloadCenterTemplate = asyncHandler(async (req, res) => {
+  const result = await examService.generateCenterTemplate();
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+  res.setHeader("Content-Length", result.buffer.length);
+  res.status(StatusCodes.OK).send(result.buffer);
+});
+
+const bulkUploadCenters = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(StatusCodes.BAD_REQUEST).json(new ApiResponse(StatusCodes.BAD_REQUEST, "File is required"));
+  }
+  const result = await examService.bulkUploadCenters(req.file.buffer, req.file.originalname, req.user.id);
+  await saveAuditLog(req, `Bulk uploaded ${result.summary.createdCenters} exam centers`);
+  res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(StatusCodes.OK, "Centers and rooms uploaded successfully", result));
+});
+
+const createCenterWithRooms = asyncHandler(async (req, res) => {
+  const result = await examService.createCenterWithRooms(req.body, req.user.id);
+  await saveAuditLog(req, `Created exam center with rooms: ${result.center.centerCode}`);
+  emitExamRealtime(SOCKET_EVENTS.EXAM_CENTER_CHANGED, {
+    action: "created",
+    centerId: result.center._id,
+    centerCode: result.center.centerCode,
+  });
+  res
+    .status(StatusCodes.CREATED)
+    .json(new ApiResponse(StatusCodes.CREATED, "Exam center and rooms created", result));
+});
+
 module.exports = {
   listCenters,
   createCenter,
   getCenter,
   updateCenter,
+  deleteCenter,
   listRooms,
   createRoom,
   updateRoom,
@@ -463,4 +524,7 @@ module.exports = {
   getBulkJob,
   retryBulkJob,
   downloadBulkJob,
+  downloadCenterTemplate,
+  bulkUploadCenters,
+  createCenterWithRooms,
 };

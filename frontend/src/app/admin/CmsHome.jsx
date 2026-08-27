@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { adminService } from "../../services/admin.service";
-import { useAuth, isSuperAdminUser } from "../../hooks/useAuth";
+import { hasPermission, useAuth, isSuperAdminUser } from "../../hooks/useAuth";
 import ConfirmDeleteModal from "../../components/ui/ConfirmDeleteModal";
 
 const STATUS_CFG = {
@@ -143,6 +143,11 @@ const CmsHome = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isPrivilegedDelete = isSuperAdminUser(user);
+  const canCreate = hasPermission(user, "cms", "create");
+  const canEdit = hasPermission(user, "cms", "edit");
+  const canDelete = hasPermission(user, "cms", "delete");
+  const canDownload = hasPermission(user, "cms", "download");
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, page: null });
 
@@ -160,8 +165,8 @@ const CmsHome = () => {
   const { mutate: deletePage, isPending: deleting } = useMutation({
     mutationFn: ({ state, projectId }) =>
       adminService.deleteCmsPage(state, projectId ? { projectId } : {}),
-    onSuccess: () => {
-      toast.success("State page deleted");
+    onSuccess: (result) => {
+      toast.success(result?.message || "State page deleted");
       queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
     },
     onError: (err) => toast.error(err.message || "Failed to delete"),
@@ -231,13 +236,15 @@ const CmsHome = () => {
               and candidate-facing recruitment content.
             </p>
           </div>
-          <button
-            onClick={() => navigate("/admin/cms/create")}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-200"
-          >
-            <Plus className="w-4 h-4" />
-            Create Landing Page
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => navigate("/admin/cms/create")}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-200"
+            >
+              <Plus className="w-4 h-4" />
+              Create Landing Page
+            </button>
+          )}
         </div>
 
         {/* Stat cards */}
@@ -293,9 +300,11 @@ const CmsHome = () => {
                   </button>
                 ))}
               </div>
-              <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-orange-100 bg-white px-3 text-xs font-bold text-gray-600 transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600">
-                <Download className="w-3.5 h-3.5" /> Export
-              </button>
+              {canDownload && (
+                <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-orange-100 bg-white px-3 text-xs font-bold text-gray-600 transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600">
+                  <Download className="w-3.5 h-3.5" /> Export
+                </button>
+              )}
             </div>
           </div>
 
@@ -309,12 +318,14 @@ const CmsHome = () => {
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400">
               <AlertCircle className="w-10 h-10" />
               <p className="text-sm font-medium">No state pages found</p>
-              <button
-                onClick={() => navigate("/admin/cms/create")}
-                className="mt-1 inline-flex h-9 items-center justify-center rounded-lg border border-orange-100 bg-orange-50 px-4 text-sm font-bold text-orange-600 transition-colors hover:border-orange-200 hover:bg-orange-100"
-              >
-                Create your first state page
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => navigate("/admin/cms/create")}
+                  className="mt-1 inline-flex h-9 items-center justify-center rounded-lg border border-orange-100 bg-orange-50 px-4 text-sm font-bold text-orange-600 transition-colors hover:border-orange-200 hover:bg-orange-100"
+                >
+                  Create your first state page
+                </button>
+              )}
             </div>
           )}
 
@@ -350,7 +361,14 @@ const CmsHome = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map((page) => {
-                    const cfg = STATUS_CFG[page.status] || STATUS_CFG.draft;
+                    const cfg = page.isSoftDeleted
+                      ? {
+                          label: "Removed by employee",
+                          bg: "bg-amber-100",
+                          text: "text-amber-700",
+                          dot: "bg-amber-500",
+                        }
+                      : STATUS_CFG[page.status] || STATUS_CFG.draft;
                     const pageState = getPageState(page);
                     const pageTitle = getPageTitle(page);
                     const projectId = getPageProjectId(page);
@@ -395,13 +413,15 @@ const CmsHome = () => {
                         </td>
                         <td className="py-4 px-5 text-center">
                           <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => navigate(getEditPath(page))}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
-                              title="Edit"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => navigate(getEditPath(page))}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleViewPage(page)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
@@ -409,14 +429,16 @@ const CmsHome = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setDeleteModal({ isOpen: true, page })}
-                              disabled={deleting}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => setDeleteModal({ isOpen: true, page })}
+                                disabled={deleting}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -512,8 +534,12 @@ const CmsHome = () => {
         onClose={() => setDeleteModal({ isOpen: false, page: null })}
         onConfirm={confirmDelete}
         title="Delete CMS Page"
-        message={`Are you sure you want to permanently delete the page for "${deleteModal.page ? getPageTitle(deleteModal.page) : ''}"? All related data will be removed.`}
-        requireType={isSuperAdminUser(user)}
+        message={
+          isPrivilegedDelete
+            ? `Are you sure you want to permanently delete the page for "${deleteModal.page ? getPageTitle(deleteModal.page) : ''}"? All related data will be removed.`
+            : `Remove "${deleteModal.page ? getPageTitle(deleteModal.page) : 'this page'}" from the employee portal? Admin/superadmin will still see it and receive a notification.`
+        }
+        requireType={isPrivilegedDelete}
       />
     </AdminLayout>
   );

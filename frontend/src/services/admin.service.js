@@ -14,12 +14,20 @@ export const adminService = {
     const response = await apiClient.get(`/admin/projects/${id}`);
     return unwrapData(response);
   },
+  async getProjectPreview(id) {
+    const response = await apiClient.get(`/admin/projects/${id}/preview`);
+    return unwrapData(response);
+  },
   async createProject(data) {
     const response = await apiClient.post("/admin/projects", data);
     return unwrapData(response);
   },
   async updateProject(id, data) {
     const response = await apiClient.put(`/admin/projects/${id}`, data);
+    return unwrapData(response);
+  },
+  async publishProject(id) {
+    const response = await apiClient.put(`/admin/projects/${id}/publish`);
     return unwrapData(response);
   },
   async deleteProject(id) {
@@ -48,8 +56,8 @@ export const adminService = {
     const response = await apiClient.post("/admin/jobs", data);
     return unwrapData(response);
   },
-  async updateJob(id, data) {
-    const response = await apiClient.put(`/admin/jobs/${id}`, data);
+  async updateJob(id, data, config = {}) {
+    const response = await apiClient.put(`/admin/jobs/${id}`, data, config);
     return unwrapData(response);
   },
   async publishJob(id) {
@@ -70,8 +78,8 @@ export const adminService = {
     const response = await apiClient.get("/admin/applications", { params });
     return unwrapData(response);
   },
-  async getApplicationStats() {
-    const response = await apiClient.get("/admin/applications/stats");
+  async getApplicationStats(params = {}) {
+    const response = await apiClient.get("/admin/applications/stats", { params });
     return unwrapData(response);
   },
   async getApplication(id) {
@@ -130,7 +138,6 @@ export const adminService = {
     );
     return unwrapData(response);
   },
-
   // ── Exams / Admit Cards ───────────────────────────────────
   async getExamCenters(params = {}) {
     const response = await apiClient.get("/admin/exams/centers", { params });
@@ -144,8 +151,27 @@ export const adminService = {
     const response = await apiClient.get(`/admin/exams/centers/${id}`);
     return unwrapData(response);
   },
+  async createCenterWithRooms(data) {
+    const response = await apiClient.post("/admin/exams/centers/with-rooms", data);
+    return unwrapData(response);
+  },
+  getCenterBulkTemplateUrl() {
+    return `/api/admin/exams/centers/bulk-template`;
+  },
+  async bulkUploadCenters(formData) {
+    const response = await apiClient.post("/admin/exams/centers/bulk-upload", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return unwrapData(response);
+  },
   async updateExamCenter(id, data) {
     const response = await apiClient.put(`/admin/exams/centers/${id}`, data);
+    return unwrapData(response);
+  },
+  async deleteExamCenter(id) {
+    const response = await apiClient.delete(`/admin/exams/centers/${id}`);
     return unwrapData(response);
   },
   async getExamRooms(centerId) {
@@ -288,8 +314,8 @@ export const adminService = {
   },
 
   // ── Analytics ─────────────────────────────────────────────
-  async getAnalyticsOverview() {
-    const response = await apiClient.get("/admin/analytics/overview");
+  async getAnalyticsOverview(params = {}) {
+    const response = await apiClient.get("/admin/analytics/overview", { params });
     return unwrapData(response);
   },
   async getAnalyticsFunnel(params = {}) {
@@ -302,8 +328,8 @@ export const adminService = {
     });
     return unwrapData(response);
   },
-  async getPaymentAnalytics() {
-    const response = await apiClient.get("/admin/analytics/payments");
+  async getPaymentAnalytics(params = {}) {
+    const response = await apiClient.get("/admin/analytics/payments", { params });
     return unwrapData(response);
   },
   async getDepartmentStats() {
@@ -324,8 +350,8 @@ export const adminService = {
       meta: tickets?.meta || response?.meta || {},
     };
   },
-  async getSupportStats() {
-    const response = await apiClient.get("/admin/support/stats");
+  async getSupportStats(params = {}) {
+    const response = await apiClient.get("/admin/support/stats", { params });
     return unwrapData(response);
   },
   async getSupportTicket(id) {

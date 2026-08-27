@@ -24,6 +24,15 @@ const YEARS = Array.from(
   { length: 30 },
   (_, i) => new Date().getFullYear() - i,
 );
+const YEAR_OPTIONS = [
+  { value: "", label: "Select Year" },
+  ...YEARS.map((year) => {
+    const value = String(year);
+    return { value, label: value };
+  }),
+];
+const getSavedYear = (education = {}) =>
+  education.year != null ? String(education.year) : "";
 
 const Education = () => {
   const navigate = useNavigate();
@@ -81,7 +90,7 @@ const Education = () => {
             board: edu.tenth?.board || "",
             school: edu.tenth?.school || "",
             rollNumber: edu.tenth?.rollNumber || "",
-            year: edu.tenth?.year ? String(edu.tenth.year) : "",
+            year: getSavedYear(edu.tenth),
             percentage:
               edu.tenth?.percentage != null ? String(edu.tenth.percentage) : "",
           },
@@ -90,7 +99,7 @@ const Education = () => {
             stream: edu.twelfth?.stream || "",
             school: edu.twelfth?.school || "",
             rollNumber: edu.twelfth?.rollNumber || "",
-            year: edu.twelfth?.year ? String(edu.twelfth.year) : "",
+            year: getSavedYear(edu.twelfth),
             percentage:
               edu.twelfth?.percentage != null
                 ? String(edu.twelfth.percentage)
@@ -99,7 +108,7 @@ const Education = () => {
           graduation: {
             degree: edu.graduation?.degree || "",
             university: edu.graduation?.university || "",
-            year: edu.graduation?.year ? String(edu.graduation.year) : "",
+            year: getSavedYear(edu.graduation),
             percentage:
               edu.graduation?.percentage != null
                 ? String(edu.graduation.percentage)
@@ -265,10 +274,7 @@ const Education = () => {
                   className={selectCls}
                   value={formData.tenth.year}
                   onChange={(val) => set("tenth", "year", val)}
-                  options={[
-                    { value: "", label: "Select Year" },
-                    ...YEARS.map((y) => ({ value: y, label: y }))
-                  ]}
+                  options={YEAR_OPTIONS}
                 />
               </div>
               <div>
@@ -359,10 +365,7 @@ const Education = () => {
                   className={selectCls}
                   value={formData.twelfth.year}
                   onChange={(val) => set("twelfth", "year", val)}
-                  options={[
-                    { value: "", label: "Select Year" },
-                    ...YEARS.map((y) => ({ value: y, label: y }))
-                  ]}
+                  options={YEAR_OPTIONS}
                 />
               </div>
               <div>
@@ -438,10 +441,7 @@ const Education = () => {
                   className={selectCls}
                   value={formData.graduation.year}
                   onChange={(val) => set("graduation", "year", val)}
-                  options={[
-                    { value: "", label: "Select Year" },
-                    ...YEARS.map((y) => ({ value: y, label: y }))
-                  ]}
+                  options={YEAR_OPTIONS}
                 />
               </div>
               <div>

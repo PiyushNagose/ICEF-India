@@ -3,7 +3,27 @@ const ApiError = require("./ApiError");
 
 const parseDate = (value) => {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const isoDateOnly = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoDateOnly) {
+      const [, year, month, day] = isoDateOnly.map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    const indianDate = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (indianDate) {
+      const [, day, month, year] = indianDate.map(Number);
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
@@ -19,12 +39,21 @@ const endOfDay = (value) => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 };
 
+const getProjectClosureDate = (project) => {
+  const endDate = parseDate(project?.endDate);
+  const closureDate = parseDate(project?.closureDate);
+  if (endDate && closureDate) {
+    return endDate > closureDate ? endDate : closureDate;
+  }
+  return endDate || closureDate;
+};
+
 const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
   if (!projectLike) return "Upcoming";
   if (projectLike.status === "Cancelled") return "Cancelled";
 
   const start = startOfDay(projectLike.startDate);
-  const closure = startOfDay(projectLike.endDate || projectLike.closureDate);
+  const closure = startOfDay(getProjectClosureDate(projectLike));
   const today = startOfDay(now);
 
   if (start && today < start) return "Upcoming";
@@ -34,15 +63,12 @@ const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
   return projectLike.status || "Upcoming";
 };
 
-const getProjectClosureDate = (project) =>
-  parseDate(project?.endDate || project?.closureDate);
-
 const getPaymentDeadline = (job) =>
   parseDate(job?.paymentConfig?.paymentDeadline || job?.applicationDeadline);
 
 const assertOrder = (left, right, message) => {
-  const a = parseDate(left);
-  const b = parseDate(right);
+  const a = startOfDay(left);
+  const b = startOfDay(right);
   if (a && b && a > b) {
     throw new ApiError(StatusCodes.BAD_REQUEST, message);
   }
@@ -71,8 +97,8 @@ const assertWithinProject = (date, project, label) => {
 };
 
 const assertProjectTimeline = (projectLike) => {
-  const start = parseDate(projectLike.startDate);
-  const closure = getProjectClosureDate(projectLike);
+  const start = startOfDay(projectLike.startDate);
+  const closure = startOfDay(getProjectClosureDate(projectLike));
   if (start && closure && closure < start) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,

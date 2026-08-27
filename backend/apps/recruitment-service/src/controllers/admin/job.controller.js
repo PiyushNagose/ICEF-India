@@ -26,6 +26,7 @@ const {
 const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
+const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
 
 const normalizePosts = (posts = []) =>
   posts
@@ -352,6 +353,12 @@ const getJobs = asyncHandler(async (req, res) => {
 
   // Build filter
   const filter = {};
+  
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  // Employees must never see soft-deleted jobs; admins see all
+  if (!isAdminOrSuperAdmin) {
+    filter.isSoftDeleted = { $ne: true };
+  }
   if (status) filter.status = status;
   if (department) filter.department = new RegExp(department, "i");
   if (projectId) filter.projectId = projectId;
@@ -435,6 +442,10 @@ const getJob = asyncHandler(async (req, res) => {
     .populate("createdBy", "fullName employeeId department");
 
   if (!job) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
+  }
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  if (job.isSoftDeleted && !isAdminOrSuperAdmin) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
 
@@ -595,6 +606,17 @@ const updateJob = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
 
+  if (
+    req.body.projectId &&
+    String(req.body.projectId) !== String(job.projectId)
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "This job is already linked to another project. Open the correct project or create a new job.",
+    );
+  }
+  delete req.body.projectId;
+
   await enforcePublishedJobEditPolicy({ job, body: req.body });
 
   if (Array.isArray(req.body.posts) && req.body.posts.length > 0) {
@@ -622,7 +644,7 @@ const updateJob = asyncHandler(async (req, res) => {
   }
 
   // Update job with provided fields — deep merge nested objects
-  const project = await Project.findById(req.body.projectId || job.projectId);
+  const project = await Project.findById(job.projectId);
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
@@ -866,8 +888,34 @@ const deleteJob = asyncHandler(async (req, res) => {
     );
   }
 
-  await Job.findByIdAndDelete(req.params.id);
-  await saveAuditLog(req, `Deleted job: ${job.title}`);
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+
+  if (!isAdminOrSuperAdmin) {
+    // Soft delete: mark record as deleted — stays visible to admin/superadmin
+    await Job.findByIdAndUpdate(req.params.id, {
+      isSoftDeleted: true,
+      deletedBy: req.user.id,
+      deletedAt: new Date(),
+    });
+    await saveAuditLog(req, `Soft-deleted job: ${job.title}`);
+    await notifyAdmins({
+      type: "system_audit",
+      title: "Job removal requested",
+      message: `Employee removed job "${job.title}". It is hidden from employee views and still visible to admin/superadmin.`,
+      link: "/admin/jobs",
+      metadata: {
+        action: "soft_delete",
+        resource: "job",
+        resourceId: String(job._id),
+        actorId: String(req.user.id),
+      },
+    });
+  } else {
+    // Hard delete: reserved for admin/superadmin
+    await Job.findByIdAndDelete(req.params.id);
+    await Project.findByIdAndUpdate(job.projectId, { $inc: { totalJobs: -1 } });
+    await saveAuditLog(req, `Deleted job: ${job.title}`);
+  }
 
   await invalidatePublicRecruitmentCache();
 
@@ -893,9 +941,18 @@ const deleteJob = asyncHandler(async (req, res) => {
   });
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "Job deleted successfully", {
-      message: "Job deleted successfully",
-    }),
+    new ApiResponse(
+      StatusCodes.OK,
+      isAdminOrSuperAdmin
+        ? "Job deleted successfully"
+        : "Job hidden from employee portal and admin notified",
+      {
+        message: isAdminOrSuperAdmin
+          ? "Job deleted successfully"
+          : "Job hidden from employee portal and admin notified",
+        softDeleted: !isAdminOrSuperAdmin,
+      },
+    ),
   );
 });
 
@@ -905,7 +962,10 @@ const deleteJob = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const getJobStats = asyncHandler(async (req, res) => {
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  const filter = isAdminOrSuperAdmin ? {} : { isSoftDeleted: { $ne: true } };
   const statusStats = await Job.aggregate([
+    { $match: filter },
     {
       $group: {
         _id: "$status",
@@ -915,6 +975,7 @@ const getJobStats = asyncHandler(async (req, res) => {
   ]);
 
   const departmentStats = await Job.aggregate([
+    { $match: filter },
     {
       $group: {
         _id: "$department",
@@ -926,7 +987,7 @@ const getJobStats = asyncHandler(async (req, res) => {
     { $limit: 10 },
   ]);
 
-  const recentJobs = await Job.find()
+  const recentJobs = await Job.find(filter)
     .populate("projectId", "name")
     .sort({ createdAt: -1 })
     .limit(5)

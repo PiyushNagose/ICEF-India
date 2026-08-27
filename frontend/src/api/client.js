@@ -153,7 +153,12 @@ apiClient.interceptors.response.use(
         rateLimitToastUntil = now + 15000;
         error.__toastShown = true;
       }
-    } else if (status !== 401 && status !== 404 && status !== 409) {
+    } else if (
+      !originalRequest?.suppressGlobalErrorToast &&
+      status !== 401 &&
+      status !== 404 &&
+      status !== 409
+    ) {
       toast.error(message);
       error.__toastShown = true;
     }

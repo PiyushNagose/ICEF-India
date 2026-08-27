@@ -7,11 +7,11 @@ import toast from 'react-hot-toast'
  * BannerImageUpload
  *
  * Props:
- *   value      — current image URL string (empty = no image)
- *   onChange   — (url: string) => void   called after successful upload or on clear
+ *   size       — current image size in bytes
+ *   onChange   — (url: string, size: number) => void   called after successful upload or on clear
  *   className  — extra wrapper classes
  */
-const BannerImageUpload = ({ value, onChange, className = '' }) => {
+const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
   const inputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -24,15 +24,15 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
       toast.error('Only image files are allowed (JPG, PNG, WebP)')
       return
     }
-    if (file.size > 500 * 1024) {
-      toast.error('Image must be under 500 KB')
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5 MB')
       return
     }
 
     setUploading(true)
     try {
       const result = await adminService.uploadCmsBannerImage(file)
-      onChange(result.url || result.secure_url || '')
+      onChange(result.url || result.secure_url || '', result.size || file.size || 0)
       toast.success('Banner image uploaded')
     } catch (err) {
       toast.error(err?.message || 'Upload failed')
@@ -57,7 +57,7 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
 
   const handleClear = (e) => {
     e.stopPropagation()
-    onChange('')
+    onChange('', 0)
   }
 
   return (
@@ -99,9 +99,16 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
             </button>
           </div>
           {/* Uploaded badge */}
-          <div className="absolute top-2 right-2 flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <CheckCircle2 className="w-3 h-3" />
-            Uploaded
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            {size > 0 && (
+              <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                {(size / 1024).toFixed(1)} KB
+              </div>
+            )}
+            <div className="flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+              <CheckCircle2 className="w-3 h-3" />
+              Uploaded
+            </div>
           </div>
         </div>
       ) : (
@@ -143,7 +150,7 @@ const BannerImageUpload = ({ value, onChange, className = '' }) => {
                 </p>
               </div>
               <p className="text-[10px] text-gray-400">
-                Recommended 1920×480px · JPG, PNG, WebP · Max 500 KB
+                Recommended 1920×480px · JPG, PNG, WebP · Max 5 MB
               </p>
             </>
           )}

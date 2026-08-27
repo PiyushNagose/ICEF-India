@@ -41,6 +41,9 @@ const examCenterSchema = new mongoose.Schema(
     notes: { type: String, trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    isSoftDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

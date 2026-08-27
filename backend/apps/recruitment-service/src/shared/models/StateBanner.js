@@ -75,6 +75,7 @@ const statsBannerSchema = new mongoose.Schema(
     heroTitle:    { type: String, trim: true, default: "" },
     heroSubtitle: { type: String, trim: true, default: "" },
     bannerImage:  { type: String, default: "" }, // Cloudinary URL or external URL
+    bannerImageSize: { type: Number, default: 0 }, // Size in bytes
 
     // Featured recruitments — references to Job IDs
     featuredJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
@@ -102,6 +103,9 @@ const statsBannerSchema = new mongoose.Schema(
     // Meta
     createdBy: { type: mongoose.Schema.Types.ObjectId },
     updatedBy: { type: mongoose.Schema.Types.ObjectId },
+    isSoftDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

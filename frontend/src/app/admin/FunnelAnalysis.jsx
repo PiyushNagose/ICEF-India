@@ -7,10 +7,14 @@ import {
 } from 'recharts'
 import {
   ArrowLeft, TrendingDown, Target, Landmark,
-  AlertTriangle, CheckCircle, Filter,
+  AlertTriangle, CheckCircle,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import CustomSelect from '../../components/ui/CustomSelect'
+import KpiDateRangeFilter, {
+  DEFAULT_KPI_DATE_RANGE,
+  getKpiDateRangeParams,
+} from '../../components/common/KpiDateRangeFilter'
 import { adminService } from '../../services/admin.service'
 
 const fmt = (n) => {
@@ -104,11 +108,12 @@ const FunnelRow = ({ stage, value, prevValue, maxValue, index, isLast }) => {
 const FunnelAnalysis = () => {
   const navigate = useNavigate()
   const [selectedJob, setSelectedJob] = useState('')
-  const [dateRange, setDateRange] = useState('30')
+  const [kpiDateRange, setKpiDateRange] = useState(DEFAULT_KPI_DATE_RANGE)
+  const kpiDateParams = getKpiDateRangeParams(kpiDateRange)
 
-  const { data: funnelData, refetch } = useQuery({
-    queryKey: ['admin-analytics-funnel', selectedJob, dateRange],
-    queryFn: () => adminService.getAnalyticsFunnel({ jobId: selectedJob || undefined, days: dateRange }),
+  const { data: funnelData } = useQuery({
+    queryKey: ['admin-analytics-funnel', selectedJob, kpiDateParams],
+    queryFn: () => adminService.getAnalyticsFunnel({ jobId: selectedJob || undefined, ...kpiDateParams }),
   })
 
   const { data: jobsData } = useQuery({
@@ -145,13 +150,6 @@ const FunnelAnalysis = () => {
     ? Math.round(((values[maxDropIdx - 1] - values[maxDropIdx]) / values[maxDropIdx - 1]) * 100)
     : 0
 
-  const DATE_OPTIONS = [
-    { label: 'Last 7 Days',  value: '7'  },
-    { label: 'Last 30 Days', value: '30' },
-    { label: 'Last 90 Days', value: '90' },
-    { label: 'Last 1 Year',  value: '365'},
-  ]
-
   return (
     <AdminLayout title="Funnel Analysis">
       <div className="p-5 space-y-5">
@@ -174,15 +172,11 @@ const FunnelAnalysis = () => {
 
             {/* Filters */}
             <div className="flex items-end gap-3 flex-wrap">
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Date Range</p>
-                <CustomSelect
-                  value={dateRange}
-                  onChange={val => setDateRange(val)}
-                  options={DATE_OPTIONS}
-                  className="w-40 border-gray-200"
-                />
-              </div>
+              <KpiDateRangeFilter
+                value={kpiDateRange}
+                onChange={setKpiDateRange}
+                className="items-end"
+              />
 
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-normal mb-1">Job Category</p>
@@ -197,12 +191,6 @@ const FunnelAnalysis = () => {
                 />
               </div>
 
-              <button
-                onClick={() => refetch()}
-                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-              >
-                <Filter className="w-3.5 h-3.5" /> Filter
-              </button>
             </div>
           </div>
         </div>

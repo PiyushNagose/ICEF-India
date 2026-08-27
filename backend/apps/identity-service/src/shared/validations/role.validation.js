@@ -32,12 +32,14 @@ const createRoleSchema = z.object({
       analytics: permissionSchema,
       employees: permissionSchema,
       paymentSettings: permissionSchema,
+      payments: permissionSchema,
       support: permissionSchema,
       projects: permissionSchema,
       results: permissionSchema,
       admitCards: permissionSchema,
       cms: permissionSchema,
       activityLogs: permissionSchema,
+      standardsSettings: permissionSchema,
     })
     .optional(),
 });

@@ -21,6 +21,7 @@ const MODULES = [
   { id: 'admitCards',    label: 'Admit Card Management' },
   { id: 'cms',           label: 'Public CMS' },
   { id: 'activityLogs',  label: 'Activity Logs' },
+  { id: 'standardsSettings', label: 'Standards Settings' },
 ]
 const ACTIONS = ['create', 'view', 'edit', 'delete', 'publish', 'approve', 'reject', 'assign', 'resolve', 'refund', 'reconcile', 'publishWindow', 'generateOnDemand', 'bulkGenerate', 'attendance', 'download']
 const ACTION_LABELS = {

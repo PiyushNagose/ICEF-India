@@ -13,6 +13,7 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
     instructionHeading = 'Please read the instructions carefully before appearing for the examination.',
     photoBoxText = 'Paste Photo Here\nSignature of Candidate\nbelow pasted Photo same as\nUploaded Signature',
     controllerTitle = 'Examination Controller',
+    orientation = 'portrait',
   } = template || {};
 
   const photoBoxLines = String(photoBoxText || '')
@@ -38,8 +39,12 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
     schedule: 'Paper 1 (09:00 AM - 11:00 AM)',
   };
 
+  const isLandscape = orientation === 'landscape';
+  const pageWidth = isLandscape ? '842px' : '574px';
+  const pageHeight = isLandscape ? '574px' : '842px';
+
   // Styles based on baseLayout
-  let containerClasses = "bg-white overflow-hidden relative text-black p-6 w-[574px] mx-auto text-xs";
+  let containerClasses = `bg-white overflow-hidden relative text-black p-6 mx-auto text-xs`;
   let tableClasses = "w-full border-collapse border border-gray-400 mb-4";
   let thClasses = "border border-gray-400 p-1.5 text-center font-bold text-[10px]";
   let tdClasses = "border border-gray-400 p-1.5 align-middle text-[10px]";
@@ -50,7 +55,7 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
     thClasses = "border border-slate-300 bg-slate-50 text-slate-800 p-2 text-center font-bold text-[10px]";
     tdClasses = "border border-slate-300 p-2 text-[10px]";
   } else if (baseLayout === 'compact') {
-    containerClasses = "bg-white overflow-hidden relative text-black p-4 w-[574px] mx-auto text-[9px]";
+    containerClasses = `bg-white overflow-hidden relative text-black p-4 mx-auto text-[9px]`;
     thClasses = "border border-gray-400 p-1 text-center font-bold text-[9px]";
     tdClasses = "border border-gray-400 p-1 align-middle text-[9px]";
   }
@@ -73,8 +78,8 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
       <div 
         className={containerClasses}
         style={{
-          width: '574px', 
-          height: '842px', 
+          width: pageWidth, 
+          height: pageHeight, 
           boxShadow: '0 0 10px rgba(0,0,0,0.1)',
           backgroundImage: watermarkUrl ? `url(${watermarkUrl})` : 'none',
           backgroundSize: 'cover',
@@ -195,8 +200,8 @@ const AdmitCardPreview = ({ template, scale = 1 }) => {
       <div 
         className={containerClasses}
         style={{ 
-          width: '574px', 
-          height: '842px', 
+          width: pageWidth, 
+          height: pageHeight, 
           boxShadow: '0 0 10px rgba(0,0,0,0.1)' 
         }}
       >

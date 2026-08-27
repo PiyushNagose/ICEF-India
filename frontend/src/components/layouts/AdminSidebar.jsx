@@ -13,7 +13,8 @@ import {
   FileBadge,
   LayoutTemplate,
   ClipboardList,
-  X
+  X,
+  MapPin
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
@@ -26,6 +27,7 @@ const menuItems = [
   { icon: Briefcase,       label: 'Jobs',                path: '/admin/jobs',             permission: ['jobs', 'view'] },
   { icon: Users,           label: 'Applications',        path: '/admin/applications',     permission: ['applications', 'view'] },
   { icon: FileBadge,       label: 'Admit Cards',         path: '/admin/admit-cards',      permission: ['admitCards', 'view'] },
+  { icon: MapPin,          label: 'Exam Centers',        path: '/admin/centers',          permission: ['admitCards', 'view'] },
   { icon: LayoutTemplate,  label: 'Exam Templates',       path: '/admin/admit-card-templates', permission: ['admitCards', 'view'] },
   { icon: BarChart3,       label: 'Analytics',           path: '/admin/analytics',        permission: ['analytics', 'view'] },
   { icon: Activity,        label: 'Activity Logs',       path: '/admin/activity-logs',    permission: ['activityLogs', 'view'] },
@@ -33,8 +35,8 @@ const menuItems = [
   { icon: UserCheck,       label: 'Employees',           path: '/admin/employees',        permission: ['employees', 'view'] },
   { icon: Shield,          label: 'Roles & Permissions', path: '/admin/roles',            permission: ['employees', 'view'] },
   { icon: CreditCard,      label: 'Payment Settings',    path: '/admin/payment-settings', permission: ['paymentSettings', 'view'] },
-  { icon: Layers,          label: 'CMS',                 path: '/admin/cms',              permission: ['projects', 'edit'] },
-  { icon: ClipboardList,   label: 'Standards Settings',  path: '/admin/standards-settings', permission: ['jobs', 'edit'] },
+  { icon: Layers,          label: 'CMS',                 path: '/admin/cms',              permission: ['cms', 'view'] },
+  { icon: ClipboardList,   label: 'Standards Settings',  path: '/admin/standards-settings', permission: ['standardsSettings', 'view'] },
 ]
 
 const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {

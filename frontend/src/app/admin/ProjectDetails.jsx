@@ -42,6 +42,7 @@ import {
   getJobDraftResumePath,
   toJobDraftPayload,
 } from "../../utils/jobDraft";
+import { openProjectPreview } from "../../utils/cmsPreview";
 
 const isJobAdvertisementConfigured = (job) => {
   if (!job?._id) return false;
@@ -100,6 +101,8 @@ const ProjectDetails = () => {
   const [searchParams] = useSearchParams();
   const reviewMode = searchParams.get("review") === "1";
   const [selectedJobId, setSelectedJobId] = useState(searchParams.get("job") || "");
+  const [publishedJobIds, setPublishedJobIds] = useState(() => new Set());
+  const [projectPublishedLocally, setProjectPublishedLocally] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-project", id],
@@ -136,13 +139,15 @@ const ProjectDetails = () => {
       return {
         ...selectedJobSummary,
         ...hydratedJob,
-        status: selectedJobSummary.status || hydratedJob.status,
+        status: hydratedJob.status || selectedJobSummary.status,
       };
     }
     return selectedJobSummary;
   }, [selectedJobData, selectedJobSummary]);
   const selectedJobStatus = String(selectedJob?.status || "").toLowerCase();
-  const selectedJobIsActive = selectedJobStatus === "active";
+  const selectedJobIsActive =
+    selectedJobStatus === "active" ||
+    (selectedJob?._id && publishedJobIds.has(String(selectedJob._id)));
   const { data: selectedJobSchedulesData } = useQuery({
     queryKey: ["admin-project-job-schedules", id, selectedJob?._id],
     queryFn: () =>
@@ -223,20 +228,26 @@ const ProjectDetails = () => {
     }
   }, [jobs, location.hash, location.pathname, location.search, navigate, searchParams, selectedJobId]);
 
-  const isPublished = Boolean(rawProject?.isPublished);
+  const isPublished = Boolean(rawProject?.isPublished || projectPublishedLocally);
 
   const publishMutation = useMutation({
     mutationFn: async () => {
       if (!projectPublishReady) {
         throw new Error("Publish at least one job before releasing the project URL");
       }
+      let publishedProject = rawProject;
       if (!isPublished) {
-        await adminService.updateProject(id, { status: "Active", isPublished: true });
+        const response = await adminService.publishProject(id);
+        publishedProject = response?.project || response;
+        if (!publishedProject?.isPublished) {
+          throw new Error("Project publish did not save. Please try again.");
+        }
       }
-      return true;
+      return { project: publishedProject };
     },
-    onSuccess: () => {
+    onSuccess: ({ project: publishedProject }) => {
       toast.success("Project public URL published");
+      setProjectPublishedLocally(Boolean(publishedProject?.isPublished || isPublished));
       queryClient.invalidateQueries({ queryKey: ["admin-project", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-projects"] });
       queryClient.invalidateQueries({ queryKey: ["public-projects"] });
@@ -256,15 +267,59 @@ const ProjectDetails = () => {
         throw new Error("Complete landing CMS and job advertisement first");
       }
 
+      let publishedJob = selectedJob;
       if (!selectedJobIsActive) {
-        await adminService.publishJob(selectedJob._id);
+        const jobResponse = await adminService.publishJob(selectedJob._id);
+        publishedJob = jobResponse?.job || jobResponse || selectedJob;
       }
 
+      let publishedProject = rawProject;
       if (!isPublished) {
-        await adminService.updateProject(id, { status: "Active", isPublished: true });
+        const projectResponse = await adminService.publishProject(id);
+        publishedProject = projectResponse?.project || projectResponse;
+        if (!publishedProject?.isPublished) {
+          throw new Error("Project publish did not save. Please try again.");
+        }
       }
+
+      return { project: publishedProject, job: publishedJob };
     },
-    onSuccess: () => {
+    onSuccess: ({ project: publishedProject, job: publishedJob }) => {
+      const publishedAt = new Date().toISOString();
+      setProjectPublishedLocally(Boolean(publishedProject?.isPublished || isPublished));
+      if (selectedJob?._id) {
+        setPublishedJobIds((current) => {
+          const next = new Set(current);
+          next.add(String(selectedJob._id));
+          return next;
+        });
+      }
+      queryClient.setQueryData(["admin-project", id], (current) => {
+        if (!current) return current;
+        const currentProject = current.project || current;
+        const nextProject = {
+          ...currentProject,
+          isPublished: true,
+          status: "Active",
+          publishedAt: currentProject.publishedAt || publishedAt,
+          jobs: (currentProject.jobs || []).map((job) =>
+            String(job._id) === String(selectedJob?._id)
+              ? { ...job, ...publishedJob, status: "active", publishedAt: job.publishedAt || publishedAt }
+              : job,
+          ),
+        };
+        return current.project ? { ...current, project: nextProject } : nextProject;
+      });
+      queryClient.setQueryData(["admin-project-selected-job", selectedJob?._id], (current) => {
+        if (!current) return current;
+        const currentJob = current.job || current;
+        const nextJob = {
+          ...currentJob,
+          status: "active",
+          publishedAt: currentJob.publishedAt || publishedAt,
+        };
+        return current.job ? { ...current, job: nextJob } : nextJob;
+      });
       toast.success(isPublished ? "Job published on public URL" : "Project and job published");
       queryClient.invalidateQueries({ queryKey: ["admin-project", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-projects"] });
@@ -956,6 +1011,14 @@ const ProjectDetails = () => {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openProjectPreview(id)}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-50"
+                >
+                  <Eye className="h-4 w-4" />
+                  Preview Public Page
+                </button>
                 {isPublished && project.publicSlug && (
                   <a
                     href={`/apply/${project.publicSlug}`}

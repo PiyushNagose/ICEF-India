@@ -138,6 +138,7 @@ const formFieldSchema = new mongoose.Schema(
       pattern: String,
       message: String,
       maxSizeKB: Number,
+      allowedFileTypes: [String],
     },
   },
   { _id: true },
@@ -270,6 +271,11 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
     publishedAt: { type: Date },
+
+    // RBAC Soft Delete — employees soft-delete; hard delete reserved for admin
+    isSoftDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

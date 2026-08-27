@@ -183,8 +183,20 @@ const AppDatePicker = ({
   }
 
   const isDisabled = (date) => {
-    if (minDate && date < minDate) return true
-    if (maxDate && date > maxDate) return true
+    if (minDate) {
+      const min = new Date(minDate)
+      min.setHours(0, 0, 0, 0)
+      const check = new Date(date)
+      check.setHours(0, 0, 0, 0)
+      if (check < min) return true
+    }
+    if (maxDate) {
+      const max = new Date(maxDate)
+      max.setHours(0, 0, 0, 0)
+      const check = new Date(date)
+      check.setHours(0, 0, 0, 0)
+      if (check > max) return true
+    }
     return false
   }
 
@@ -343,8 +355,9 @@ const AppDatePicker = ({
           <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
             <button
               type="button"
-              onClick={() => selectDate(today)}
-              className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+              disabled={isDisabled(today)}
+              onClick={() => !isDisabled(today) && selectDate(today)}
+              className={`text-xs font-semibold transition-colors ${isDisabled(today) ? 'text-gray-300 cursor-not-allowed' : 'text-orange-600 hover:text-orange-700'}`}
             >
               Today
             </button>

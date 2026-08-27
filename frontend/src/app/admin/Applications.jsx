@@ -137,24 +137,28 @@ const Applications = () => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
-  const [exportJobId, setExportJobId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState("");
 
   const status = activeTab === "all" ? undefined : activeTab;
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["admin-applications", status, debouncedSearch, page],
+    queryKey: ["admin-applications", status, debouncedSearch, selectedJobId, page],
     queryFn: () =>
       adminService.getApplications({
         status,
         limit: 10,
         page,
+        ...(selectedJobId && { jobId: selectedJobId }),
         ...(debouncedSearch && { search: debouncedSearch }),
       }),
   });
 
   const { data: statsData } = useQuery({
-    queryKey: ["admin-application-stats"],
-    queryFn: adminService.getApplicationStats,
+    queryKey: ["admin-application-stats", selectedJobId],
+    queryFn: () =>
+      adminService.getApplicationStats({
+        ...(selectedJobId && { jobId: selectedJobId }),
+      }),
   });
 
   const { data: jobsData } = useQuery({
@@ -171,12 +175,21 @@ const Applications = () => {
   const countByStatus = (key) =>
     statusStats.find((item) => item._id === key)?.count || 0;
   const total =
-    totalItems || statsData?.totalApplications || applications.length;
+    statsData?.totalApplications ?? totalItems ?? applications.length;
   const exportJobs =
     jobsData?.jobs || jobsData?.items || jobsData?.data || jobsData || [];
-  const selectedExportJob = Array.isArray(exportJobs)
-    ? exportJobs.find((job) => String(job._id || job.id) === String(exportJobId))
+  const selectedJob = Array.isArray(exportJobs)
+    ? exportJobs.find((job) => String(job._id || job.id) === String(selectedJobId))
     : null;
+  const jobOptions = [
+    { value: "", label: "All jobs" },
+    ...(Array.isArray(exportJobs)
+      ? exportJobs.map((job) => ({
+          value: job._id || job.id,
+          label: `${job.title || "Untitled Job"}${job.postCode || job.code ? ` - ${job.postCode || job.code}` : ""}`,
+        }))
+      : []),
+  ];
 
   const stats = [
     {
@@ -300,14 +313,14 @@ const Applications = () => {
       const blob = await adminService.downloadApplicationExport(type, {
         ...(status && { status }),
         ...(search && { search }),
-        ...(exportJobId && { jobId: exportJobId }),
+        ...(selectedJobId && { jobId: selectedJobId }),
       });
       const suffix = new Date().toISOString().slice(0, 10);
-      const jobSlug = selectedExportJob
+      const jobSlug = selectedJob
         ? `-${String(
-            selectedExportJob.postCode ||
-              selectedExportJob.code ||
-              selectedExportJob.title ||
+            selectedJob.postCode ||
+              selectedJob.code ||
+              selectedJob.title ||
               "job",
           )
             .toLowerCase()
@@ -336,7 +349,7 @@ const Applications = () => {
       toast.loading("Repairing storage manifests...", { id: "repair-manifest" });
       const result = await adminService.repairApplicationStorageManifests({
         ...(status && { status }),
-        ...(exportJobId && { jobId: exportJobId }),
+        ...(selectedJobId && { jobId: selectedJobId }),
       });
       toast.success(
         `${result?.updatedCount || 0} application manifests updated`,
@@ -355,6 +368,11 @@ const Applications = () => {
 
   const handleSearch = (val) => {
     setSearch(val);
+    setPage(1);
+  };
+
+  const handleJobChange = (jobId) => {
+    setSelectedJobId(jobId);
     setPage(1);
   };
 
@@ -394,12 +412,22 @@ const Applications = () => {
     <AdminLayout title="Applications">
       <div className="p-6 space-y-6">
         {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Review and manage all candidate applications
+              {selectedJob
+                ? `Review applications and KPI count for ${selectedJob.title || "the selected job"}`
+                : "Review and manage all candidate applications"}
             </p>
+          </div>
+          <div className="w-full sm:w-[360px]">
+            <CustomSelect
+              value={selectedJobId}
+              onChange={handleJobChange}
+              options={jobOptions}
+              className="w-full border-gray-200 bg-white shadow-sm"
+            />
           </div>
         </div>
 
@@ -451,27 +479,14 @@ const Applications = () => {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2">
-                <label className="text-xs font-bold uppercase tracking-normal text-gray-500">
-                  Handover Scope
-                </label>
-                <CustomSelect
-                  value={exportJobId}
-                  onChange={(val) => setExportJobId(val)}
-                  options={[
-                    { value: "", label: "All jobs / current filters" },
-                    ...(Array.isArray(exportJobs) ? exportJobs.map((job) => ({
-                      value: job._id || job.id,
-                      label: `${job.title || "Untitled Job"}${job.postCode || job.code ? ` - ${job.postCode || job.code}` : ""}`
-                    })) : [])
-                  ]}
-                  className="w-full border-gray-200"
-                />
-                <p className="text-xs leading-5 text-gray-500">
-                  {selectedExportJob
-                    ? `Exports will include only candidates for ${selectedExportJob.title || "the selected job"}.`
-                    : "Choose a job when sharing a printed register with the department."}
-                </p>
+              <div className="mt-4">
+                <span className="inline-flex max-w-full items-center rounded-full border border-orange-100 bg-white px-3 py-1.5 text-xs font-semibold text-orange-700">
+                  <span className="truncate">
+                    {selectedJob
+                      ? `${selectedJob.title || "Selected Job"}${selectedJob.postCode || selectedJob.code ? ` - ${selectedJob.postCode || selectedJob.code}` : ""}`
+                      : "All jobs"}
+                  </span>
+                </span>
               </div>
               </div>
 
@@ -640,7 +655,7 @@ const Applications = () => {
                             No applications found
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
-                            {search
+                            {search || selectedJobId
                               ? "Try adjusting your search query"
                               : "Applications will appear here once submitted"}
                           </p>

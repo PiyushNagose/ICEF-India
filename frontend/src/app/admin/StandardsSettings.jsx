@@ -7,7 +7,7 @@ import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { adminService } from "../../services/admin.service";
-import { useAuth, isSuperAdminUser } from "../../hooks/useAuth";
+import { hasPermission, useAuth, isSuperAdminUser } from "../../hooks/useAuth";
 import ConfirmDeleteModal from "../../components/ui/ConfirmDeleteModal";
 
 const emptyCriterion = { label: "", male: "", female: "", value: "", unit: "", notes: "" };
@@ -75,6 +75,10 @@ const StandardsSettings = () => {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isPrivilegedDelete = isSuperAdminUser(user);
+  const canCreate = hasPermission(user, "standardsSettings", "create");
+  const canEdit = hasPermission(user, "standardsSettings", "edit");
+  const canDelete = hasPermission(user, "standardsSettings", "delete");
   const returnTo = searchParams.get("returnTo");
   const canReturnToEligibility = returnTo?.startsWith("/admin/jobs/create/eligibility");
   const [editingId, setEditingId] = useState(null);
@@ -158,8 +162,8 @@ const StandardsSettings = () => {
 
   const deleteMutation = useMutation({
     mutationFn: adminService.deleteStandardPreset,
-    onSuccess: () => {
-      toast.success("Standard preset archived");
+    onSuccess: (result) => {
+      toast.success(result?.message || "Standard preset archived");
       queryClient.invalidateQueries({ queryKey: ["admin-standard-presets"] });
     },
     onError: (err) => toast.error(err.message || "Unable to archive preset"),
@@ -275,13 +279,16 @@ const StandardsSettings = () => {
               Create reusable physical and medical standard presets, then attach one while setting job eligibility.
             </p>
           </div>
-          <Button onClick={resetForm} className="h-10 bg-orange-600 text-white hover:bg-orange-700">
-            <Plus className="mr-2 h-4 w-4" />
-            New Preset
-          </Button>
+          {canCreate && (
+            <Button onClick={resetForm} className="h-10 bg-orange-600 text-white hover:bg-orange-700">
+              <Plus className="mr-2 h-4 w-4" />
+              New Preset
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          {(canCreate || editingId) && (
           <Card className="xl:col-span-2">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -308,15 +315,20 @@ const StandardsSettings = () => {
 
               <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
                 <Button variant="outline" onClick={resetForm}>Cancel</Button>
-                <Button onClick={savePreset} disabled={saveMutation.isPending} className="bg-orange-600 text-white hover:bg-orange-700">
+                <Button
+                  onClick={savePreset}
+                  disabled={saveMutation.isPending || (editingId ? !canEdit : !canCreate)}
+                  className="bg-orange-600 text-white hover:bg-orange-700"
+                >
                   {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Preset
                 </Button>
               </div>
             </CardContent>
           </Card>
+          )}
 
-          <Card>
+          <Card className={canCreate || editingId ? "" : "xl:col-span-3"}>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-orange-600" />
@@ -357,11 +369,13 @@ const StandardsSettings = () => {
                           </span>
                         </div>
                         <div className="mt-3 flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => editPreset(preset)} className="h-8 px-3">
-                            <Edit className="mr-1 h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          {preset.active && (
+                          {canEdit && (
+                            <Button variant="outline" size="sm" onClick={() => editPreset(preset)} className="h-8 px-3">
+                              <Edit className="mr-1 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                          )}
+                          {preset.active && canDelete && (
                             <Button variant="outline" size="sm" onClick={() => setDeleteModal({ isOpen: true, preset })} className="h-8 border-red-100 px-3 text-red-600 hover:bg-red-50">
                               <Trash2 className="mr-1 h-3.5 w-3.5" />
                               Archive
@@ -382,8 +396,12 @@ const StandardsSettings = () => {
         onClose={() => setDeleteModal({ isOpen: false, preset: null })}
         onConfirm={confirmDelete}
         title="Archive Standard Preset"
-        message={`Are you sure you want to archive "${deleteModal.preset?.name}"? It will no longer be available for new jobs.`}
-        requireType={isSuperAdminUser(user)}
+        message={
+          isPrivilegedDelete
+            ? `Are you sure you want to archive "${deleteModal.preset?.name}"? It will no longer be available for new jobs.`
+            : `Remove "${deleteModal.preset?.name}" from the employee portal? Admin/superadmin will still see it and receive a notification.`
+        }
+        requireType={isPrivilegedDelete}
       />
     </AdminLayout>
   );

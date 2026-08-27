@@ -58,8 +58,12 @@ projectSchema.index({ state: 1 });
 
 // Auto-generate slug from name if not provided
 projectSchema.pre("validate", function syncProjectClosure(next) {
-  if (this.closureDate && !this.endDate) this.endDate = this.closureDate;
-  if (this.endDate && !this.closureDate) this.closureDate = this.endDate;
+  if (this.isModified("endDate")) this.closureDate = this.endDate;
+  else if (this.isModified("closureDate")) this.endDate = this.closureDate;
+  else {
+    if (this.closureDate && !this.endDate) this.endDate = this.closureDate;
+    if (this.endDate && !this.closureDate) this.closureDate = this.endDate;
+  }
   this.status = getProjectLifecycleStatus(this);
 
   // Auto-generate publicSlug from name if not set

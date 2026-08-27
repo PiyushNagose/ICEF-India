@@ -1,10 +1,24 @@
 const { StatusCodes } = require("http-status-codes");
+const mongoose = require("mongoose");
 const Application = require("../../shared/models/Application");
 const Job = require("../../shared/models/Job");
 const Project = require("../../shared/models/Project");
 const User = require("../../shared/models/User");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
+
+const buildDateFilter = ({ startDate, endDate }) => {
+  if (!startDate || !endDate) return {};
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return {};
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  return { createdAt: { $gte: start, $lte: end } };
+};
 
 /**
  * @swagger
@@ -28,13 +42,7 @@ const asyncHandler = require("../../shared/utils/asyncHandler");
 const getOverview = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
 
-  const dateFilter = {};
-  if (startDate && endDate) {
-    dateFilter.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
-  }
+  const dateFilter = buildDateFilter({ startDate, endDate });
 
   const [
     totalJobs,
@@ -104,14 +112,10 @@ const getOverview = asyncHandler(async (req, res) => {
 const getFunnel = asyncHandler(async (req, res) => {
   const { jobId, startDate, endDate } = req.query;
 
-  const matchFilter = {};
-  if (startDate && endDate) {
-    matchFilter.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
+  const matchFilter = buildDateFilter({ startDate, endDate });
+  if (jobId && mongoose.Types.ObjectId.isValid(jobId)) {
+    matchFilter.jobId = new mongoose.Types.ObjectId(jobId);
   }
-  if (jobId) matchFilter.jobId = jobId;
 
   const funnel = await Application.aggregate([
     { $match: matchFilter },
@@ -185,9 +189,10 @@ const getFunnel = asyncHandler(async (req, res) => {
  */
 const getTopJobs = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
+  const dateFilter = buildDateFilter(req.query);
 
   const topJobs = await Application.aggregate([
-    { $match: { status: { $ne: "draft" } } },
+    { $match: { ...dateFilter, status: { $ne: "draft" } } },
     {
       $group: {
         _id: "$jobId",
@@ -255,13 +260,7 @@ const getTopJobs = asyncHandler(async (req, res) => {
 const getPaymentAnalytics = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
 
-  const dateFilter = {};
-  if (startDate && endDate) {
-    dateFilter.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
-  }
+  const dateFilter = buildDateFilter({ startDate, endDate });
 
   const [paymentByStatus, dailyPayments, paymentByMethod] = await Promise.all([
     Application.aggregate([

@@ -1,6 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 const fs = require("fs");
 const { Readable } = require("stream");
+const mongoose = require("mongoose");
 const Application = require("../../shared/models/Application");
 const Job = require("../../shared/models/Job");
 const User = require("../../shared/models/User");
@@ -40,6 +41,14 @@ const getApplicationCandidateName = (application) =>
   application?.candidateId?.fullName ||
   application?.candidate?.fullName ||
   "Candidate";
+
+const parseObjectIdParam = (value, label) => {
+  if (!value) return null;
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Please select a valid ${label}`);
+  }
+  return new mongoose.Types.ObjectId(value);
+};
 
 const REVIEW_STATUSES = new Set([
   "clarification_required",
@@ -143,7 +152,8 @@ const buildExportFilter = (query = {}) => {
   if (query.documentStatus && query.documentStatus !== "all") {
     filter.documentStatus = query.documentStatus;
   }
-  if (query.jobId) filter.jobId = query.jobId;
+  const jobObjectId = parseObjectIdParam(query.jobId, "job");
+  if (jobObjectId) filter.jobId = jobObjectId;
   if (query.search) {
     const searchRegex = new RegExp(String(query.search).trim(), "i");
     filter.$or = [
@@ -355,7 +365,8 @@ const getApplications = asyncHandler(async (req, res) => {
   if (status) filter.status = status;
   if (paymentStatus) filter.paymentStatus = paymentStatus;
   if (documentStatus) filter.documentStatus = documentStatus;
-  if (jobId) filter.jobId = jobId;
+  const jobObjectId = parseObjectIdParam(jobId, "job");
+  if (jobObjectId) filter.jobId = jobObjectId;
 
   // Build sort
   const sort = {};
@@ -1171,7 +1182,14 @@ const previewDocument = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const getApplicationStats = asyncHandler(async (req, res) => {
+  const jobObjectId = parseObjectIdParam(req.query.jobId, "job");
+  const baseFilter = {};
+  if (jobObjectId) baseFilter.jobId = jobObjectId;
+
+  const totalApplications = await Application.countDocuments(baseFilter);
+
   const statusStats = await Application.aggregate([
+    { $match: baseFilter },
     {
       $group: {
         _id: "$status",
@@ -1181,6 +1199,7 @@ const getApplicationStats = asyncHandler(async (req, res) => {
   ]);
 
   const paymentStats = await Application.aggregate([
+    { $match: baseFilter },
     {
       $group: {
         _id: "$paymentStatus",
@@ -1191,6 +1210,7 @@ const getApplicationStats = asyncHandler(async (req, res) => {
   ]);
 
   const documentStats = await Application.aggregate([
+    { $match: baseFilter },
     {
       $group: {
         _id: "$documentStatus",
@@ -1202,6 +1222,7 @@ const getApplicationStats = asyncHandler(async (req, res) => {
   const dailyApplications = await Application.aggregate([
     {
       $match: {
+        ...baseFilter,
         submittedAt: {
           $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
         },
@@ -1223,6 +1244,7 @@ const getApplicationStats = asyncHandler(async (req, res) => {
       StatusCodes.OK,
       "Application statistics fetched successfully",
       {
+        totalApplications,
         statusStats,
         paymentStats,
         documentStats,

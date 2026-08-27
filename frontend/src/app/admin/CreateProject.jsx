@@ -80,6 +80,13 @@ const toDateInput = (value) => {
   return `${year}-${month}-${day}`
 }
 
+/** Today at local midnight — used as the min bound for new project dates */
+const todayDate = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 const CreateProject = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -210,6 +217,22 @@ const CreateProject = () => {
     if (!formData.department.trim()) {
       newErrors.department =
         'Department is required'
+    }
+
+    if (!formData.startDate) {
+      newErrors.startDate = 'Start date is required'
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'Project closure date is required'
+    }
+
+    // For new projects, start date must be today or later
+    if (!isEditMode && formData.startDate) {
+      const today = toDateInput(todayDate())
+      if (formData.startDate < today) {
+        newErrors.startDate = 'Start date cannot be in the past'
+      }
     }
 
     if (
@@ -534,26 +557,30 @@ const CreateProject = () => {
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Start Date
+                    Start Date <span className="text-red-500">*</span>
                   </label>
 
                   <AppDatePicker
                     value={formData.startDate}
                     onChange={(val) => handleChange('startDate', val)}
                     placeholder="Select start date"
+                    minDate={!isEditMode ? todayDate() : undefined}
                   />
+                  {errors.startDate && (
+                    <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Project Closure Date
+                    Project Closure Date <span className="text-red-500">*</span>
                   </label>
 
                   <AppDatePicker
                     value={formData.endDate}
                     onChange={(val) => handleChange('endDate', val)}
                     placeholder="Select closure date after result"
-                    minDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                    minDate={formData.startDate ? new Date(formData.startDate + 'T00:00:00') : (!isEditMode ? todayDate() : undefined)}
                   />
                   {errors.endDate && (
                     <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>

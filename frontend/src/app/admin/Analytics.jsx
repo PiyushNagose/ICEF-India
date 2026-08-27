@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -7,15 +8,22 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import KpiDateRangeFilter, {
+  DEFAULT_KPI_DATE_RANGE,
+  getKpiDateRangeParams,
+} from '../../components/common/KpiDateRangeFilter'
 import { adminService } from '../../services/admin.service'
 
 const Analytics = () => {
   const navigate = useNavigate()
-  const { data: overviewData } = useQuery({ queryKey: ['admin-analytics-overview'], queryFn: adminService.getAnalyticsOverview })
-  const { data: funnelData }   = useQuery({ queryKey: ['admin-analytics-funnel'],   queryFn: adminService.getAnalyticsFunnel })
-  const { data: topJobsData }  = useQuery({ queryKey: ['admin-analytics-top-jobs'], queryFn: () => adminService.getTopJobs({ limit: 5 }) })
-  const { data: supportData }  = useQuery({ queryKey: ['admin-support-stats'],      queryFn: adminService.getSupportStats })
-  const { data: paymentData }  = useQuery({ queryKey: ['admin-payment-analytics'],  queryFn: adminService.getPaymentAnalytics })
+  const [kpiDateRange, setKpiDateRange] = useState(DEFAULT_KPI_DATE_RANGE)
+  const kpiDateParams = getKpiDateRangeParams(kpiDateRange)
+
+  const { data: overviewData } = useQuery({ queryKey: ['admin-analytics-overview', kpiDateParams], queryFn: () => adminService.getAnalyticsOverview(kpiDateParams) })
+  const { data: funnelData }   = useQuery({ queryKey: ['admin-analytics-funnel', kpiDateParams],   queryFn: () => adminService.getAnalyticsFunnel(kpiDateParams) })
+  const { data: topJobsData }  = useQuery({ queryKey: ['admin-analytics-top-jobs', kpiDateParams], queryFn: () => adminService.getTopJobs({ limit: 5, ...kpiDateParams }) })
+  const { data: supportData }  = useQuery({ queryKey: ['admin-support-stats', kpiDateParams],      queryFn: () => adminService.getSupportStats(kpiDateParams) })
+  const { data: paymentData }  = useQuery({ queryKey: ['admin-payment-analytics', kpiDateParams],  queryFn: () => adminService.getPaymentAnalytics(kpiDateParams) })
 
   const overview       = overviewData?.overview || {}
   const appsByStatus   = overviewData?.applicationsByStatus || []
@@ -64,8 +72,16 @@ const Analytics = () => {
       <div className="min-h-full p-6 space-y-5">
 
         {/* Page title */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Overview</h1>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Analytics Overview</h1>
+          </div>
+
+          <KpiDateRangeFilter
+            value={kpiDateRange}
+            onChange={setKpiDateRange}
+            className="lg:justify-end"
+          />
         </div>
 
         {/* ── Row 1: 4 main stat cards ── */}

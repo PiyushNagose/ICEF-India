@@ -94,6 +94,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
   const currentProgressStep = app
     ? getApplicationUnlockedStep(app, steps)
     : Math.max(Number(app?.currentStep || 1), 1);
+  const visualProgressStep = Math.max(activeStep, currentProgressStep);
 
   // Enforce step sequencing
   useEffect(() => {
@@ -159,9 +160,10 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
         <div className="w-full">
           <div className="flex items-center min-w-max">
             {steps.map((step, index) => {
-              const isCompleted = step.id < activeStep;
+              const accessible = canAccess(step.id);
+              const isCompleted = !correctionMode && step.id < currentProgressStep;
               const isActive = step.id === activeStep;
-              const isLocked = step.id > activeStep;
+              const isLocked = !accessible;
 
               return (
                 <div key={step.id} className="flex items-center">
@@ -172,6 +174,8 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
                           ? "bg-orange-600 border-orange-600 text-white"
                           : isActive
                             ? "bg-orange-600 border-orange-600 text-white"
+                            : accessible
+                              ? "bg-white border-orange-300 text-orange-600"
                             : "bg-white border-gray-300 text-gray-400"
                       }`}
                     >
@@ -196,7 +200,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
                   {index < steps.length - 1 && (
                     <div
                       className={`w-6 h-0.5 mx-2 flex-shrink-0 ${
-                        isCompleted ? "bg-orange-600" : "bg-gray-300"
+                        step.id < visualProgressStep ? "bg-orange-600" : "bg-gray-300"
                       }`}
                     />
                   )}
@@ -249,7 +253,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
                 const accessible = canAccess(step.id);
                 const isCompleted = correctionMode
                   ? step.id < activeStep && accessible
-                  : step.id < activeStep;
+                  : step.id < currentProgressStep;
                 const isLocked = !accessible;
 
                 return (
@@ -266,11 +270,13 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
                         ? "bg-orange-600 text-white"
                         : isLocked
                           ? "text-gray-500 cursor-not-allowed opacity-40"
-                          : correctionMode
-                            ? "text-orange-300 hover:bg-gray-700 cursor-pointer"
-                            : isCompleted
-                              ? "text-green-400 hover:bg-gray-700 cursor-pointer"
-                              : "text-gray-500 cursor-not-allowed opacity-60"
+                  : correctionMode
+                    ? "text-orange-300 hover:bg-gray-700 cursor-pointer"
+                    : isCompleted
+                      ? "text-green-400 hover:bg-gray-700 cursor-pointer"
+                      : accessible
+                        ? "text-orange-300 hover:bg-gray-700 cursor-pointer"
+                        : "text-gray-500 cursor-not-allowed opacity-60"
                     }`}
                   >
                     <div className="flex-shrink-0">
@@ -313,12 +319,12 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
               <div className="w-full bg-gray-700 rounded-full h-1.5">
                 <div
                   className="bg-orange-600 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${(activeStep / steps.length) * 100}%` }}
+                  style={{ width: `${(visualProgressStep / steps.length) * 100}%` }}
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {activeStep < steps.length
-                  ? `${steps.length - activeStep} step${steps.length - activeStep !== 1 ? "s" : ""} remaining`
+                {visualProgressStep < steps.length
+                  ? `${steps.length - visualProgressStep} step${steps.length - visualProgressStep !== 1 ? "s" : ""} remaining`
                   : "All steps completed!"}
               </p>
             </div>

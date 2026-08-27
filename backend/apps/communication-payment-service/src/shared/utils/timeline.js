@@ -2,7 +2,27 @@ const ApiError = require("./ApiError");
 
 const parseDate = (value) => {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const isoDateOnly = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoDateOnly) {
+      const [, year, month, day] = isoDateOnly.map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    const indianDate = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (indianDate) {
+      const [, day, month, year] = indianDate.map(Number);
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 

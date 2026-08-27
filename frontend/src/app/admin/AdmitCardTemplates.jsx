@@ -63,6 +63,7 @@ const blankForm = (templateType) => ({
   name: templateType === 'attendance_sheet' ? 'New Attendance Sheet Template' : 'New Admit Card Template',
   templateType,
   baseLayout: 'standard',
+  orientation: 'portrait',
   logoUrl: '',
   watermarkUrl: '',
   primaryColor: '#f97316',
@@ -80,7 +81,9 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
   const color = template.primaryColor || '#f97316'
   const compact = template.baseLayout === 'compact'
   const modern = template.baseLayout === 'modern'
-  const previewWidth = compact ? 390 : 520
+  const isLandscape = template?.orientation === 'landscape'
+  const previewWidth = isLandscape ? 842 : (compact ? 390 : 520)
+  const minHeight = isLandscape ? 595 : (compact ? 500 : 560)
   const rows = [1, 2, 3, 4]
   const organizationName = template.organizationName || TEMPLATE_TEXT_DEFAULTS.attendance_sheet.organizationName
   const organizationNameLocal = template.organizationNameLocal || TEMPLATE_TEXT_DEFAULTS.attendance_sheet.organizationNameLocal
@@ -89,10 +92,10 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
 
   return (
     <div
-      className="bg-white text-gray-950 shadow-sm"
+      className="bg-white text-gray-950 shadow-sm relative pb-6"
       style={{
         width: previewWidth,
-        minHeight: compact ? 500 : 560,
+        minHeight: minHeight,
         transform: `scale(${scale})`,
         transformOrigin: 'top center',
         border: `2px solid ${modern ? color : '#111827'}`,
@@ -202,6 +205,7 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
           <span className="p-1.5">Signature of Invigilator: _________________</span>
         </div>
       </div>
+      <div className="absolute bottom-1 right-2 text-[10px] font-semibold text-gray-500">Page 1 of 1</div>
     </div>
   )
 }
@@ -467,7 +471,7 @@ const AdmitCardTemplates = () => {
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={closeEditor} />
             <div className="flex min-h-full items-center justify-center p-4 relative z-10">
-              <div className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white shadow-xl transition-all flex flex-col max-h-[90vh]">
+              <div className="w-full max-w-7xl transform overflow-hidden rounded-2xl bg-white shadow-xl transition-all flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between p-4 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900">
                     {editingTemplate && !editingTemplate.isSystemDefault ? 'Edit Template' : 'Create Custom Template'}
@@ -477,9 +481,10 @@ const AdmitCardTemplates = () => {
                   </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50 hover-scroll">
-                  <form id="templateForm" onSubmit={handleSave} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col lg:flex-row flex-1 overflow-hidden bg-gray-50/50">
+                  <div className="flex-1 p-6 overflow-y-auto hover-scroll">
+                    <form id="templateForm" onSubmit={handleSave} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         <label className="block">
                           <span className="text-sm font-semibold text-gray-700">Template Name</span>
@@ -528,6 +533,26 @@ const AdmitCardTemplates = () => {
                                 }`}
                               >
                                 {layout.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-sm font-semibold text-gray-700">Orientation</span>
+                          <div className="mt-1 grid grid-cols-2 gap-2">
+                            {['portrait', 'landscape'].map((ori) => (
+                              <button
+                                key={ori}
+                                type="button"
+                                onClick={() => setForm({ ...form, orientation: ori })}
+                                className={`h-11 rounded-lg border px-3 text-sm font-semibold capitalize transition-all ${
+                                  (form.orientation || 'portrait') === ori
+                                    ? 'border-orange-500 bg-orange-50 text-orange-700 ring-1 ring-orange-500'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:text-orange-600'
+                                }`}
+                              >
+                                {ori}
                               </button>
                             ))}
                           </div>
@@ -697,12 +722,22 @@ const AdmitCardTemplates = () => {
                         </label>
                       </div>
 
-                      <div className="bg-gray-200 rounded-xl flex items-start justify-center overflow-hidden min-h-[500px] md:col-span-2 p-4">
-                        {renderPreview(form, form.templateType === 'attendance_sheet' ? 0.95 : 0.7)}
-                      </div>
                     </div>
                   </form>
                 </div>
+                <div className="w-full lg:w-[450px] xl:w-[500px] bg-gray-200/50 border-t lg:border-t-0 lg:border-l border-gray-200 p-6 flex flex-col items-center overflow-y-auto hover-scroll">
+                  <div className="sticky top-0">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex items-start justify-center p-4">
+                      {renderPreview(
+                        form,
+                        form.templateType === 'attendance_sheet'
+                          ? (form.orientation === 'landscape' ? 0.45 : 0.75)
+                          : (form.orientation === 'landscape' ? 0.45 : 0.65)
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
                 <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={closeEditor}>

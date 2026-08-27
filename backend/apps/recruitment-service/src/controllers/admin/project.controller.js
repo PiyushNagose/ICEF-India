@@ -20,6 +20,11 @@ const {
 const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
+const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
+const {
+  PUBLIC_JOB_FIELDS,
+  enrichPublicJob,
+} = require("../../shared/utils/publicProjectView");
 
 const withProjectLifecycleStatus = (project) => {
   const plain = typeof project.toObject === "function" ? project.toObject() : project;
@@ -63,6 +68,12 @@ const getProjects = asyncHandler(async (req, res) => {
 
   // Build filter
   const filter = {};
+  
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  // Employees must never see soft-deleted projects; admins see all
+  if (!isAdminOrSuperAdmin) {
+    filter.isSoftDeleted = { $ne: true };
+  }
   if (status === "Cancelled") filter.status = status;
   if (department) filter.department = new RegExp(department, "i");
   if (search) {
@@ -89,10 +100,12 @@ const getProjects = asyncHandler(async (req, res) => {
   // Calculate stats for each project
   const projectsWithStats = await Promise.all(
     projects.map(async (project) => {
-      const jobs = await Job.countDocuments({ projectId: project._id });
+      const jobStatsFilter = { projectId: project._id };
+      if (!isAdminOrSuperAdmin) jobStatsFilter.isSoftDeleted = { $ne: true };
+      const jobs = await Job.countDocuments(jobStatsFilter);
       const applications = await Application.countDocuments({
         jobId: {
-          $in: await Job.find({ projectId: project._id }).distinct("_id"),
+          $in: await Job.find(jobStatsFilter).distinct("_id"),
         },
       });
 
@@ -136,9 +149,15 @@ const getProject = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  if (project.isSoftDeleted && !isAdminOrSuperAdmin) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+  }
 
   // Get detailed stats
-  const jobs = await Job.find({ projectId: project._id })
+  const jobFilter = { projectId: project._id };
+  if (!isAdminOrSuperAdmin) jobFilter.isSoftDeleted = { $ne: true };
+  const jobs = await Job.find(jobFilter)
     .select(
       "title postCode department category status totalPosts posts applicationFee " +
         "applicationStartDate applicationDeadline paymentConfig createdAt",
@@ -325,8 +344,9 @@ const createProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const updateProject = asyncHandler(async (req, res) => {
-  const { name, description, department, state, status, startDate, endDate, isPublished } =
+  const { name, description, department, state, status, startDate, endDate, closureDate, isPublished } =
     req.body;
+  const nextEndDate = endDate !== undefined ? endDate : closureDate;
 
   const project = await Project.findById(req.params.id);
 
@@ -336,11 +356,11 @@ const updateProject = asyncHandler(async (req, res) => {
 
   assertProjectTimeline({
     startDate: startDate !== undefined ? startDate : project.startDate,
-    endDate: endDate !== undefined ? endDate : project.endDate,
+    endDate: nextEndDate !== undefined ? nextEndDate : project.endDate,
   });
 
-  if (endDate !== undefined) {
-    const newEndDate = new Date(endDate);
+  if (nextEndDate !== undefined) {
+    const newEndDate = new Date(nextEndDate);
     const childJobs = await Job.find({ projectId: project._id });
     for (const j of childJobs) {
       if (j.resultDate && new Date(j.resultDate) > newEndDate) {
@@ -362,7 +382,10 @@ const updateProject = asyncHandler(async (req, res) => {
   if (state !== undefined) project.state = state;
   if (status !== undefined) project.status = status;
   if (startDate !== undefined) project.startDate = startDate;
-  if (endDate !== undefined) project.endDate = endDate;
+  if (nextEndDate !== undefined) {
+    project.endDate = nextEndDate;
+    project.closureDate = nextEndDate;
+  }
   if (isPublished !== undefined) project.isPublished = isPublished;
 
   await project.save();
@@ -398,7 +421,59 @@ const updateProject = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Delete project
+ * @desc    Publish project public URL
+ * @route   PUT /api/admin/projects/:id/publish
+ * @access  Private (Admin)
+ */
+const publishProject = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+  }
+
+  const activeJobCount = await Job.countDocuments({
+    projectId: project._id,
+    status: "active",
+  });
+
+  if (activeJobCount === 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Publish at least one job before releasing the project URL",
+    );
+  }
+
+  project.status = "Active";
+  project.isPublished = true;
+  project.publishedAt = project.publishedAt || new Date();
+
+  await project.save();
+  await saveAuditLog(req, `Published project URL: ${project.name}`);
+  await invalidatePublicRecruitmentCache();
+
+  emitToAdmins(SOCKET_EVENTS.PROJECT_UPDATED, {
+    type: "project_published",
+    message: `Project "${project.name}" public URL is live`,
+    projectId: project._id,
+    timestamp: new Date(),
+  });
+  emitBroadcast(SOCKET_EVENTS.PROJECT_UPDATED, {
+    projectId: project._id,
+    project: project.toObject(),
+    timestamp: new Date(),
+  });
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Project public URL published", {
+      message: "Project public URL published",
+      project,
+    }),
+  );
+});
+
+/**
+ * @desc    Delete project (soft delete for employees, hard delete for admin)
  * @route   DELETE /api/admin/projects/:id
  * @access  Private (Admin)
  */
@@ -409,8 +484,10 @@ const deleteProject = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
 
-  // Check if project has jobs
-  const jobCount = await Job.countDocuments({ projectId: project._id });
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  const deleteBlockFilter = { projectId: project._id };
+  if (!isAdminOrSuperAdmin) deleteBlockFilter.isSoftDeleted = { $ne: true };
+  const jobCount = await Job.countDocuments(deleteBlockFilter);
   if (jobCount > 0) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -418,8 +495,31 @@ const deleteProject = asyncHandler(async (req, res) => {
     );
   }
 
-  await Project.findByIdAndDelete(req.params.id);
-  await saveAuditLog(req, `Deleted project: ${project.name}`);
+  if (!isAdminOrSuperAdmin) {
+    // Soft delete: mark record as deleted — stays visible to admin/superadmin
+    await Project.findByIdAndUpdate(req.params.id, {
+      isSoftDeleted: true,
+      deletedBy: req.user.id,
+      deletedAt: new Date(),
+    });
+    await saveAuditLog(req, `Soft-deleted project: ${project.name}`);
+    await notifyAdmins({
+      type: "system_audit",
+      title: "Project removal requested",
+      message: `Employee removed project "${project.name}". It is hidden from employee views and still visible to admin/superadmin.`,
+      link: `/admin/projects/${project._id}`,
+      metadata: {
+        action: "soft_delete",
+        resource: "project",
+        resourceId: String(project._id),
+        actorId: String(req.user.id),
+      },
+    });
+  } else {
+    // Hard delete: reserved for admin/superadmin
+    await Project.findByIdAndDelete(req.params.id);
+    await saveAuditLog(req, `Deleted project: ${project.name}`);
+  }
 
   await invalidatePublicRecruitmentCache();
 
@@ -442,9 +542,18 @@ const deleteProject = asyncHandler(async (req, res) => {
   });
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "Project deleted successfully", {
-      message: "Project deleted successfully",
-    }),
+    new ApiResponse(
+      StatusCodes.OK,
+      isAdminOrSuperAdmin
+        ? "Project deleted successfully"
+        : "Project hidden from employee portal and admin notified",
+      {
+        message: isAdminOrSuperAdmin
+          ? "Project deleted successfully"
+          : "Project hidden from employee portal and admin notified",
+        softDeleted: !isAdminOrSuperAdmin,
+      },
+    ),
   );
 });
 
@@ -454,7 +563,9 @@ const deleteProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const getProjectStats = asyncHandler(async (req, res) => {
-  const allProjects = await Project.find({}).select(
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  const filter = isAdminOrSuperAdmin ? {} : { isSoftDeleted: { $ne: true } };
+  const allProjects = await Project.find(filter).select(
     "status startDate endDate closureDate totalRevenue",
   );
   const statsMap = allProjects.reduce((acc, project) => {
@@ -491,13 +602,82 @@ const getProjectStats = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * @desc    Preview the public landing page before it goes live
+ * @route   GET /api/admin/projects/:id/preview
+ * @access  Private (Admin)
+ *
+ * Mirrors the public GET /api/public/projects/:slug payload, but without the
+ * isPublished / cmsStatus="published" gates, so admins can verify the exact
+ * public page before publishing. Draft jobs are included and shown as-if-open
+ * (for availability rendering) while keeping their true status + a pending flag.
+ */
+const getProjectPreview = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id)
+    .select("-createdBy -__v")
+    .lean();
+
+  if (!project) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+  }
+
+  const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
+  if (project.isSoftDeleted && !isAdminOrSuperAdmin) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
+  }
+
+  const jobs = await Job.find({
+    projectId: project._id,
+    status: { $in: ["active", "draft"] },
+    isSoftDeleted: { $ne: true },
+  })
+    .select(PUBLIC_JOB_FIELDS)
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const now = new Date();
+  const enrichedJobs = jobs.map((job) => {
+    const isLive = String(job.status || "").toLowerCase() === "active";
+    // Draft jobs are enriched as-if active so the preview shows their real
+    // availability window, but we restore the true status + flag them pending.
+    const enriched = enrichPublicJob(isLive ? job : { ...job, status: "active" }, now);
+    return isLive
+      ? enriched
+      : { ...enriched, status: job.status, previewPending: true };
+  });
+
+  const cmsPage = await StateBanner.findOne({ projectId: project._id })
+    .populate(
+      "featuredJobs",
+      "title postCode department totalPosts applicationDeadline applicationFee status",
+    )
+    .lean();
+
+  const liveJobCount = enrichedJobs.filter((job) => !job.previewPending).length;
+  const pendingJobCount = enrichedJobs.length - liveJobCount;
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Project preview fetched", {
+      project: withProjectLifecycleStatus(project),
+      jobs: enrichedJobs,
+      cmsPage,
+      preview: {
+        projectPublished: Boolean(project.isPublished),
+        cmsStatus: cmsPage?.status || "draft",
+        liveJobCount,
+        pendingJobCount,
+      },
+    }),
+  );
+});
+
 module.exports = {
   getProjects,
   getProject,
   createProject,
   updateProject,
+  publishProject,
   deleteProject,
   getProjectStats,
+  getProjectPreview,
 };
-
-

@@ -19,7 +19,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 import { adminService } from '../../services/admin.service'
-import { useAuth, isSuperAdminUser } from '../../hooks/useAuth'
+import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import {
   getProjectLifecycleStatus,
   getProjectStatusBadgeClass,
@@ -29,6 +29,10 @@ const Projects = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const isPrivilegedDelete = isSuperAdminUser(user)
+  const canCreate = hasPermission(user, 'projects', 'create')
+  const canEdit = hasPermission(user, 'projects', 'edit')
+  const canDelete = hasPermission(user, 'projects', 'delete')
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, project: null })
 
   const { data, isLoading } = useQuery({
@@ -40,8 +44,8 @@ const Projects = () => {
 
   const { mutate: deleteProject } = useMutation({
     mutationFn: adminService.deleteProject,
-    onSuccess: () => {
-      toast.success('Project deleted')
+    onSuccess: (result) => {
+      toast.success(result?.message || 'Project deleted')
 
       queryClient.invalidateQueries({
         queryKey: ['admin-projects'],
@@ -132,20 +136,22 @@ const Projects = () => {
             </p>
           </div>
 
-          <Button
-            onClick={() =>
-              navigate('/admin/projects/create')
-            }
-            className="
-              bg-orange-600 hover:bg-orange-700
-              text-white rounded-2xl
-              shadow-lg shadow-orange-200
-              px-5 h-11
-            "
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Project
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={() =>
+                navigate('/admin/projects/create')
+              }
+              className="
+                bg-orange-600 hover:bg-orange-700
+                text-white rounded-2xl
+                shadow-lg shadow-orange-200
+                px-5 h-11
+              "
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Project
+            </Button>
+          )}
         </div>
 
         {/* STATS */}
@@ -290,6 +296,12 @@ const Projects = () => {
                         {project.name}
                       </div>
 
+                      {project.isSoftDeleted && (
+                        <Badge className="mt-2 bg-amber-50 text-amber-700 border border-amber-200">
+                          Removed by employee
+                        </Badge>
+                      )}
+
                       <div className="text-xs text-gray-500 mt-1 max-w-[250px] truncate">
                         {project.description ||
                           'No description'}
@@ -354,37 +366,41 @@ const Projects = () => {
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/admin/projects/${project._id}/edit`
-                            )
-                          }
-                          className="
-                            w-9 h-9 rounded-xl
-                            flex items-center justify-center
-                            hover:bg-blue-50
-                            text-blue-600
-                            transition-all
-                          "
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/admin/projects/${project._id}/edit`
+                              )
+                            }
+                            className="
+                              w-9 h-9 rounded-xl
+                              flex items-center justify-center
+                              hover:bg-blue-50
+                              text-blue-600
+                              transition-all
+                            "
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() =>
-                            handleDeleteClick(project)
-                          }
-                          className="
-                            w-9 h-9 rounded-xl
-                            flex items-center justify-center
-                            hover:bg-red-50
-                            text-red-600
-                            transition-all
-                          "
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() =>
+                              handleDeleteClick(project)
+                            }
+                            className="
+                              w-9 h-9 rounded-xl
+                              flex items-center justify-center
+                              hover:bg-red-50
+                              text-red-600
+                              transition-all
+                            "
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
 
                       </div>
                     </td>
@@ -404,11 +420,11 @@ const Projects = () => {
         onConfirm={confirmDelete}
         title="Delete Project"
         message={
-          isSuperAdminUser(user)
+          isPrivilegedDelete
             ? `Are you sure you want to permanently delete "${deleteModal.project?.name}"? This will delete all its jobs and data.`
-            : `Are you sure you want to remove "${deleteModal.project?.name}"? It will be hidden from your portal.`
+            : `Remove "${deleteModal.project?.name}" from the employee portal? Admin/superadmin will still see it and receive a notification.`
         }
-        requireType={isSuperAdminUser(user)}
+        requireType={isPrivilegedDelete}
       />
     </AdminLayout>
   )

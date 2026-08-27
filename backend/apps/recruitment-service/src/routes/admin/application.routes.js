@@ -31,7 +31,7 @@ router.post(
 );
 router.get(
   "/exports/:type",
-  checkPermission("applications", "view"),
+  checkPermission("applications", "download"),
   auditLog("Applications", "EXPORT"),
   applicationController.exportApplications,
 );
@@ -63,7 +63,7 @@ router.post(
 );
 router.put(
   "/:id/documents/:documentId/verify",
-  checkPermission("applications", "edit"),
+  checkPermission("applications", "approve"),
   auditLog("Applications", "UPDATE"),
   applicationController.verifyDocument,
 );
@@ -74,7 +74,7 @@ router.get(
 );
 router.put(
   "/:id/documents/:documentId/reject",
-  checkPermission("applications", "edit"),
+  checkPermission("applications", "reject"),
   auditLog("Applications", "UPDATE"),
   applicationController.rejectDocument,
 );

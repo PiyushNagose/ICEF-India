@@ -112,6 +112,17 @@ const socketProxy = (target, label, routePrefix) =>
   });
 
 const serviceUrl = (baseUrl, path) => `${baseUrl}${path}`;
+const appendQuery = (path, query = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, value);
+    }
+  });
+  const qs = params.toString();
+  if (!qs) return path;
+  return path.includes("?") ? `${path}&${qs}` : `${path}?${qs}`;
+};
 
 class UpstreamHttpError extends Error {
   constructor(message, status, payload = {}) {
@@ -159,22 +170,22 @@ app.get("/api/dashboard/admin", async (req, res) => {
     const [overview, funnel, topJobs, support, notifications] =
       await Promise.all([
         callJson(
-          serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/overview"),
+          serviceUrl(RECRUITMENT_URL, appendQuery("/api/admin/analytics/overview", req.query)),
           authorization,
           cookie,
         ),
         callJson(
-          serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/funnel"),
+          serviceUrl(RECRUITMENT_URL, appendQuery("/api/admin/analytics/funnel", req.query)),
           authorization,
           cookie,
         ),
         callJson(
-          serviceUrl(RECRUITMENT_URL, "/api/admin/analytics/top-jobs?limit=5"),
+          serviceUrl(RECRUITMENT_URL, appendQuery("/api/admin/analytics/top-jobs?limit=5", req.query)),
           authorization,
           cookie,
         ),
         callJson(
-          serviceUrl(COMMUNICATION_URL, "/api/admin/support/stats"),
+          serviceUrl(COMMUNICATION_URL, appendQuery("/api/admin/support/stats", req.query)),
           authorization,
           cookie,
         ),

@@ -56,6 +56,7 @@ const roleSchema = new mongoose.Schema(
       admitCards: { type: permissionSchema, default: () => ({}) },
       cms: { type: permissionSchema, default: () => ({}) },
       activityLogs: { type: permissionSchema, default: () => ({}) },
+      standardsSettings: { type: permissionSchema, default: () => ({}) },
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

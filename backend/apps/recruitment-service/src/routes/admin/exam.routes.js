@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 const examController = require("../../controllers/admin/exam.controller");
 const authenticate = require("../../shared/middlewares/authenticate");
 const { authorize, checkPermission } = require("../../shared/middlewares/authorize");
@@ -16,6 +18,27 @@ const {
 } = require("../../shared/validations/exam.validation");
 
 router.use(authenticate, authorize("admin", "employee"));
+
+router.get(
+  "/centers/bulk-template",
+  checkPermission("admitCards", "download"),
+  examController.downloadCenterTemplate,
+);
+
+router.post(
+  "/centers/bulk-upload",
+  checkPermission("admitCards", "create"),
+  upload.single("file"),
+  auditLog("AdmitCards", "CREATE"),
+  examController.bulkUploadCenters,
+);
+
+router.post(
+  "/centers/with-rooms",
+  checkPermission("admitCards", "create"),
+  auditLog("AdmitCards", "CREATE"),
+  examController.createCenterWithRooms,
+);
 
 router.get(
   "/ops/summary",
@@ -46,6 +69,12 @@ router.put(
   validate(updateCenterSchema),
   auditLog("AdmitCards", "UPDATE"),
   examController.updateCenter,
+);
+router.delete(
+  "/centers/:id",
+  checkPermission("admitCards", "delete"),
+  auditLog("AdmitCards", "DELETE"),
+  examController.deleteCenter,
 );
 
 router.get(
@@ -99,19 +128,19 @@ router.get(
 );
 router.post(
   "/schedules/:id/admit-cards/publish",
-  checkPermission("admitCards", "edit"),
+  checkPermission("admitCards", "publishWindow"),
   auditLog("AdmitCards", "PUBLISH"),
   examController.publishAdmitCards,
 );
 router.post(
   "/schedules/:id/admit-cards/unpublish",
-  checkPermission("admitCards", "edit"),
+  checkPermission("admitCards", "publishWindow"),
   auditLog("AdmitCards", "UNPUBLISH"),
   examController.unpublishAdmitCards,
 );
 router.post(
   "/schedules/:id/admit-cards/regenerate",
-  checkPermission("admitCards", "edit"),
+  checkPermission("admitCards", "generateOnDemand"),
   auditLog("AdmitCards", "REGENERATE"),
   examController.regenerateAdmitCards,
 );
@@ -132,23 +161,23 @@ router.get(
 );
 router.get(
   "/schedules/:id/attendance-sheet/html",
-  checkPermission("admitCards", "download"),
+  checkPermission("admitCards", "attendance"),
   examController.renderAttendanceSheetHtml,
 );
 router.get(
   "/schedules/:id/attendance-sheet/pdf",
-  checkPermission("admitCards", "download"),
+  checkPermission("admitCards", "attendance"),
   examController.downloadAttendanceSheetPdf,
 );
 router.post(
   "/schedules/:id/bulk/admit-cards",
-  checkPermission("admitCards", "download"),
+  checkPermission("admitCards", "bulkGenerate"),
   auditLog("AdmitCards", "BULK_DOWNLOAD"),
   examController.enqueueAdmitCardZip,
 );
 router.post(
   "/schedules/:id/bulk/attendance",
-  checkPermission("admitCards", "download"),
+  checkPermission("admitCards", "attendance"),
   auditLog("AdmitCards", "BULK_DOWNLOAD"),
   examController.enqueueAttendanceZip,
 );
@@ -159,7 +188,7 @@ router.get(
 );
 router.post(
   "/jobs/:jobId/retry",
-  checkPermission("admitCards", "edit"),
+  checkPermission("admitCards", "bulkGenerate"),
   auditLog("AdmitCards", "RETRY"),
   examController.retryBulkJob,
 );

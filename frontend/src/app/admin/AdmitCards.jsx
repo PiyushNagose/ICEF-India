@@ -17,27 +17,6 @@ import DocumentPreviewFrame from '../../components/common/DocumentPreviewFrame'
 import ProjectFlowNav from '../../components/admin/ProjectFlowNav'
 import { adminService } from '../../services/admin.service'
 
-const emptyCenter = {
-  centerCode: '',
-  name: '',
-  addressLine1: '',
-  city: '',
-  district: '',
-  state: '',
-  pincode: '',
-}
-
-const emptyRoom = {
-  centerId: '',
-  roomCode: '',
-  roomName: '',
-  block: '',
-  floor: '',
-  capacity: '',
-  usableCapacity: '',
-  seatPrefix: '',
-}
-
 const emptyPaper = {
   name: '',
   numberOfQuestions: '',
@@ -130,7 +109,7 @@ const isJobAdvertisementConfigured = (job) => {
 
 const statusTone = {
   draft: 'bg-gray-100 text-gray-700',
-  allocated: 'bg-blue-50 text-blue-700',
+  allocated: 'bg-orange-50 text-orange-700',
   locked: 'bg-amber-50 text-amber-700',
   published: 'bg-green-50 text-green-700',
   cancelled: 'bg-red-50 text-red-700',
@@ -157,33 +136,6 @@ const useQueryErrorToast = (error, fallbackMessage) => {
   }, [error, fallbackMessage])
 }
 
-const mergeCenterIntoList = (items = [], center) => {
-  if (!center?._id) return items
-  const exists = items.some((item) => item._id === center._id)
-  return exists
-    ? items.map((item) => (item._id === center._id ? { ...item, ...center } : item))
-    : [center, ...items]
-}
-
-const updateCenterWithRoom = (items = [], centerId, room) =>
-  items.map((center) => {
-    if (center._id !== centerId) return center
-    const currentRooms = Array.isArray(center.rooms) ? center.rooms : []
-    const roomExists = room?._id && currentRooms.some((item) => item._id === room._id)
-    const rooms = room?._id
-      ? roomExists
-        ? currentRooms.map((item) => (item._id === room._id ? { ...item, ...room } : item))
-        : [...currentRooms, room]
-      : currentRooms
-    const roomCapacity = roomExists ? 0 : Number(room?.usableCapacity || room?.capacity || 0)
-    return {
-      ...center,
-      rooms,
-      totalCapacity: Number(center.totalCapacity || 0) + roomCapacity,
-      totalRooms: Number(center.totalRooms || currentRooms.length || 0) + (roomExists || !room?._id ? 0 : 1),
-    }
-  })
-
 const Stat = ({ icon: Icon, label, value }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
     <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
@@ -203,18 +155,18 @@ const AdmitCards = () => {
   const projectId = searchParams.get('project')
   const focus = searchParams.get('focus')
   const jobParam = searchParams.get('job') || ''
-  const [centerForm, setCenterForm] = useState(emptyCenter)
-  const [roomForm, setRoomForm] = useState(emptyRoom)
+  const scheduleParam = searchParams.get('schedule') || ''
   const [scheduleForm, setScheduleForm] = useState(emptySchedule)
   const [selectedJobId, setSelectedJobId] = useState(jobParam)
-  const [selectedScheduleId, setSelectedScheduleId] = useState('')
+  const [selectedScheduleId, setSelectedScheduleId] = useState(scheduleParam)
+  const lastScheduleParamRef = useRef(scheduleParam)
   const [selectedAttendanceCenterId, setSelectedAttendanceCenterId] = useState('')
   const [activeBulkJobId, setActiveBulkJobId] = useState('')
   const [previewAdmitCard, setPreviewAdmitCard] = useState(null)
   const [previewAttendance, setPreviewAttendance] = useState(null)
   const [search, setSearch] = useState('')
 
-  const { data: centers = [], isLoading: centersLoading, error: centersError } = useQuery({
+  const { data: centersData, isLoading: centersLoading, error: centersError } = useQuery({
     queryKey: ['exam-centers'],
     queryFn: () => adminService.getExamCenters({ limit: 100 }),
   })
@@ -243,6 +195,18 @@ const AdmitCards = () => {
   })
 
   const project = projectData?.project || projectData
+  const centers = useMemo(() => {
+    if (Array.isArray(centersData)) return centersData
+    if (Array.isArray(centersData?.centers)) return centersData.centers
+    if (Array.isArray(centersData?.data?.centers)) return centersData.data.centers
+    if (Array.isArray(centersData?.data)) return centersData.data
+    return []
+  }, [centersData])
+  const centerReturnPath = useMemo(() => {
+    const params = new URLSearchParams(searchParams)
+    return `/admin/admit-cards${params.toString() ? `?${params.toString()}` : ''}`
+  }, [searchParams])
+  const centerManagerPath = `/admin/centers?returnTo=${encodeURIComponent(centerReturnPath)}`
   const jobs = useMemo(() => {
     const rawJobs = jobsData?.jobs || jobsData || []
     return projectId
@@ -282,6 +246,14 @@ const AdmitCards = () => {
     if (!selectedJob?._id) return []
     return list.filter((schedule) => getEntityId(schedule.jobId) === getEntityId(selectedJob._id))
   }, [schedules, projectId, selectedJob])
+
+  useEffect(() => {
+    if (scheduleParam === lastScheduleParamRef.current) return
+    lastScheduleParamRef.current = scheduleParam
+    if (!scheduleParam || getEntityId(scheduleParam) === getEntityId(selectedScheduleId)) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedScheduleId(scheduleParam)
+  }, [scheduleParam, selectedScheduleId])
 
   useEffect(() => {
     if (!projectId) return
@@ -336,20 +308,20 @@ const AdmitCards = () => {
   }, [selectedJob, scheduleForm.jobId])
 
   useEffect(() => {
-    if (!selectedJob?._id) {
+    if (projectId && !selectedJob?._id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedScheduleId('')
       return
     }
 
-    const selectedScheduleExists = selectedJobSchedules.some((schedule) => schedule._id === selectedScheduleId)
+    const selectedScheduleExists = selectedJobSchedules.some((schedule) => getEntityId(schedule) === getEntityId(selectedScheduleId))
     if (!selectedScheduleExists) {
-      setSelectedScheduleId(selectedJobSchedules[0]?._id || '')
+      setSelectedScheduleId(getEntityId(selectedJobSchedules[0]) || '')
     }
-  }, [selectedJobSchedules, selectedJob, selectedScheduleId])
+  }, [selectedJobSchedules, selectedJob, selectedScheduleId, projectId])
 
   const selectedSchedule = useMemo(
-    () => selectedJobSchedules.find((item) => item._id === selectedScheduleId) || selectedJobSchedules[0],
+    () => selectedJobSchedules.find((item) => getEntityId(item) === getEntityId(selectedScheduleId)) || selectedJobSchedules[0],
     [selectedJobSchedules, selectedScheduleId],
   )
   const admitWorkflowProject = useMemo(() => {
@@ -387,7 +359,7 @@ const AdmitCards = () => {
     }
   }, [project, selectedJob, selectedSchedule])
 
-  const activeScheduleId = selectedSchedule?._id
+  const activeScheduleId = getEntityId(selectedSchedule)
 
   const { data: statsData, error: statsError } = useQuery({
     queryKey: ['exam-schedule-stats', activeScheduleId],
@@ -452,42 +424,10 @@ const AdmitCards = () => {
   useQueryErrorToast(admitCardTemplatesError, 'Could not load document templates. Standard templates will be used if available.')
   useQueryErrorToast(bulkJobError, 'Could not check bulk job progress.')
 
-  const createCenter = useMutation({
-    mutationFn: adminService.createExamCenter,
-    onSuccess: (data) => {
-      const center = data?.center || data
-      toast.success('Exam center added')
-      setCenterForm(emptyCenter)
-      if (center?._id) {
-        queryClient.setQueryData(['exam-centers'], (old = []) => mergeCenterIntoList(old, center))
-        setRoomForm((prev) => ({ ...prev, centerId: center._id }))
-      }
-      queryClient.invalidateQueries({ queryKey: ['exam-centers'] })
-    },
-    onError: (err) => toast.error(err.message || 'Failed to add center'),
-  })
-
-  const createRoom = useMutation({
-    mutationFn: ({ centerId, payload }) => adminService.createExamRoom(centerId, payload),
-    onSuccess: (data, vars) => {
-      const room = data?.room || data
-      toast.success('Exam room added')
-      if (vars?.centerId && room?._id) {
-        queryClient.setQueryData(['exam-centers'], (old = []) => updateCenterWithRoom(old, vars.centerId, room))
-      }
-      setRoomForm((prev) => ({
-        ...emptyRoom,
-        centerId: prev.centerId,
-      }))
-      queryClient.invalidateQueries({ queryKey: ['exam-centers'] })
-      queryClient.invalidateQueries({ queryKey: ['exam-schedule-stats'] })
-    },
-    onError: (err) => toast.error(err.message || 'Failed to add room'),
-  })
-
   const createSchedule = useMutation({
     mutationFn: adminService.createExamSchedule,
     onSuccess: (data) => {
+      const createdScheduleId = getEntityId(data?.schedule || data)
       toast.success('Exam schedule created')
       setScheduleForm((prev) => ({
         ...emptySchedule,
@@ -495,9 +435,9 @@ const AdmitCards = () => {
         attendanceSheetTemplate: prev.attendanceSheetTemplate,
       }))
       queryClient.invalidateQueries({ queryKey: ['exam-schedules'] })
-      setSelectedScheduleId(data?.schedule?._id || '')
+      setSelectedScheduleId(createdScheduleId)
       if (projectId) {
-        navigate(`/admin/admit-cards?project=${projectId}&focus=centers${selectedJob?._id ? `&job=${selectedJob._id}` : ''}`)
+        navigate(`/admin/admit-cards?project=${projectId}&focus=centers${selectedJob?._id ? `&job=${selectedJob._id}` : ''}${createdScheduleId ? `&schedule=${createdScheduleId}` : ''}`)
       }
     },
     onError: (err) => toast.error(err.message || 'Failed to create schedule'),
@@ -571,21 +511,21 @@ const AdmitCards = () => {
   ]
   const activeCenters = centers.filter((center) => center.active !== false)
   const selectedCenterIds = scheduleForm.selectedCenterIds || []
-  const selectedCenters = activeCenters.filter((center) => selectedCenterIds.includes(center._id))
+  const selectedCenterIdSet = new Set(selectedCenterIds.map(getEntityId))
+  const selectedCenters = activeCenters.filter((center) => selectedCenterIdSet.has(getEntityId(center)))
   const selectedCapacity = selectedCenters.reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)
-  const selectedScheduleCenterIds = selectedSchedule?.selectedCenterIds?.map((id) => String(id?._id || id)) || []
+  const selectedScheduleCenterIds = selectedSchedule?.selectedCenterIds?.map(getEntityId) || []
+  const selectedScheduleCenterIdSet = new Set(selectedScheduleCenterIds)
   const selectedScheduleCenterCount = selectedScheduleCenterIds.length
   const selectedScheduleCapacity = selectedScheduleCenterIds.length
     ? activeCenters
-      .filter((center) => selectedScheduleCenterIds.includes(center._id))
+      .filter((center) => selectedScheduleCenterIdSet.has(getEntityId(center)))
       .reduce((sum, center) => sum + (Number(center.totalCapacity) || 0), 0)
     : 0
-  const managedCenters = activeCenters.filter((center) =>
-    selectedScheduleCenterIds.length
-      ? selectedScheduleCenterIds.includes(center._id)
-      : true,
-  )
-  const selectedAttendanceCenter = managedCenters.find((center) => center._id === selectedAttendanceCenterId)
+  const managedCenters = selectedSchedule
+    ? activeCenters.filter((center) => selectedScheduleCenterIdSet.has(getEntityId(center)))
+    : activeCenters
+  const selectedAttendanceCenter = managedCenters.find((center) => getEntityId(center) === getEntityId(selectedAttendanceCenterId))
   const bulkJob = bulkJobData?.job
   const bulkProgress = bulkJob?.progress || {}
   const bulkProgressTotal = Number(bulkProgress.total || 0)
@@ -626,6 +566,7 @@ const AdmitCards = () => {
     const nextParams = new URLSearchParams(searchParams)
     if (jobId) nextParams.set('job', jobId)
     else nextParams.delete('job')
+    nextParams.delete('schedule')
     navigate(
       {
         pathname: '/admin/admit-cards',
@@ -635,41 +576,33 @@ const AdmitCards = () => {
     )
   }
 
+  const handleScheduleManage = (scheduleId) => {
+    const normalizedScheduleId = getEntityId(scheduleId)
+    setSelectedScheduleId(normalizedScheduleId)
+    setSelectedAttendanceCenterId('')
+
+    const nextParams = new URLSearchParams(searchParams)
+    if (selectedJob?._id) nextParams.set('job', getEntityId(selectedJob))
+    if (normalizedScheduleId) nextParams.set('schedule', normalizedScheduleId)
+    else nextParams.delete('schedule')
+    const nextSearch = nextParams.toString()
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`,
+    )
+  }
+
   const toggleScheduleCenter = (centerId) => {
+    const normalizedCenterId = getEntityId(centerId)
     setScheduleForm((prev) => {
-      const ids = prev.selectedCenterIds || []
+      const ids = (prev.selectedCenterIds || []).map(getEntityId)
       return {
         ...prev,
-        selectedCenterIds: ids.includes(centerId)
-          ? ids.filter((id) => id !== centerId)
-          : [...ids, centerId],
+        selectedCenterIds: ids.includes(normalizedCenterId)
+          ? ids.filter((id) => id !== normalizedCenterId)
+          : [...ids, normalizedCenterId],
       }
-    })
-  }
-
-  const submitCenter = (event) => {
-    event.preventDefault()
-    createCenter.mutate(centerForm)
-  }
-
-  const submitRoom = (event) => {
-    event.preventDefault()
-    if (!roomForm.centerId) {
-      toast.error('Select an exam center first')
-      return
-    }
-    createRoom.mutate({
-      centerId: roomForm.centerId,
-      payload: {
-        roomCode: roomForm.roomCode,
-        roomName: roomForm.roomName,
-        block: roomForm.block || undefined,
-        floor: roomForm.floor || undefined,
-        capacity: Number(roomForm.capacity),
-        usableCapacity: Number(roomForm.usableCapacity || roomForm.capacity),
-        seatPrefix: roomForm.seatPrefix || roomForm.roomCode,
-        active: true,
-      },
     })
   }
 
@@ -888,10 +821,10 @@ const AdmitCards = () => {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat icon={Building2} label="Centers" value={selectedScheduleCenterCount || centers.length} />
+          <Stat icon={Building2} label="Centers" value={selectedSchedule ? selectedScheduleCenterCount : centers.length} />
           <Stat icon={Users} label="Eligible" value={stats.eligibleCandidates} />
           <Stat icon={CheckCircle2} label="Allocated" value={stats.allocatedCandidates} />
-          <Stat icon={FileBadge} label="Capacity" value={selectedScheduleCapacity || stats.totalCapacity} />
+          <Stat icon={FileBadge} label="Capacity" value={selectedSchedule ? (stats.totalCapacity ?? selectedScheduleCapacity) : selectedCapacity} />
         </div>
 
         <Card>
@@ -937,120 +870,51 @@ const AdmitCards = () => {
           <div className="space-y-5">
             <Card>
               <CardHeader>
-                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-orange-600" /> Add Center
-                </h2>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={submitCenter} className="space-y-3">
-                  {[
-                    ['centerCode', 'Center Code'],
-                    ['name', 'Center Name'],
-                    ['addressLine1', 'Address'],
-                    ['city', 'City'],
-                    ['district', 'District'],
-                    ['state', 'State'],
-                    ['pincode', 'PIN Code'],
-                  ].map(([key, label]) => (
-                    <input
-                      key={key}
-                      value={centerForm[key]}
-                      onChange={(e) => setCenterForm({ ...centerForm, [key]: e.target.value })}
-                      placeholder={label}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required={['centerCode', 'name', 'addressLine1', 'city', 'district', 'state', 'pincode'].includes(key)}
-                    />
-                  ))}
-                  <Button type="submit" disabled={createCenter.isPending} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                    {createCenter.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Save Center
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-orange-600" /> Add Room / Capacity
-                </h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Room capacity drives seats. No rooms means no seats.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={submitRoom} className="space-y-3">
-                  <CustomSelect
-                    value={roomForm.centerId}
-                    onChange={(centerId) => setRoomForm({ ...roomForm, centerId })}
-                    placeholder="Select center"
-                    options={activeCenters.map((center) => ({
-                      value: center._id,
-                      label: `${center.centerCode} - ${center.name} (${center.totalCapacity || 0} seats)`,
-                    }))}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      value={roomForm.roomCode}
-                      onChange={(e) => setRoomForm({ ...roomForm, roomCode: e.target.value })}
-                      placeholder="Room Code"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <input
-                      value={roomForm.roomName}
-                      onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })}
-                      placeholder="Room Name"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <input
-                      value={roomForm.block}
-                      onChange={(e) => setRoomForm({ ...roomForm, block: e.target.value })}
-                      placeholder="Block"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    <input
-                      value={roomForm.floor}
-                      onChange={(e) => setRoomForm({ ...roomForm, floor: e.target.value })}
-                      placeholder="Floor"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      value={roomForm.capacity}
-                      onChange={(e) => setRoomForm({ ...roomForm, capacity: e.target.value, usableCapacity: e.target.value })}
-                      placeholder="Capacity"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      value={roomForm.usableCapacity}
-                      onChange={(e) => setRoomForm({ ...roomForm, usableCapacity: e.target.value })}
-                      placeholder="Usable Seats"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                  </div>
-                  <input
-                    value={roomForm.seatPrefix}
-                    onChange={(e) => setRoomForm({ ...roomForm, seatPrefix: e.target.value })}
-                    placeholder="Seat Prefix (optional, defaults to room code)"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <Button type="submit" disabled={createRoom.isPending || activeCenters.length === 0} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                    {createRoom.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Save Room
-                  </Button>
-                  {activeCenters.length === 0 && (
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      Add an active center before adding rooms.
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-orange-600" /> Center Master
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Centers and rooms are managed once, then selected inside each exam schedule.
                     </p>
-                  )}
-                </form>
+                  </div>
+                  {centersLoading && <Loader2 className="h-4 w-4 animate-spin text-orange-600" />}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Active</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{activeCenters.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Capacity</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">
+                      {activeCenters.reduce((sum, center) => sum + Number(center.totalCapacity || 0), 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Selected</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{selectedScheduleCenterCount || selectedCenterIds.length}</p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-xs leading-5 text-orange-900">
+                  Use Exam Centers for center codes, addresses, rooms, and usable seats. This screen only selects centers for the selected exam schedule.
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => navigate(centerManagerPath)}
+                  className="w-full bg-orange-600 text-white hover:bg-orange-700"
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Manage Exam Centers
+                </Button>
+                {activeCenters.length === 0 && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    Add active centers with rooms before creating a schedule.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -1171,9 +1035,9 @@ const AdmitCards = () => {
                     <div className="mt-3 hover-scroll max-h-44 space-y-2 overflow-y-auto pr-1">
                       {activeCenters.map((center) => (
                         <label
-                          key={center._id}
+                          key={getEntityId(center)}
                           className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition ${
-                            selectedCenterIds.includes(center._id)
+                            selectedCenterIdSet.has(getEntityId(center))
                               ? 'border-orange-300 bg-orange-50'
                               : 'border-gray-200 bg-white hover:border-orange-200'
                           }`}
@@ -1186,8 +1050,8 @@ const AdmitCards = () => {
                             <span className="text-xs font-semibold text-gray-500">{center.totalCapacity || 0}</span>
                             <input
                               type="checkbox"
-                              checked={selectedCenterIds.includes(center._id)}
-                              onChange={() => toggleScheduleCenter(center._id)}
+                              checked={selectedCenterIdSet.has(getEntityId(center))}
+                              onChange={() => toggleScheduleCenter(center)}
                               className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                             />
                           </span>
@@ -1480,9 +1344,10 @@ const AdmitCards = () => {
                           </td>
                           <td className="px-3 py-3 text-right align-middle">
                             <button
-                              onClick={() => setSelectedScheduleId(schedule._id)}
+                              type="button"
+                              onClick={() => handleScheduleManage(schedule)}
                               className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${
-                                activeScheduleId === schedule._id
+                                activeScheduleId === getEntityId(schedule)
                                   ? 'bg-orange-600 text-white border-orange-600'
                                   : 'text-gray-600 border-gray-200 hover:border-orange-300'
                               }`}
@@ -1594,7 +1459,7 @@ const AdmitCards = () => {
                         onChange={setSelectedAttendanceCenterId}
                         placeholder="Select center"
                         options={managedCenters.map((center) => ({
-                          value: center._id,
+                          value: getEntityId(center),
                           label: `${center.centerCode} - ${center.name}`,
                         }))}
                       />
@@ -1677,7 +1542,7 @@ const AdmitCards = () => {
                                 ? 'bg-green-100 text-green-700'
                                 : bulkJob.status === 'failed'
                                   ? 'bg-red-100 text-red-700'
-                                  : 'bg-blue-50 text-blue-700'
+                                  : 'bg-orange-50 text-orange-700'
                             }`}>
                               {bulkJob.status}
                             </span>

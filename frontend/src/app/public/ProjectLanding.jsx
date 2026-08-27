@@ -1,6 +1,8 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import {
   AlertCircle,
   ArrowRight,
@@ -9,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eye,
   FileText,
   IndianRupee,
   Loader2,
@@ -23,8 +26,10 @@ import {
   Bell,
   BookOpen,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { publicService } from "../../services/public.service";
+import { adminService } from "../../services/admin.service";
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { candidateService } from "../../services/candidate.service";
 import { isCandidateUser, useAuth } from "../../hooks/useAuth";
@@ -32,6 +37,7 @@ import {
   getApplicationAction,
   getJobAvailability,
 } from "../../utils/jobAvailability";
+import { readCmsPreviewDraft } from "../../utils/cmsPreview";
 import heroBg from "../../assets/herobg.jpg";
 
 /* ─────────────────────────────────────────────────────────────
@@ -194,6 +200,14 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
           <StatusBadge job={job} />
         </div>
 
+        {/* Preview-only marker: this job is still a draft and not yet public */}
+        {job.previewPending && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-amber-700">
+            <Eye className="h-3.5 w-3.5" />
+            Not live yet — shown for preview only
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-[#faf7f2] p-3.5">
@@ -342,23 +356,40 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
 /* ─────────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────────── */
-export default function ProjectLanding() {
-  const { slug } = useParams();
+export default function ProjectLanding({ preview = false }) {
+  const params = useParams();
+  const previewId = params.id;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const useDraft = preview && searchParams.get("draft") === "1";
   const { token, user } = useAuth();
-  const isCandidate = !!token && isCandidateUser(user);
+  const isCandidate = !preview && !!token && isCandidateUser(user);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["public-project", slug],
-    queryFn: () => publicService.getProjectBySlug(slug),
+    queryKey: preview
+      ? ["admin-project-preview", previewId, useDraft]
+      : ["public-project", params.slug],
+    queryFn: () =>
+      preview
+        ? adminService.getProjectPreview(previewId)
+        : publicService.getProjectBySlug(params.slug),
     staleTime: 0,
     refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: !preview,
     retry: 1,
   });
 
   const project = data?.project;
-  const cmsPage = data?.cmsPage;
+  const slug = preview ? project?.publicSlug || previewId : params.slug;
+  const previewMeta = preview ? data?.preview : null;
+  const savedCmsPage = data?.cmsPage;
+  // In draft mode the admin's unsaved CMS edits (stashed by CmsEdit) win over
+  // whatever is saved in the DB, so the preview matches the editor exactly.
+  const draftCms = useMemo(
+    () => (useDraft ? readCmsPreviewDraft(previewId) : null),
+    [useDraft, previewId],
+  );
+  const cmsPage = draftCms ? { ...savedCmsPage, ...draftCms } : savedCmsPage;
   const jobs = data?.jobs || [];
   const featuredJobIds = new Set(
     (cmsPage?.featuredJobs || []).map((job) => String(job._id || job)),
@@ -503,6 +534,10 @@ export default function ProjectLanding() {
   }, {});
 
   const handleApply = (job) => {
+    if (preview) {
+      toast("Preview mode — applications are disabled here.");
+      return;
+    }
     sessionStorage.setItem(
       "publicApplyContext",
       JSON.stringify({
@@ -517,10 +552,18 @@ export default function ProjectLanding() {
   };
 
   const handleDetails = (job) => {
+    if (preview) {
+      toast("Preview mode — navigation is disabled here.");
+      return;
+    }
     navigate(`/apply/${slug}/jobs/${job._id}`);
   };
 
   const handleStatus = (application, job) => {
+    if (preview) {
+      toast("Preview mode — actions are disabled here.");
+      return;
+    }
     if (application?.status === "draft") {
       const selectedJob = job || application.jobId || {};
       const jobId =
@@ -612,6 +655,46 @@ export default function ProjectLanding() {
   return (
     <PublicLayout>
       <div className="min-h-screen bg-[#f5efe9]">
+        {/* ═══════════════════════════════════════════════════════════
+            PREVIEW BANNER (admin only)
+        ═══════════════════════════════════════════════════════════ */}
+        {preview && (
+          <div className="sticky top-0 z-50 border-b border-orange-300 bg-orange-600 text-white">
+            <div className="mx-auto flex max-w-[1380px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em]">
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </span>
+              <span className="text-xs font-semibold text-white/90">
+                {useDraft
+                  ? "Showing unsaved CMS draft"
+                  : "Showing saved content — not yet public"}
+              </span>
+              {previewMeta && (
+                <span className="hidden items-center gap-3 text-[11px] font-bold uppercase tracking-[0.1em] text-white/80 sm:inline-flex">
+                  <span>
+                    Project:{" "}
+                    {previewMeta.projectPublished ? "Published" : "Not published"}
+                  </span>
+                  <span>CMS: {previewMeta.cmsStatus}</span>
+                  <span>
+                    {previewMeta.liveJobCount} live · {previewMeta.pendingJobCount}{" "}
+                    pending
+                  </span>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => window.close()}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-bold transition-colors hover:bg-white/25"
+              >
+                <X className="h-3.5 w-3.5" />
+                Close Preview
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ═══════════════════════════════════════════════════════════
             HERO SECTION
         ═══════════════════════════════════════════════════════════ */}

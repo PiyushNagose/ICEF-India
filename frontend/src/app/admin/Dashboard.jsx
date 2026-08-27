@@ -21,6 +21,10 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import KpiDateRangeFilter, {
+  DEFAULT_KPI_DATE_RANGE,
+  getKpiDateRangeParams,
+} from '../../components/common/KpiDateRangeFilter'
 import { dashboardService } from '../../services/dashboard.service'
 import { adminService } from '../../services/admin.service'
 import {
@@ -32,10 +36,12 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showProjectSelector, setShowProjectSelector] = useState(false)
+  const [kpiDateRange, setKpiDateRange] = useState(DEFAULT_KPI_DATE_RANGE)
+  const kpiDateParams = getKpiDateRangeParams(kpiDateRange)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-dashboard'],
-    queryFn: dashboardService.adminDashboard,
+    queryKey: ['admin-dashboard', kpiDateParams],
+    queryFn: () => dashboardService.adminDashboard(kpiDateParams),
   })
 
   const { data: projectsData } = useQuery({
@@ -163,7 +169,12 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="flex items-center flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <KpiDateRangeFilter
+              value={kpiDateRange}
+              onChange={setKpiDateRange}
+              className="order-last w-full sm:order-none sm:w-auto"
+            />
 
             <Button
               onClick={() => setShowProjectSelector(true)}

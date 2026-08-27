@@ -98,6 +98,7 @@ const formFieldSchema = new mongoose.Schema(
       max: Number,
       pattern: String,
       message: String,
+      allowedFileTypes: [String],
     },
   },
   { _id: true },

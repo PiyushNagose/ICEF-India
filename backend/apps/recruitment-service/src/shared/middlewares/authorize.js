@@ -50,8 +50,11 @@ const checkPermission = (module, action) => {
         }
 
         if (role.roleName?.trim().toLowerCase() === "super admin") {
+          req.user.isSuperAdmin = true;
           return next();
         }
+        
+        req.user.isSuperAdmin = false;
 
         const hasPermission = role.permissions?.[module]?.[action];
         if (!hasPermission) {

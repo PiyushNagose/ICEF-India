@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
@@ -240,6 +240,35 @@ const buildUpdatePayload = (draft) => {
   return payload;
 };
 
+const normalizeForCompare = (value) => {
+  if (Array.isArray(value)) return value.map(normalizeForCompare);
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        const normalized = normalizeForCompare(value[key]);
+        if (normalized !== undefined) acc[key] = normalized;
+        return acc;
+      }, {});
+  }
+  return value === undefined ? undefined : value;
+};
+
+const valuesEqual = (a, b) =>
+  JSON.stringify(normalizeForCompare(a)) ===
+  JSON.stringify(normalizeForCompare(b));
+
+const buildChangedUpdatePayload = (draft, serverJob) => {
+  const nextPayload = buildUpdatePayload(draft);
+  if (!serverJob?._id) return nextPayload;
+
+  const serverPayload = buildUpdatePayload(toJobDraftPayload(serverJob));
+  return Object.entries(nextPayload).reduce((acc, [key, value]) => {
+    if (!valuesEqual(value, serverPayload[key])) acc[key] = value;
+    return acc;
+  }, {});
+};
+
 const JobReview = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -247,14 +276,27 @@ const JobReview = () => {
   const projectId = searchParams.get("project");
   const routeJobId = searchParams.get("job");
   const [isPublishing, setIsPublishing] = useState(false);
-  const [draft, setDraft] = useState(() => readJobDraft());
+  const [draft, setDraft] = useState(() => ({
+    ...readJobDraft(),
+    ...(projectId ? { projectId } : {}),
+    ...(routeJobId ? { _jobId: routeJobId } : {}),
+  }));
   const [isHydrating, setIsHydrating] = useState(false);
   const [hydratedJob, setHydratedJob] = useState(null);
+  const [amendmentPrompt, setAmendmentPrompt] = useState(null);
 
   const effectiveProjectId = projectId || draft.projectId || "";
   const isProjectWizard = Boolean(effectiveProjectId);
-  const draftJobId = draft._jobId || routeJobId || "";
+  const draftJobId = routeJobId || draft._jobId || "";
   const isPublishedJob = String(hydratedJob?.status || draft.status || "").toLowerCase() === "active";
+  const validProjectId = /^[a-f\d]{24}$/i.test(effectiveProjectId || "");
+  const { data: projectData } = useQuery({
+    queryKey: ["admin-project", effectiveProjectId],
+    queryFn: () => adminService.getProject(effectiveProjectId),
+    enabled: Boolean(validProjectId),
+    staleTime: 30000,
+  });
+  const project = projectData?.project || projectData || hydratedJob?.projectId || {};
   const hasCoreDraft =
     Boolean(draft.projectId) &&
     Boolean(draft.title) &&
@@ -288,9 +330,15 @@ const JobReview = () => {
 
         if (!job?._id) return;
         const serverDraft = toJobDraftPayload(job);
+        const routeScopedDraft = {
+          ...draft,
+          ...(projectId ? { projectId } : {}),
+          ...(routeJobId ? { _jobId: routeJobId } : {}),
+        };
         const hydratedDraft = {
           ...serverDraft,
-          ...draft,
+          ...routeScopedDraft,
+          projectId: projectId || serverDraft.projectId || routeScopedDraft.projectId,
           _jobId: serverDraft._jobId,
           status: serverDraft.status,
         };
@@ -319,14 +367,14 @@ const JobReview = () => {
     !draft.title ||
     !draft.postCode ||
     !draft.department ||
-    !draft.projectId ||
-    !/^[a-f\d]{24}$/i.test(draft.projectId || "");
+    !effectiveProjectId ||
+    !/^[a-f\d]{24}$/i.test(effectiveProjectId || "");
 
   // For PUBLISH: also need posts + applicationDeadline
   const missingRequired = missingForDraft || !draft.posts?.length;
 
   const missingFields = [
-    (!draft.projectId || !/^[a-f\d]{24}$/i.test(draft.projectId)) &&
+    (!effectiveProjectId || !/^[a-f\d]{24}$/i.test(effectiveProjectId)) &&
       "Project setup",
     !draft.title && "Job title",
     !draft.postCode && "Post code",
@@ -341,7 +389,8 @@ const JobReview = () => {
 
   // Step 2: Update job with all details
   const { mutateAsync: updateJob } = useMutation({
-    mutationFn: ({ id, data }) => adminService.updateJob(id, data),
+    mutationFn: ({ id, data }) =>
+      adminService.updateJob(id, data, { suppressGlobalErrorToast: true }),
   });
 
   // Step 3: Publish job
@@ -349,17 +398,57 @@ const JobReview = () => {
     mutationFn: adminService.publishJob,
   });
 
+  const getAmendmentPath = (jobId = draftJobId) => {
+    const state = encodeURIComponent(project?.state || "All");
+    const params = new URLSearchParams();
+    if (effectiveProjectId) params.set("project", effectiveProjectId);
+    if (jobId) params.set("job", jobId);
+    params.set("amendment", "form-sections");
+    params.set("returnTo", "job-review");
+    return `/admin/cms/edit/${state}?${params.toString()}`;
+  };
+
+  const isOfficialAmendmentError = (err) => {
+    const message = String(err?.message || "");
+    return (
+      /create an official amendment/i.test(message) ||
+      /cannot change .*formSections/i.test(message)
+    );
+  };
+
   const getNextProjectStepPath = (jobId) =>
     effectiveProjectId
       ? `/admin/admit-cards?project=${effectiveProjectId}&focus=template${jobId ? `&job=${jobId}` : ""}`
       : "/admin/jobs";
 
+  const invalidateJobAndPublicViews = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
+    if (effectiveProjectId) {
+      queryClient.invalidateQueries({ queryKey: ["admin-project", effectiveProjectId] });
+    }
+    const publicSlug = project?.publicSlug || project?.slug || hydratedJob?.projectId?.publicSlug;
+    if (publicSlug) {
+      queryClient.invalidateQueries({ queryKey: ["public-project", publicSlug] });
+      queryClient.invalidateQueries({ queryKey: ["public-project-applications", publicSlug] });
+    }
+    queryClient.invalidateQueries({ queryKey: ["public-projects"] });
+  };
+
   const readStoredDraft = () => {
     try {
       const storedDraft = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
-      return Object.keys(storedDraft).length ? storedDraft : draft;
+      const nextDraft = Object.keys(storedDraft).length ? storedDraft : draft;
+      return {
+        ...nextDraft,
+        ...(projectId ? { projectId } : {}),
+        ...(routeJobId ? { _jobId: routeJobId } : {}),
+      };
     } catch {
-      return draft;
+      return {
+        ...draft,
+        ...(projectId ? { projectId } : {}),
+        ...(routeJobId ? { _jobId: routeJobId } : {}),
+      };
     }
   };
 
@@ -378,7 +467,15 @@ const JobReview = () => {
     if (existingJobId && /^[a-f\d]{24}$/i.test(existingJobId)) {
       try {
         const existing = await adminService.getAdminJob(existingJobId);
-        if (existing?.job?._id) return existingJobId;
+        const existingJob = existing?.job || existing;
+        const existingProjectId = existingJob?.projectId?._id || existingJob?.projectId || "";
+        if (
+          existingJob?._id &&
+          (!effectiveProjectId || String(existingProjectId) === String(effectiveProjectId))
+        ) {
+          return existingJobId;
+        }
+        clearStoredJobId();
       } catch (err) {
         if (![404, 400].includes(err?.status)) throw err;
         clearStoredJobId();
@@ -386,7 +483,7 @@ const JobReview = () => {
     }
 
     const createPayload = {
-      projectId: currentDraft.projectId || draft.projectId,
+      projectId: effectiveProjectId || currentDraft.projectId || draft.projectId,
       title: currentDraft.title || draft.title,
       postCode: currentDraft.postCode || draft.postCode,
       department: currentDraft.department || draft.department,
@@ -409,8 +506,10 @@ const JobReview = () => {
         // postCode already in DB — fetch that job directly
         try {
           const res = await adminService.getAdminJobByPostCode(createPayload.postCode);
-          const jobId = res?.job?._id;
-          if (jobId) {
+          const existingJob = res?.job || res;
+          const jobId = existingJob?._id;
+          const existingProjectId = existingJob?.projectId?._id || existingJob?.projectId || "";
+          if (jobId && String(existingProjectId) === String(createPayload.projectId)) {
             // Cache it for future retries
             const current = JSON.parse(
               sessionStorage.getItem(STORAGE_KEY) || "{}",
@@ -438,6 +537,19 @@ const JobReview = () => {
       await updateJob({ id: jobId, data: updatePayload });
       return jobId;
     } catch (err) {
+      if (isOfficialAmendmentError(err)) {
+        const nextPrompt = {
+          jobId,
+          message:
+            "Candidates have already applied. Create and publish an official amendment notice before changing locked application form sections.",
+          path: getAmendmentPath(jobId),
+        };
+        setAmendmentPrompt(nextPrompt);
+        toast.error("Official amendment required for this form change.");
+        const amendmentError = new Error("Official amendment required");
+        amendmentError.isAmendmentRequired = true;
+        throw amendmentError;
+      }
       if (
         err?.message?.toLowerCase?.().includes("amendment reason") &&
         typeof window !== "undefined"
@@ -475,18 +587,16 @@ const JobReview = () => {
       setIsPublishing(true);
       const jobId = await getOrCreateJobId();
       if (!jobId) return; // error already shown
-      const updatePayload = buildUpdatePayload(draft);
+      const updatePayload = buildChangedUpdatePayload(draft, hydratedJob);
       if (Object.keys(updatePayload).length > 0) {
         await savePayloadToJob(jobId, updatePayload);
       }
       toast.success("Draft saved");
       sessionStorage.removeItem(STORAGE_KEY);
-      queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
-      if (effectiveProjectId) {
-        queryClient.invalidateQueries({ queryKey: ["admin-project", effectiveProjectId] });
-      }
+      invalidateJobAndPublicViews();
       navigate(getNextProjectStepPath(jobId));
     } catch (err) {
+      if (err?.isAmendmentRequired) return;
       toast.error(err.message || "Failed to save job");
     } finally {
       setIsPublishing(false);
@@ -532,7 +642,7 @@ const JobReview = () => {
         toast.error("This job is already published");
         return;
       }
-      const updatePayload = buildUpdatePayload(draft);
+      const updatePayload = buildChangedUpdatePayload(draft, currentJob?.job || currentJob || hydratedJob);
       let publishJobId = jobId;
       if (Object.keys(updatePayload).length > 0) {
         publishJobId = await savePayloadToJob(jobId, updatePayload);
@@ -540,22 +650,17 @@ const JobReview = () => {
       if (isProjectWizard) {
         toast.success("Job advertisement saved. Continue with admit-card setup.");
         sessionStorage.removeItem(STORAGE_KEY);
-        queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
-        if (effectiveProjectId) {
-          queryClient.invalidateQueries({ queryKey: ["admin-project", effectiveProjectId] });
-        }
+        invalidateJobAndPublicViews();
         navigate(getNextProjectStepPath(jobId));
         return;
       }
       await publishJob(publishJobId);
       toast.success("Job published");
       sessionStorage.removeItem(STORAGE_KEY);
-      queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
-      if (effectiveProjectId) {
-        queryClient.invalidateQueries({ queryKey: ["admin-project", effectiveProjectId] });
-      }
+      invalidateJobAndPublicViews();
       navigate(getNextProjectStepPath(jobId));
     } catch (err) {
+      if (err?.isAmendmentRequired) return;
       toast.error(err.message || "Failed to publish job");
     } finally {
       setIsPublishing(false);
@@ -608,6 +713,28 @@ const JobReview = () => {
                 Deadlines can be extended and notices can be updated. Fees, eligibility,
                 required fields, documents, and vacancy rules are locked once candidates apply.
               </p>
+            </div>
+          )}
+
+          {amendmentPrompt && (
+            <div className="flex flex-col gap-4 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-900 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-orange-600">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Official amendment required</p>
+                  <p className="mt-1 max-w-3xl text-sm leading-5 text-orange-800">
+                    {amendmentPrompt.message}
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => navigate(amendmentPrompt.path)}
+                className="shrink-0 bg-orange-600 px-5 text-white hover:bg-orange-700"
+              >
+                Create Amendment Notice
+              </Button>
             </div>
           )}
 

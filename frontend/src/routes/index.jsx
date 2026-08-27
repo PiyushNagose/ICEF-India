@@ -55,6 +55,8 @@ const StandardsSettings = lazy(() => import("../app/admin/StandardsSettings"));
 const AdminApplications = lazy(() => import("../app/admin/Applications"));
 const AdminAdmitCards = lazy(() => import("../app/admin/AdmitCards"));
 const AdminAdmitCardTemplates = lazy(() => import("../app/admin/AdmitCardTemplates"));
+const ExamCenters = lazy(() => import("../app/admin/ExamCenters"));
+const CenterWizard = lazy(() => import("../app/admin/CenterWizard"));
 const ActivityLogs = lazy(() => import("../app/admin/ActivityLogs"));
 const EmployeeActivityDetails = lazy(
   () => import("../app/admin/EmployeeActivityDetails"),
@@ -296,6 +298,14 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/admin/projects/:id/preview"
+          element={
+            <ProtectedRoute role="admin" permission={["projects", "view"]}>
+              <ProjectLanding preview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/jobs"
           element={
             <ProtectedRoute role="admin" permission={["jobs", "view"]}>
@@ -380,6 +390,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute role="admin" permission={["admitCards", "view"]}>
               <AdminAdmitCards />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/centers"
+          element={
+            <ProtectedRoute role="admin" permission={["admitCards", "view"]}>
+              <ExamCenters />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/centers/new"
+          element={
+            <ProtectedRoute role="admin" permission={["admitCards", "create"]}>
+              <CenterWizard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/centers/:id/edit"
+          element={
+            <ProtectedRoute role="admin" permission={["admitCards", "edit"]}>
+              <CenterWizard />
             </ProtectedRoute>
           }
         />
@@ -522,7 +556,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms"
           element={
-            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
+            <ProtectedRoute role="admin" permission={["cms", "view"]}>
               <CmsHome />
             </ProtectedRoute>
           }
@@ -530,7 +564,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms/create"
           element={
-            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
+            <ProtectedRoute role="admin" permission={["cms", "create"]}>
               <CmsCreate />
             </ProtectedRoute>
           }
@@ -538,7 +572,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/cms/edit/:state"
           element={
-            <ProtectedRoute role="admin" permission={["projects", "edit"]}>
+            <ProtectedRoute role="admin" permission={["cms", "edit"]}>
               <CmsEdit />
             </ProtectedRoute>
           }
@@ -546,7 +580,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/standards-settings"
           element={
-            <ProtectedRoute role="admin" permission={["jobs", "edit"]}>
+            <ProtectedRoute role="admin" permission={["standardsSettings", "view"]}>
               <StandardsSettings />
             </ProtectedRoute>
           }

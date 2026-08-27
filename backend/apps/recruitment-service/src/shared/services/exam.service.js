@@ -1,5 +1,6 @@
 const { StatusCodes } = require("http-status-codes");
 const crypto = require("crypto");
+const xlsx = require("xlsx");
 const mongoose = require("mongoose");
 const ExamCenter = require("../models/ExamCenter");
 const ExamRoom = require("../models/ExamRoom");
@@ -455,7 +456,7 @@ const getEligibleApplicationFilter = (jobId) => ({
 });
 
 const getAllocationInputs = async (schedule, options = {}) => {
-  const centerFilter = { active: true };
+  const centerFilter = { active: true, isSoftDeleted: { $ne: true } };
   const centerIds = getSelectedCenterIds(schedule, options);
   if (centerIds.length) centerFilter._id = { $in: centerIds };
 
@@ -565,9 +566,11 @@ const recomputeCenterCapacity = async (centerId) => {
   return totalCapacity;
 };
 
-const listCenters = async (query) => {
+const listCenters = async (query, user = {}) => {
   const { page, limit, skip } = getPaginationParams(query);
   const filter = {};
+  const isAdminOrSuperAdmin = user.role === "admin" || user.isSuperAdmin;
+  if (!isAdminOrSuperAdmin) filter.isSoftDeleted = { $ne: true };
   if (query.active !== undefined) filter.active = query.active === "true";
   if (query.state) filter.state = new RegExp(query.state, "i");
   if (query.district) filter.district = new RegExp(query.district, "i");
@@ -592,30 +595,104 @@ const listCenters = async (query) => {
 };
 
 const createCenter = async (data, userId) => {
-  const center = await ExamCenter.create({
-    ...data,
-    centerCode: normalizeCode(data.centerCode),
-    createdBy: userId,
-    updatedBy: userId,
-  });
-  return center;
+  try {
+    const center = await ExamCenter.create({
+      ...data,
+      centerCode: normalizeCode(data.centerCode),
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    return center;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new ApiError(StatusCodes.CONFLICT, "This center code already exists. Use a unique center code.");
+    }
+    throw error;
+  }
 };
 
 const updateCenter = async (id, data, userId) => {
   if (data.centerCode) data.centerCode = normalizeCode(data.centerCode);
-  const center = await ExamCenter.findByIdAndUpdate(
-    id,
-    { ...data, updatedBy: userId },
-    { new: true, runValidators: true },
-  );
-  if (!center)
-    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
-  return center;
+  try {
+    const center = await ExamCenter.findByIdAndUpdate(
+      id,
+      { ...data, updatedBy: userId },
+      { new: true, runValidators: true },
+    );
+    if (!center)
+      throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+    return center;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new ApiError(StatusCodes.CONFLICT, "This center code already exists. Use a unique center code.");
+    }
+    throw error;
+  }
 };
 
-const getCenter = async (id) => {
+const deleteCenter = async (id, user = {}) => {
+  const userId = user.id || user._id || user;
   const center = await ExamCenter.findById(id);
   if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+
+  const isAdminOrSuperAdmin = user.role === "admin" || user.isSuperAdmin;
+
+  if (!isAdminOrSuperAdmin) {
+    center.isSoftDeleted = true;
+    center.deletedBy = userId;
+    center.deletedAt = new Date();
+    center.active = false;
+    center.updatedBy = userId;
+    await center.save();
+    await ExamRoom.updateMany({ centerId: id }, { active: false, updatedBy: userId });
+    await recomputeCenterCapacity(center._id);
+    return {
+      center,
+      deleted: false,
+      softDeleted: true,
+      deactivated: true,
+      message: "Exam center hidden from employee portal and admin notified.",
+    };
+  }
+
+  const [scheduleCount, allocationCount] = await Promise.all([
+    ExamSchedule.countDocuments({ selectedCenterIds: id, status: { $ne: "cancelled" } }),
+    CandidateAllocation.countDocuments({ centerId: id }),
+  ]);
+
+  if (scheduleCount > 0 || allocationCount > 0) {
+    center.active = false;
+    center.updatedBy = userId;
+    await center.save();
+    await ExamRoom.updateMany({ centerId: id }, { active: false, updatedBy: userId });
+    await recomputeCenterCapacity(center._id);
+    return {
+      center,
+      deleted: false,
+      deactivated: true,
+      message:
+        "Center is used by exam schedules or allocations, so it has been deactivated instead of deleted.",
+    };
+  }
+
+  await ExamRoom.deleteMany({ centerId: id });
+  await ExamCenter.deleteOne({ _id: id });
+
+  return {
+    center,
+    deleted: true,
+    deactivated: false,
+    message: "Exam center deleted successfully.",
+  };
+};
+
+const getCenter = async (id, user = {}) => {
+  const center = await ExamCenter.findById(id);
+  if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  const isAdminOrSuperAdmin = user.role === "admin" || user.isSuperAdmin;
+  if (center.isSoftDeleted && !isAdminOrSuperAdmin)
     throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
   const rooms = await ExamRoom.find({ centerId: id }).sort({
     block: 1,
@@ -625,9 +702,12 @@ const getCenter = async (id) => {
   return { center, rooms };
 };
 
-const listRooms = async (centerId) => {
+const listRooms = async (centerId, user = {}) => {
   const center = await ExamCenter.findById(centerId);
   if (!center)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
+  const isAdminOrSuperAdmin = user.role === "admin" || user.isSuperAdmin;
+  if (center.isSoftDeleted && !isAdminOrSuperAdmin)
     throw new ApiError(StatusCodes.NOT_FOUND, "Exam center not found");
   const rooms = await ExamRoom.find({ centerId }).sort({
     block: 1,
@@ -648,35 +728,47 @@ const createRoom = async (centerId, data, userId) => {
     );
   }
 
-  const room = await ExamRoom.create({
-    ...data,
-    centerId,
-    roomCode: normalizeCode(data.roomCode),
-    createdBy: userId,
-    updatedBy: userId,
-  });
-  await recomputeCenterCapacity(center._id);
-  return room;
+  try {
+    const room = await ExamRoom.create({
+      ...data,
+      centerId,
+      roomCode: normalizeCode(data.roomCode),
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    await recomputeCenterCapacity(center._id);
+    return room;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new ApiError(StatusCodes.CONFLICT, "This room code already exists for the selected center.");
+    }
+    throw error;
+  }
 };
 
 const updateRoom = async (roomId, data, userId) => {
   const room = await ExamRoom.findById(roomId);
   if (!room) throw new ApiError(StatusCodes.NOT_FOUND, "Exam room not found");
-  if (
-    data.usableCapacity &&
-    data.capacity &&
-    data.usableCapacity > data.capacity
-  ) {
+  const nextCapacity = data.capacity ?? room.capacity;
+  const nextUsableCapacity = data.usableCapacity ?? room.usableCapacity ?? nextCapacity;
+  if (Number(nextUsableCapacity) > Number(nextCapacity)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Usable capacity cannot exceed room capacity",
     );
   }
   if (data.roomCode) data.roomCode = normalizeCode(data.roomCode);
-  Object.assign(room, data, { updatedBy: userId });
-  await room.save();
-  await recomputeCenterCapacity(room.centerId);
-  return room;
+  try {
+    Object.assign(room, data, { updatedBy: userId });
+    await room.save();
+    await recomputeCenterCapacity(room.centerId);
+    return room;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new ApiError(StatusCodes.CONFLICT, "This room code already exists for the selected center.");
+    }
+    throw error;
+  }
 };
 
 const listSchedules = async (query) => {
@@ -1151,7 +1243,11 @@ const getSeatCapacitySnapshot = async (schedule) => {
   }
 
   const [centers, rooms, counts] = await Promise.all([
-    ExamCenter.find({ _id: { $in: selectedCenterIds }, active: true }).sort({
+    ExamCenter.find({
+      _id: { $in: selectedCenterIds },
+      active: true,
+      isSoftDeleted: { $ne: true },
+    }).sort({
       centerCode: 1,
     }),
     ExamRoom.find({
@@ -2074,7 +2170,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       <tr><td class="label">Reporting Time</td><td>${escapeHtml(schedule.reportingTime)}</td></tr>
       ${schedule.gateClosingTime ? `<tr><td class="label">Gate Closing Time</td><td>${escapeHtml(schedule.gateClosingTime)}</td></tr>` : ""}
       <tr><td class="label">Exam Time</td><td>${escapeHtml(schedule.examStartTime)}${schedule.examEndTime ? ` to ${escapeHtml(schedule.examEndTime)}` : ""}</td></tr>
-    </table>
+
     <div class="controller">${escapeHtml(controllerTitle)}</div>
     </div>
   </section>
@@ -2136,9 +2232,13 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const isLandscape = tplConfig.orientation === "landscape";
 
-  const pages = chunk(allocations, 6)
-    .map((items) => {
+  const chunks = chunk(allocations, 6);
+  const totalPages = chunks.length;
+
+  const pages = chunks
+    .map((items, pageIndex) => {
       const first = items[0];
       const center = first.centerId;
       const venueAddress = [
@@ -2219,6 +2319,7 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
             <td>Signature of Invigilator: __________________________</td>
           </tr>
         </table>
+        <div class="page-number">Page ${pageIndex + 1} of ${totalPages}</div>
       </section>
     `;
     })
@@ -2230,11 +2331,11 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
   <meta charset="utf-8" />
   <title>Attendance Sheet ${escapeHtml(schedule.examCode)}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4 ${isLandscape ? "landscape" : "portrait"}; margin: 0; }
     * { box-sizing: border-box; }
     :root { --primary: ${escapeHtml(primaryColor)}; }
     body { margin: 0; font-family: "Times New Roman", Times, serif; color: #000; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 30px 46px 18px; page-break-after: always; background: #fff; overflow: hidden; }
+    .page { position: relative; width: ${isLandscape ? "297mm" : "210mm"}; min-height: ${isLandscape ? "210mm" : "297mm"}; margin: 0 auto; padding: 30px 46px 18px; page-break-after: always; background: #fff; overflow: hidden; }
     .page:last-of-type { page-break-after: auto; }
     .watermark { position: absolute; inset: 35% auto auto 50%; width: 290px; max-height: 290px; transform: translate(-50%, -50%); opacity: .06; object-fit: contain; pointer-events: none; }
     .head { display: grid; grid-template-columns: 82px 1fr 82px; align-items: center; text-align: center; margin-bottom: 5px; }
@@ -2269,6 +2370,7 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
     .template-compact td { padding: 2px 4px; }
     .actions { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; }
     .actions button { border: 0; background: #111827; color: #fff; padding: 8px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+    .page-number { position: absolute; bottom: 18px; right: 46px; font-size: 10px; font-weight: bold; }
     @media print { .actions { display: none; } .page { margin: 0; } }
   </style>
 </head>
@@ -2292,7 +2394,6 @@ const getExamOpsSummary = async () => {
     status: { $in: ["submitted", "approved", "auto_approved", "verified"] },
     paymentStatus: "paid",
   };
-
   const [
     totalSchedules,
     publishedSchedules,
@@ -2411,10 +2512,261 @@ const getExamOpsSummary = async () => {
   };
 };
 
+const generateCenterTemplate = async () => {
+  const ws = xlsx.utils.aoa_to_sheet([
+    [
+      "Center Code",
+      "Center Name",
+      "Address Line 1",
+      "Address Line 2",
+      "City",
+      "District",
+      "State",
+      "Pincode",
+      "Contact Name",
+      "Contact Phone",
+      "Contact Email",
+      "Room Code",
+      "Room Name",
+      "Block",
+      "Floor",
+      "Room Capacity",
+      "Wheelchair Access",
+    ],
+    [
+      "CN-001",
+      "Sample Exam Center",
+      "123 Main Street",
+      "",
+      "Ranchi",
+      "Ranchi",
+      "Jharkhand",
+      "834001",
+      "John Doe",
+      "9876543210",
+      "john@example.com",
+      "R-01",
+      "Room 1",
+      "A",
+      "1st Floor",
+      "50",
+      "TRUE",
+    ],
+  ]);
+  const wb = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(wb, ws, "Centers and Rooms");
+  const buffer = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+  return { buffer, fileName: "exam-centers-template.xlsx" };
+};
+
+const createCenterWithRooms = async (payload, adminId) => {
+  const { centerDetails, rooms } = payload;
+  if (!centerDetails || !rooms || !Array.isArray(rooms)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid payload format. Expected centerDetails and rooms array.");
+  }
+  const centerCode = normalizeCode(centerDetails.centerCode);
+  if (!centerCode) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Center code is required.");
+  }
+  if (rooms.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Add at least one room before saving the center.");
+  }
+
+  const session = await mongoose.startSession();
+  let createdCenter;
+  let createdRooms = [];
+
+  try {
+    session.startTransaction();
+
+    // Check for existing center code
+    const existing = await ExamCenter.findOne({ centerCode }).session(session);
+    if (existing) {
+      throw new ApiError(StatusCodes.CONFLICT, "This center code already exists. Use a unique center code.");
+    }
+
+    [createdCenter] = await ExamCenter.create([{ ...centerDetails, centerCode, createdBy: adminId, updatedBy: adminId }], { session });
+
+    // Prepare rooms
+    let totalCapacity = 0;
+    const roomCodes = new Set();
+    const roomDocs = rooms.map(room => {
+      const roomCode = normalizeCode(room.roomCode);
+      const capacity = Number(room.capacity || 0);
+      const usableCapacity = room.usableCapacity ? Number(room.usableCapacity) : capacity;
+      if (!roomCode || !room.roomName || capacity < 1) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Each room must have room code, room name, and capacity.");
+      }
+      if (roomCodes.has(roomCode)) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Duplicate room code ${roomCode} in this center.`);
+      }
+      if (usableCapacity > capacity) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Usable capacity cannot exceed room capacity.");
+      }
+      roomCodes.add(roomCode);
+      totalCapacity += usableCapacity;
+      return {
+        ...room,
+        roomCode,
+        capacity,
+        usableCapacity,
+        centerId: createdCenter._id,
+        createdBy: adminId,
+        updatedBy: adminId,
+      };
+    });
+
+    createdRooms = await ExamRoom.insertMany(roomDocs, { session });
+
+    createdCenter.totalCapacity = totalCapacity;
+    await createdCenter.save({ session });
+
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  return { center: createdCenter, rooms: createdRooms };
+};
+
+const bulkUploadCenters = async (fileBuffer, fileName, adminId) => {
+  let workbook;
+  try {
+    workbook = xlsx.read(fileBuffer, { type: "buffer" });
+  } catch (err) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid Excel/CSV file format");
+  }
+
+  const sheetName = workbook.SheetNames[0];
+  const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+  if (!rows || rows.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "The uploaded file is empty.");
+  }
+
+  // Group by Center Code
+  const centersMap = new Map();
+
+  for (const row of rows) {
+    const centerCode = String(row["Center Code"] || "").trim().toUpperCase();
+    if (!centerCode) continue;
+
+    if (!centersMap.has(centerCode)) {
+      centersMap.set(centerCode, {
+        centerDetails: {
+          centerCode,
+          name: row["Center Name"] || "",
+          addressLine1: row["Address Line 1"] || "",
+          addressLine2: row["Address Line 2"] || "",
+          city: row["City"] || "",
+          district: row["District"] || "",
+          state: row["State"] || "",
+          pincode: String(row["Pincode"] || ""),
+          contact: {
+            name: row["Contact Name"] || "",
+            phone: String(row["Contact Phone"] || ""),
+            email: row["Contact Email"] || "",
+          }
+        },
+        rooms: []
+      });
+    }
+
+    const roomCode = String(row["Room Code"] || "").trim().toUpperCase();
+    if (roomCode) {
+      centersMap.get(centerCode).rooms.push({
+        roomCode,
+        roomName: row["Room Name"] || roomCode,
+        block: row["Block"] || "",
+        floor: String(row["Floor"] || ""),
+        capacity: parseInt(row["Room Capacity"]) || 0,
+        accessibility: {
+          wheelchairAccess: String(row["Wheelchair Access"]).toLowerCase() === "true" || String(row["Wheelchair Access"]).toLowerCase() === "yes",
+          groundFloor: String(row["Floor"]).toLowerCase().includes("ground") || String(row["Floor"]).trim() === "0",
+        }
+      });
+    }
+  }
+
+  if (centersMap.size === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "No valid center entries found in the file. Make sure 'Center Code' column exists.");
+  }
+
+  const session = await mongoose.startSession();
+  const summary = {
+    totalRows: rows.length,
+    createdCenters: 0,
+    createdRooms: 0,
+    errors: []
+  };
+
+  try {
+    session.startTransaction();
+
+    for (const [centerCode, data] of centersMap.entries()) {
+      try {
+        // Validate required center fields
+        const { name, addressLine1, city, district, state, pincode } = data.centerDetails;
+        if (!name || !addressLine1 || !city || !district || !state || !pincode) {
+          throw new Error(`Missing required center details for Center Code: ${centerCode}`);
+        }
+
+        // Upsert Center
+        let center = await ExamCenter.findOne({ centerCode }).session(session);
+        if (!center) {
+          [center] = await ExamCenter.create([{ ...data.centerDetails, createdBy: adminId }], { session });
+          summary.createdCenters++;
+        } else {
+          center.updatedBy = adminId;
+        }
+
+        let addedCapacity = 0;
+        // Process rooms
+        for (const roomData of data.rooms) {
+          if (!roomData.capacity || roomData.capacity <= 0) {
+            throw new Error(`Invalid capacity for Room Code: ${roomData.roomCode} in Center: ${centerCode}`);
+          }
+
+          let room = await ExamRoom.findOne({ centerId: center._id, roomCode: roomData.roomCode }).session(session);
+          if (!room) {
+            await ExamRoom.create([{ ...roomData, centerId: center._id, createdBy: adminId }], { session });
+            summary.createdRooms++;
+            addedCapacity += roomData.capacity;
+          }
+        }
+
+        if (addedCapacity > 0) {
+          center.totalCapacity = (center.totalCapacity || 0) + addedCapacity;
+          await center.save({ session });
+        }
+      } catch (err) {
+        summary.errors.push(`Row processing error for ${centerCode}: ${err.message}`);
+      }
+    }
+
+    if (summary.errors.length > 0 && summary.createdCenters === 0 && summary.createdRooms === 0) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Failed to process any records due to errors: " + summary.errors.join("; "));
+    }
+
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  return { summary };
+};
+
 module.exports = {
   listCenters,
   createCenter,
   updateCenter,
+  deleteCenter,
   getCenter,
   listRooms,
   createRoom,
@@ -2428,6 +2780,7 @@ module.exports = {
   allocateCandidates,
   lockAllocation,
   listAllocations,
+
   generateAdmitCards,
   publishAdmitCards,
   unpublishAdmitCards,
@@ -2439,4 +2792,7 @@ module.exports = {
   renderAdmitCardHtml,
   renderAttendanceSheetHtml,
   getExamOpsSummary,
+  generateCenterTemplate,
+  createCenterWithRooms,
+  bulkUploadCenters,
 };

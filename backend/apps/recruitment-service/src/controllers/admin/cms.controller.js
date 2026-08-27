@@ -1,6 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 const StateBanner = require("../../shared/models/StateBanner");
 const Project = require("../../shared/models/Project");
+const Employee = require("../../shared/models/Employee");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const ApiError = require("../../shared/utils/ApiError");
@@ -14,6 +15,7 @@ const {
 const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
+const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
 
 const emitCmsRealtime = (event, page, action) => {
   try {
@@ -37,6 +39,21 @@ const defaultQuickLinks = {
   admitCards: true,
   results: true,
   support: true,
+};
+
+const isAdminOrSuperAdminUser = async (user = {}) => {
+  if (user.role === "admin" || user.isSuperAdmin) return true;
+  if (user.role !== "employee" || !user.id) return false;
+  const employee = await Employee.findById(user.id)
+    .populate("systemRole", "roleName")
+    .select("employeeId roleDesignation systemRole")
+    .lean();
+  const roleName = employee?.systemRole?.roleName?.trim().toLowerCase();
+  return (
+    roleName === "super admin" ||
+    employee?.roleDesignation?.trim().toLowerCase() === "super administrator" ||
+    employee?.employeeId?.trim().toLowerCase() === "emp-super-001"
+  );
 };
 
 const defaultSectionVisibility = {
@@ -99,7 +116,9 @@ const buildDefaultProjectPage = (project) => ({
 
 // GET /api/admin/cms  — list all state pages with summary
 const getAll = asyncHandler(async (req, res) => {
-  const pages = await StateBanner.find()
+  const isAdminOrSuperAdmin = await isAdminOrSuperAdminUser(req.user);
+  const filter = isAdminOrSuperAdmin ? {} : { isSoftDeleted: { $ne: true } };
+  const pages = await StateBanner.find(filter)
     .populate("projectId", "name state publicSlug")
     .populate("featuredJobs", "title postCode department")
     .sort({ updatedAt: -1 })
@@ -130,6 +149,10 @@ const getOne = asyncHandler(async (req, res) => {
     .lean();
 
   if (!page && !scope.isProjectPage) throw new ApiError(404, "State page not found");
+  const isAdminOrSuperAdmin = await isAdminOrSuperAdminUser(req.user);
+  if (page?.isSoftDeleted && !isAdminOrSuperAdmin) {
+    throw new ApiError(404, "State page not found");
+  }
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "CMS page fetched", {
@@ -235,23 +258,62 @@ const update = asyncHandler(async (req, res) => {
   );
 });
 
-// DELETE /api/admin/cms/:state  — delete state page
+// DELETE /api/admin/cms/:state  — soft-delete for employees, hard-delete for admin
 const remove = asyncHandler(async (req, res) => {
   const scope = await getCmsScope({
     state: req.params.state,
     projectId: req.query.projectId || req.body.projectId,
   });
-  const page = await StateBanner.findOneAndDelete(scope.filter);
+  const isAdminOrSuperAdmin = await isAdminOrSuperAdminUser(req.user);
+  const page = isAdminOrSuperAdmin
+    ? await StateBanner.findOneAndDelete(scope.filter)
+    : await StateBanner.findOneAndUpdate(
+        scope.filter,
+        {
+          status: "archived",
+          isSoftDeleted: true,
+          deletedBy: req.user.id,
+          deletedAt: new Date(),
+          updatedBy: req.user.id,
+        },
+        { new: true },
+      );
   if (!page) throw new ApiError(404, "CMS page not found");
   await invalidatePublicRecruitmentCache();
   await saveAuditLog(
     req,
-    `Deleted ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
+    `${isAdminOrSuperAdmin ? "Deleted" : "Soft-deleted"} ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
   );
-  emitCmsRealtime(SOCKET_EVENTS.CMS_DELETED, page, "deleted");
+  if (!isAdminOrSuperAdmin) {
+    await notifyAdmins({
+      type: "system_audit",
+      title: "CMS page removal requested",
+      message: `Employee removed CMS page "${page.heroTitle || page.state}". It is hidden from employee views and still visible to admin/superadmin.`,
+      link: "/admin/cms",
+      metadata: {
+        action: "soft_delete",
+        resource: "cms_page",
+        resourceId: String(page._id),
+        actorId: String(req.user.id),
+      },
+    });
+  }
+  emitCmsRealtime(SOCKET_EVENTS.CMS_DELETED, page, isAdminOrSuperAdmin ? "deleted" : "soft_deleted");
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "State page deleted"),
+    new ApiResponse(
+      StatusCodes.OK,
+      isAdminOrSuperAdmin
+        ? "State page deleted"
+        : "CMS page hidden from employee portal and admin notified",
+      {
+        message: isAdminOrSuperAdmin
+          ? "State page deleted"
+          : "CMS page hidden from employee portal and admin notified",
+        softDeleted: !isAdminOrSuperAdmin,
+        page,
+      },
+    ),
   );
 });
 
@@ -308,6 +370,7 @@ const uploadBannerImage = asyncHandler(async (req, res) => {
     new ApiResponse(StatusCodes.OK, "Image uploaded", {
       url: result.secure_url,
       publicId: result.public_id,
+      size: result.bytes,
     }),
   );
 });

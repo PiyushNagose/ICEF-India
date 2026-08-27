@@ -9,12 +9,14 @@ const { getRedis } = require("../../shared/config/redis");
 const {
   getProjectLifecycleStatus,
   startOfDay,
-  endOfDay,
 } = require("../../shared/utils/timeline");
+const {
+  PUBLIC_JOB_FILTER,
+  PUBLIC_JOB_FIELDS,
+  enrichPublicJobs,
+} = require("../../shared/utils/publicProjectView");
 
 const CACHE_TTL = 10; // keep public pages fresh after admin publishing changes
-const PUBLIC_JOB_FILTER = { status: "active" };
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const getVisibleJobFilter = (now = new Date()) => ({
   status: "active",
@@ -42,53 +44,6 @@ const safeCacheSet = async (redis, key, ttl, payload) => {
   } catch (error) {
     console.warn(`[PUBLIC] Cache write skipped for ${key}: ${error.message}`);
   }
-};
-
-const buildAvailability = (job, now = new Date()) => {
-  const currentDay = startOfDay(now);
-  const start = startOfDay(job.applicationStartDate);
-  const deadline = endOfDay(job.applicationDeadline);
-  const deadlineDay = startOfDay(job.applicationDeadline);
-
-  if (job.status !== "active") {
-    return {
-      status: "inactive",
-      label: "Inactive",
-      canApply: false,
-      reason: "This recruitment is not accepting applications.",
-      daysLeft: null,
-    };
-  }
-  if (start && currentDay < start) {
-    return {
-      status: "not_open",
-      label: "Not Open Yet",
-      canApply: false,
-      reason: "Application window has not opened yet.",
-      daysUntilOpen: Math.max(0, Math.ceil((start - currentDay) / MS_PER_DAY)),
-      daysLeft: deadlineDay
-        ? Math.max(0, Math.ceil((deadlineDay - currentDay) / MS_PER_DAY) + 1)
-        : null,
-    };
-  }
-  if (deadline && now > deadline) {
-    return {
-      status: "closed",
-      label: "Closed",
-      canApply: false,
-      reason: "Application deadline has passed.",
-      daysLeft: 0,
-    };
-  }
-  return {
-    status: "open",
-    label: "Open",
-    canApply: true,
-    reason: "Applications are open.",
-    daysLeft: deadlineDay
-      ? Math.max(0, Math.ceil((deadlineDay - currentDay) / MS_PER_DAY) + 1)
-      : null,
-  };
 };
 
 /**
@@ -119,33 +74,11 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
   }
 
   const jobs = await Job.find({ projectId: project._id, ...PUBLIC_JOB_FILTER })
-    .select(
-      "title postCode department category totalPosts posts salaryRange " +
-        "applicationFee applicationStartDate applicationDeadline correctionStartDate " +
-        "correctionDeadline admitCardReleaseDate examDate resultDate ageLimit " +
-        "education physicalStandards medicalStandards description status",
-    )
+    .select(PUBLIC_JOB_FIELDS)
     .sort({ createdAt: 1 })
     .lean();
 
-  const now = new Date();
-  const enrichedJobs = jobs.map((job) => {
-      const availability = buildAvailability(job, now);
-      return {
-        ...job,
-        availability,
-        isApplicationOpen: availability.canApply,
-        daysLeft: availability.daysLeft,
-        isCorrectionOpen:
-          job.correctionStartDate &&
-          job.correctionDeadline &&
-          startOfDay(job.correctionStartDate) <= startOfDay(now) &&
-          endOfDay(job.correctionDeadline) >= now,
-        isAdmitCardAvailable:
-          job.admitCardReleaseDate &&
-          startOfDay(job.admitCardReleaseDate) <= startOfDay(now),
-      };
-    });
+  const enrichedJobs = enrichPublicJobs(jobs);
 
   const cmsPage = await StateBanner.findOne({
     projectId: project._id,

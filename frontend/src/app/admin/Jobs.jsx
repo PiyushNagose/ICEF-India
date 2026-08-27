@@ -22,7 +22,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 
-import { useAuth, isSuperAdminUser } from '../../hooks/useAuth'
+import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import { jobService } from '../../services/job.service'
 import { adminService } from '../../services/admin.service'
 import {
@@ -96,6 +96,11 @@ const Jobs = () => {
     useState(false)
 
   const { user } = useAuth()
+  const isPrivilegedDelete = isSuperAdminUser(user)
+  const canCreate = hasPermission(user, 'jobs', 'create')
+  const canEdit = hasPermission(user, 'jobs', 'edit')
+  const canDelete = hasPermission(user, 'jobs', 'delete')
+  const canPublish = hasPermission(user, 'jobs', 'publish')
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, job: null })
 
   const { data: jobsData, isLoading } = useQuery({
@@ -160,8 +165,8 @@ const Jobs = () => {
   const { mutate: deleteJob } = useMutation({
     mutationFn: adminService.deleteJob,
 
-    onSuccess: () => {
-      toast.success('Job deleted')
+    onSuccess: (result) => {
+      toast.success(result?.message || 'Job deleted')
 
       queryClient.invalidateQueries({
         queryKey: ['admin-jobs'],
@@ -333,25 +338,27 @@ const Jobs = () => {
 
           </div>
 
-          <Button
-            onClick={() =>
-              setShowProjectSelector(true)
-            }
-            className="
-              bg-orange-600
-              hover:bg-orange-700
-              text-white
-              rounded-2xl
-              shadow-lg shadow-orange-200
-              h-11 px-5
-            "
-          >
-            <Plus className="
-              w-4 h-4 mr-2
-            " />
+          {canCreate && (
+            <Button
+              onClick={() =>
+                setShowProjectSelector(true)
+              }
+              className="
+                bg-orange-600
+                hover:bg-orange-700
+                text-white
+                rounded-2xl
+                shadow-lg shadow-orange-200
+                h-11 px-5
+              "
+            >
+              <Plus className="
+                w-4 h-4 mr-2
+              " />
 
-            Create Job
-          </Button>
+              Create Job
+            </Button>
+          )}
 
         </div>
 
@@ -560,6 +567,12 @@ const Jobs = () => {
                             {job.postCode}
                           </p>
 
+                          {job.isSoftDeleted && (
+                            <Badge className="mt-2 bg-amber-50 text-amber-700 border border-amber-200">
+                              Removed by employee
+                            </Badge>
+                          )}
+
                         </div>
                       </div>
                     </td>
@@ -660,7 +673,7 @@ const Jobs = () => {
                         {/* VIEW / EDIT */}
                         <button
                           onClick={() => {
-                            if (isDraftJob(job)) {
+                            if (isDraftJob(job) && canEdit) {
                               openDraftJob(job, 'review')
                               return
                             }
@@ -668,13 +681,13 @@ const Jobs = () => {
                               navigate(`/jobs/${job._id}`)
                             }
                           }}
-                          disabled={!isDraftJob(job) && !isPublicJob(job)}
+                          disabled={(isDraftJob(job) && !canEdit) || (!isDraftJob(job) && !isPublicJob(job))}
                           title={
-                            isDraftJob(job)
+                            isDraftJob(job) && canEdit
                               ? 'Edit draft job'
                               : isPublicJob(job)
                                 ? 'View public job'
-                                : 'Public view is not available'
+                                : 'Edit permission is required'
                           }
                           className="
                             w-9 h-9 rounded-xl
@@ -697,7 +710,7 @@ const Jobs = () => {
                         </button>
 
                         {/* PUBLISH */}
-                        {isDraftJob(job) && (
+                        {isDraftJob(job) && canPublish && (
                           <button
                             onClick={() =>
                               handlePublish(job)
@@ -724,7 +737,7 @@ const Jobs = () => {
                         )}
 
                         {/* CLOSE */}
-                        {(job.status ===
+                        {canEdit && (job.status ===
                           'active' ||
                           job.status ===
                             'published') && (
@@ -747,22 +760,24 @@ const Jobs = () => {
                         )}
 
                         {/* DELETE */}
-                        <button
-                          onClick={() =>
-                            handleDelete(job)
-                          }
-                          className="
-                            w-9 h-9 rounded-xl
-                            hover:bg-red-50
-                            text-red-600
-                            flex items-center justify-center
-                            transition-all
-                          "
-                        >
-                          <Trash2 className="
-                            w-4 h-4
-                          " />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() =>
+                              handleDelete(job)
+                            }
+                            className="
+                              w-9 h-9 rounded-xl
+                              hover:bg-red-50
+                              text-red-600
+                              flex items-center justify-center
+                              transition-all
+                            "
+                          >
+                            <Trash2 className="
+                              w-4 h-4
+                            " />
+                          </button>
+                        )}
 
                       </div>
                     </td>
@@ -958,8 +973,12 @@ const Jobs = () => {
         onClose={() => setDeleteModal({ isOpen: false, job: null })}
         onConfirm={confirmDelete}
         title="Delete Job"
-        message={`Are you sure you want to permanently delete "${deleteModal.job?.title}"? All related data will be removed.`}
-        requireType={isSuperAdminUser(user)}
+        message={
+          isPrivilegedDelete
+            ? `Are you sure you want to permanently delete "${deleteModal.job?.title}"? All related data will be removed.`
+            : `Remove "${deleteModal.job?.title}" from the employee portal? Admin/superadmin will still see it and receive a notification.`
+        }
+        requireType={isPrivilegedDelete}
       />
     </AdminLayout>
   )

@@ -3,10 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
-  MapPin,
   Briefcase,
   Bell,
-  Image,
   Link2,
   Plus,
   X,
@@ -17,39 +15,6 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { adminService } from "../../services/admin.service";
-import CustomSelect from "../../components/ui/CustomSelect";
-import BannerImageUpload from "../../components/ui/BannerImageUpload";
-
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-];
 
 const Section = ({ icon: Icon, title, children, action }) => (
   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -68,12 +33,6 @@ const Section = ({ icon: Icon, title, children, action }) => (
 
 const inputCls =
   "w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
-const Label = ({ children, required }) => (
-  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-    {children}
-    {required && <span className="text-red-500 ml-0.5">*</span>}
-  </label>
-);
 
 const CmsCreate = () => {
   const navigate = useNavigate();
@@ -84,6 +43,7 @@ const CmsCreate = () => {
     heroTitle: "",
     heroSubtitle: "",
     bannerImage: "",
+    bannerImageSize: 0,
     featuredJobs: [],
     announcements: [],
     quickLinks: {
@@ -181,6 +141,7 @@ const CmsCreate = () => {
     heroTitle: form.heroTitle,
     heroSubtitle: form.heroSubtitle,
     bannerImage: form.bannerImage,
+    bannerImageSize: form.bannerImageSize,
     featuredJobs: form.featuredJobs.map((j) => j._id),
     announcements: form.announcements,
     quickLinks: form.quickLinks,
@@ -233,53 +194,8 @@ const CmsCreate = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
-            {/* ── LEFT — Form ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
             <div className="min-w-0 space-y-5">
-              {/* State Info */}
-              <Section icon={MapPin} title="State Information">
-                <Label required>Select State</Label>
-                <CustomSelect
-                  value={form.state}
-                  onChange={(val) => set("state", val)}
-                  options={INDIAN_STATES}
-                  placeholder="Choose a state..."
-                />
-              </Section>
-
-              {/* Hero */}
-              <Section icon={Image} title="Hero Configuration">
-                <div className="space-y-4">
-                  <div>
-                    <Label>Hero Title</Label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Government Jobs in Telangana"
-                      value={form.heroTitle}
-                      onChange={(e) => set("heroTitle", e.target.value)}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <Label>Hero Subtitle</Label>
-                    <textarea
-                      rows={3}
-                      placeholder="Enter a brief description to be displayed under the main title..."
-                      value={form.heroSubtitle}
-                      onChange={(e) => set("heroSubtitle", e.target.value)}
-                      className={`${inputCls} resize-none`}
-                    />
-                  </div>
-                  <div>
-                    <Label>Banner Image</Label>
-                    <BannerImageUpload
-                      value={form.bannerImage}
-                      onChange={(url) => set("bannerImage", url)}
-                    />
-                  </div>
-                </div>
-              </Section>
-
               {/* Featured Recruitments */}
               <Section icon={Briefcase} title="Featured Recruitments">
                 <div className="space-y-3">

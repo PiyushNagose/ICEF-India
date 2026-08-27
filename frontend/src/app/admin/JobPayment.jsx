@@ -20,6 +20,15 @@ import {
   Save,
 } from "lucide-react";
 
+/** Today at local midnight */
+const todayDate = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+/** Convert YYYY-MM-DD string to a local midnight Date object */
+const toDate = (s) => s ? new Date(s + 'T00:00:00') : undefined
+
 const FeeInput = ({
   label,
   field,
@@ -160,6 +169,18 @@ const JobPayment = () => {
     }
     if (!config.paymentDeadline) {
       nextErrors.paymentDeadline = "Payment deadline is required"
+    }
+    // Past-date check
+    if (config.paymentDeadline) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const y = today.getFullYear()
+      const m = String(today.getMonth() + 1).padStart(2, '0')
+      const day = String(today.getDate()).padStart(2, '0')
+      const todayISO = `${y}-${m}-${day}`
+      if (config.paymentDeadline < todayISO) {
+        nextErrors.paymentDeadline = "Payment deadline cannot be in the past"
+      }
     }
     const selectedMethods = Object.values(config.paymentMethods || {}).some(Boolean)
     if (!selectedMethods) {
@@ -412,13 +433,13 @@ const JobPayment = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Payment Deadline
+                      Payment Deadline <span className="text-red-500">*</span>
                     </label>
                     <AppDatePicker
                       value={config.paymentDeadline}
                       onChange={(val) => set("paymentDeadline", val)}
                       placeholder="Select payment deadline"
-                      showTimeSelect={true}
+                      minDate={toDate(savedDraft.applicationDeadline) || todayDate()}
                     />
                     {errors.paymentDeadline && (
                       <p className="mt-1 text-xs text-red-500">

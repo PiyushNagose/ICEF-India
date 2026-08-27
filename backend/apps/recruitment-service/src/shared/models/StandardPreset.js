@@ -43,6 +43,9 @@ const standardPresetSchema = new mongoose.Schema(
     active: { type: Boolean, default: true, index: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    isSoftDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

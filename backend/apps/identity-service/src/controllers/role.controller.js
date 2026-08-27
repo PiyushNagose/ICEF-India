@@ -163,6 +163,11 @@ const getPermissionsStructure = asyncHandler(async (req, res) => {
         label: "Activity Logs",
         actions: ["view", "download"],
       },
+      {
+        name: "standardsSettings",
+        label: "Standards Settings",
+        actions: ["create", "view", "edit", "delete"],
+      },
     ],
   };
 

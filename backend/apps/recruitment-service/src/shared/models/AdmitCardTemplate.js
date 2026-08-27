@@ -19,6 +19,11 @@ const admitCardTemplateSchema = new mongoose.Schema(
       required: true,
       default: 'standard'
     },
+    orientation: {
+      type: String,
+      enum: ['portrait', 'landscape'],
+      default: 'portrait'
+    },
     logoUrl: { 
       type: String, 
       trim: true,
