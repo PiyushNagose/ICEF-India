@@ -26,7 +26,7 @@ const PublicLayout = ({ children }) => {
       ? ""
       : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
   const projectSlug = currentProjectSlug || storedProjectSlug;
-  const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/check-status";
+  const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
   const isProjectScopedPage = Boolean(projectMatch);
 
   useEffect(() => {
@@ -141,24 +141,27 @@ const PublicLayout = ({ children }) => {
 
             <nav className="hidden lg:flex h-full items-center gap-10 xl:gap-12 2xl:gap-14">
               {navItems.map((item) => {
-                const active = location.pathname === item.path;
-                const recruitmentActive =
-                  item.path === projectHomePath &&
-                  location.pathname.startsWith(projectHomePath);
+                const isRecruitment = item.label === "Recruitment";
+                const active = isRecruitment
+                  ? (projectSlug &&
+                      location.pathname.startsWith(`/apply/${projectSlug}`)) ||
+                    location.pathname === "/" ||
+                    location.pathname === "/jobs"
+                  : location.pathname === item.path;
 
                 return (
                   <Link
-                    key={item.path}
+                    key={`${item.label}-${item.path}`}
                     to={item.path}
                     className={`relative flex h-full items-center text-[12px] uppercase tracking-[0.14em] font-black transition-all ${
-                      active || recruitmentActive
+                      active
                         ? "text-[#e46a1d]"
                         : "text-[#5f5752] hover:text-[#e46a1d]"
                     }`}
                   >
                     {item.label}
 
-                    {(active || recruitmentActive) && (
+                    {active && (
                       <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-[#e46a1d]" />
                     )}
                   </Link>
@@ -217,7 +220,7 @@ const PublicLayout = ({ children }) => {
             <div className="px-4 py-5 space-y-1">
               {navItems.map((item) => (
                 <Link
-                  key={item.path}
+                  key={`${item.label}-${item.path}`}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block px-4 py-3 rounded-[4px] text-[12px] uppercase tracking-[0.12em] font-black text-[#3f3a36] hover:bg-[#ece5dc]"
