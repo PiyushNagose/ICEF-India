@@ -34,6 +34,16 @@ const withProjectLifecycleStatus = (project) => {
   };
 };
 
+const PROJECT_SORT_FIELDS = new Set([
+  "createdAt",
+  "updatedAt",
+  "startDate",
+  "endDate",
+  "name",
+  "department",
+  "status",
+]);
+
 const isJobAdvertisementConfigured = (job) => {
   const posts = Array.isArray(job?.posts) ? job.posts : [];
   const hasVacancies =
@@ -57,14 +67,14 @@ const isJobAdvertisementConfigured = (job) => {
  */
 const getProjects = asyncHandler(async (req, res) => {
   const {
-    page = 1,
-    limit = 10,
     status,
     department,
     search,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = req.query;
+  const pageNumber = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageLimit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 10), 100);
 
   // Build filter
   const filter = {};
@@ -85,37 +95,73 @@ const getProjects = asyncHandler(async (req, res) => {
 
   // Build sort
   const sort = {};
-  sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+  sort[PROJECT_SORT_FIELDS.has(sortBy) ? sortBy : "createdAt"] =
+    sortOrder === "desc" ? -1 : 1;
 
   // Execute query with pagination
-  const skip = (page - 1) * limit;
+  const skip = (pageNumber - 1) * pageLimit;
   const projects = await Project.find(filter)
     .populate("createdBy", "fullName employeeId")
     .sort(sort)
     .skip(skip)
-    .limit(parseInt(limit));
+    .limit(pageLimit);
 
-  const total = await Project.countDocuments(filter);
+  const projectIds = projects.map((project) => project._id);
+  const jobStatsFilter = { projectId: { $in: projectIds } };
+  if (!isAdminOrSuperAdmin) jobStatsFilter.isSoftDeleted = { $ne: true };
+  const [total, jobStats] = await Promise.all([
+    Project.countDocuments(filter),
+    projectIds.length
+      ? Job.aggregate([
+          { $match: jobStatsFilter },
+          {
+            $group: {
+              _id: "$projectId",
+              totalJobs: { $sum: 1 },
+              jobIds: { $push: "$_id" },
+            },
+          },
+        ])
+      : [],
+  ]);
 
-  // Calculate stats for each project
-  const projectsWithStats = await Promise.all(
-    projects.map(async (project) => {
-      const jobStatsFilter = { projectId: project._id };
-      if (!isAdminOrSuperAdmin) jobStatsFilter.isSoftDeleted = { $ne: true };
-      const jobs = await Job.countDocuments(jobStatsFilter);
-      const applications = await Application.countDocuments({
-        jobId: {
-          $in: await Job.find(jobStatsFilter).distinct("_id"),
-        },
-      });
+  const jobProjectById = new Map();
+  const jobIds = [];
+  jobStats.forEach((row) => {
+    (row.jobIds || []).forEach((jobId) => {
+      jobIds.push(jobId);
+      jobProjectById.set(String(jobId), String(row._id));
+    });
+  });
 
-      return {
-        ...withProjectLifecycleStatus(project),
-        totalJobs: jobs,
-        totalApplicants: applications,
-      };
-    }),
+  const applicationStatsByJob = jobIds.length
+    ? await Application.aggregate([
+        { $match: { jobId: { $in: jobIds } } },
+        { $group: { _id: "$jobId", totalApplicants: { $sum: 1 } } },
+      ])
+    : [];
+
+  const jobStatsByProjectId = new Map(
+    jobStats.map((row) => [String(row._id), row.totalJobs]),
   );
+  const applicationStatsByProjectId = new Map();
+  applicationStatsByJob.forEach((row) => {
+    const projectId = jobProjectById.get(String(row._id));
+    if (!projectId) return;
+    applicationStatsByProjectId.set(
+      projectId,
+      (applicationStatsByProjectId.get(projectId) || 0) + row.totalApplicants,
+    );
+  });
+
+  const projectsWithStats = projects.map((project) => {
+    const projectId = String(project._id);
+    return {
+      ...withProjectLifecycleStatus(project),
+      totalJobs: jobStatsByProjectId.get(projectId) || 0,
+      totalApplicants: applicationStatsByProjectId.get(projectId) || 0,
+    };
+  });
 
   const filteredProjectsWithStats =
     status && status !== "Cancelled"
@@ -126,10 +172,10 @@ const getProjects = asyncHandler(async (req, res) => {
     new ApiResponse(StatusCodes.OK, "Projects fetched successfully", {
       projects: filteredProjectsWithStats,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / pageLimit),
         totalItems: status && status !== "Cancelled" ? filteredProjectsWithStats.length : total,
-        itemsPerPage: parseInt(limit),
+        itemsPerPage: pageLimit,
       },
     }),
   );

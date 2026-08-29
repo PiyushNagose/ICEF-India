@@ -38,6 +38,7 @@ import {
   getJobAvailability,
 } from "../../utils/jobAvailability";
 import { readCmsPreviewDraft } from "../../utils/cmsPreview";
+import { PublicHero3D } from "./PublicPageShell";
 import heroBg from "../../assets/herobg.jpg";
 
 /* ─────────────────────────────────────────────────────────────
@@ -698,7 +699,7 @@ export default function ProjectLanding({ preview = false }) {
         {/* ═══════════════════════════════════════════════════════════
             HERO SECTION
         ═══════════════════════════════════════════════════════════ */}
-        <section className="relative overflow-hidden bg-[#1f1d1b]">
+        <section className="relative overflow-hidden bg-[#1f1d1b] lg:min-h-[calc(100vh-132px)]">
           {/* Background Image with Overlays */}
           <div className="absolute inset-0">
             <img
@@ -710,7 +711,7 @@ export default function ProjectLanding({ preview = false }) {
             <div className="absolute inset-0 bg-black/20" />
           </div>
 
-          <div className="relative mx-auto max-w-[1380px] px-4 py-16 sm:px-6 sm:py-[76px] lg:px-8 lg:py-[84px]">
+          <div className="relative mx-auto flex min-h-[inherit] max-w-[1380px] flex-col justify-center px-4 py-11 sm:px-6 sm:py-[52px] lg:px-8 lg:py-[58px]">
             {/* Trust Badges */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -732,7 +733,7 @@ export default function ProjectLanding({ preview = false }) {
               </span>
             </motion.div>
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-center xl:grid-cols-[minmax(0,1fr)_400px]">
               {/* Left — Title & Description */}
               <div>
                 <motion.p
@@ -750,7 +751,7 @@ export default function ProjectLanding({ preview = false }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.45, delay: 0.12 }}
-                  className="mt-4 max-w-4xl text-[32px] font-black leading-[1.12] text-white sm:text-[40px] lg:text-[48px]"
+                  className="mt-4 max-w-5xl text-[34px] font-black leading-[1.1] text-white [text-wrap:balance] sm:text-[44px] lg:text-[54px] 2xl:text-[56px]"
                 >
                   {cmsPage?.heroTitle || project.name}
                 </motion.h1>
@@ -833,49 +834,22 @@ export default function ProjectLanding({ preview = false }) {
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.45, delay: 0.18 }}
-                className="grid grid-cols-2 gap-3 self-start"
+                className="self-start"
               >
-                {[
-                  {
-                    label: "Total Vacancies",
-                    value: visibleJobs
-                      .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
-                      .toLocaleString("en-IN"),
-                    icon: Users,
-                  },
-                  {
-                    label: "Open Posts",
-                    value: openJobs.length,
-                    icon: CheckCircle2,
-                  },
-                  {
-                    label: "Deadlines",
-                    value: deadlineStatValue,
-                    icon: Calendar,
-                  },
-                  {
-                    label: "Application Fee",
-                    value: visibleJobs.some((j) => fee(j) === 0)
-                      ? "Free for Some"
-                      : "Varies",
-                    icon: IndianRupee,
-                  },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex min-h-[110px] flex-col justify-between rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/60">
-                        {stat.label}
-                      </p>
-                      <stat.icon className="h-5 w-5 text-orange-400" />
-                    </div>
-                    <p className="mt-3 text-[24px] font-black font-mono leading-none text-white">
-                      {stat.value}
-                    </p>
-                  </div>
-                ))}
+                <PublicHero3D
+                  title={cmsPage?.heroTitle || project.name}
+                  subtitle={`${project.department || "Recruitment"} application services for ${project.state || "India"}.`}
+                  stats={[
+                    {
+                      label: "Vacancies",
+                      value: visibleJobs
+                        .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
+                        .toLocaleString("en-IN"),
+                    },
+                    { label: "Open Posts", value: openJobs.length },
+                    { label: "Deadline", value: deadlineStatValue },
+                  ]}
+                />
               </motion.div>
             </div>
           </div>

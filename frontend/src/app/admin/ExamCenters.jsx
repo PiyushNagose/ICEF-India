@@ -7,6 +7,8 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 
@@ -20,6 +22,7 @@ export default function ExamCenters() {
   const canEdit = hasPermission(user, 'admitCards', 'edit')
   const canDelete = hasPermission(user, 'admitCards', 'delete')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, center: null })
   const returnTo = searchParams.get('returnTo')
   const centerWizardPath = (mode) => {
@@ -31,14 +34,16 @@ export default function ExamCenters() {
   }
 
   const { data: centersData, isLoading, isError } = useQuery({
-    queryKey: ['admin-exam-centers', { search }],
-    queryFn: () => adminService.getExamCenters({ search, limit: 50 }),
+    queryKey: ['admin-exam-centers', { search, page }],
+    queryFn: () => adminService.getExamCenters({ search, page, limit: 10 }),
   })
 
   const centers = Array.isArray(centersData)
     ? centersData
     : centersData?.centers || centersData?.data?.centers || centersData?.data || []
   const meta = centersData?.meta || centersData?.data?.meta
+  const totalPages = meta?.totalPages || 1
+  const totalItems = meta?.totalItems || meta?.total || centers.length
   const activeCenters = centers.filter((center) => center.active !== false).length
   const totalCapacity = centers.reduce((sum, center) => sum + Number(center.totalCapacity || 0), 0)
 
@@ -156,12 +161,15 @@ export default function ExamCenters() {
               type="text"
               placeholder="Search centers by name, code or city..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
                   className="h-12 w-full rounded-2xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-gray-950 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
             />
               </div>
               <div className="text-sm font-semibold text-gray-500">
-                Showing <span className="text-gray-950">{meta?.total || centers.length}</span> centers
+                Showing <span className="text-gray-950">{totalItems}</span> centers
               </div>
             </div>
           </CardContent>
@@ -211,8 +219,23 @@ export default function ExamCenters() {
 
         <Card className="overflow-hidden rounded-2xl border-gray-200 shadow-sm">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-600">
+            <AdminTableShell
+              className="rounded-none border-0 shadow-none"
+              footer={
+                !isLoading && !isError && centers.length > 0 ? (
+                  <AdminPagination
+                    page={page}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    pageSize={meta?.itemsPerPage || 10}
+                    itemsOnPage={centers.length}
+                    itemLabel="centers"
+                    onPageChange={setPage}
+                  />
+                ) : null
+              }
+            >
+              <table className="w-full min-w-[1040px] table-fixed text-left text-sm text-gray-600">
                 <thead className="border-b border-gray-100 bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-[0.14em] text-gray-500">Center Code</th>
@@ -225,11 +248,7 @@ export default function ExamCenters() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        Loading centers...
-                      </td>
-                    </tr>
+                    <AdminTableStatusRow colSpan={6} type="loading" title="Loading centers..." />
                   ) : isError ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-red-600">
@@ -241,15 +260,7 @@ export default function ExamCenters() {
                       </td>
                     </tr>
                   ) : centers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        <div className="flex flex-col items-center justify-center">
-                          <Building2 className="w-8 h-8 text-gray-300 mb-2" />
-                          <p>No exam centers found.</p>
-                          <p className="text-xs mt-1">Try adjusting your search or add a new center.</p>
-                        </div>
-                      </td>
-                    </tr>
+                    <AdminTableStatusRow colSpan={6} icon={Building2} title="No exam centers found" description="Try adjusting your search or add a new center." />
                   ) : (
                     centers.map((center) => (
                       <tr key={center._id} className="hover:bg-gray-50/50 transition-colors">
@@ -274,7 +285,7 @@ export default function ExamCenters() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${
+                          <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold ${
                             center.isSoftDeleted
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : center.active !== false
@@ -331,7 +342,7 @@ export default function ExamCenters() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </AdminTableShell>
           </CardContent>
         </Card>
 

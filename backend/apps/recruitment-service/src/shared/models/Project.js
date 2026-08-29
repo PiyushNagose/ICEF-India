@@ -55,6 +55,9 @@ const projectSchema = new mongoose.Schema(
 projectSchema.index({ status: 1 });
 projectSchema.index({ department: 1 });
 projectSchema.index({ state: 1 });
+projectSchema.index({ isSoftDeleted: 1, createdAt: -1 });
+projectSchema.index({ status: 1, isSoftDeleted: 1, createdAt: -1 });
+projectSchema.index({ department: 1, isSoftDeleted: 1, createdAt: -1 });
 
 // Auto-generate slug from name if not provided
 projectSchema.pre("validate", function syncProjectClosure(next) {

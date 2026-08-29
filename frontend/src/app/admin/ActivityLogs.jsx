@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, Briefcase, Settings, Headphones, Users,
-  ChevronLeft, ChevronRight, Download, Filter,
+  Download, Filter,
   Clock, UserCheck, Briefcase as BriefcaseIcon, AlertCircle,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
@@ -11,6 +11,8 @@ import { adminService } from '../../services/admin.service'
 import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
 import CustomSelect from '../../components/ui/CustomSelect'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 
 // ── Action badge config ───────────────────────────────────
 const ACTION_CFG = {
@@ -39,62 +41,6 @@ const Avatar = ({ name }) => {
   return (
     <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
       {initials}
-    </div>
-  )
-}
-
-// Numbered pagination
-const Pagination = ({ page, totalPages, total, showing, onPage }) => {
-  const pages = []
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i)
-  } else {
-    pages.push(1)
-    if (page > 3) pages.push('...')
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
-    if (page < totalPages - 2) pages.push('...')
-    pages.push(totalPages)
-  }
-
-  return (
-    <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-      <p className="text-sm text-gray-500">
-        Showing <span className="font-medium text-gray-700">{showing}</span> of{' '}
-        <span className="font-medium text-gray-700">{Number(total).toLocaleString('en-IN')}</span> entries
-      </p>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        {pages.map((p, i) =>
-          p === '...' ? (
-            <span key={`dot-${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">...</span>
-          ) : (
-            <button
-              key={p}
-              onClick={() => onPage(p)}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                p === page
-                  ? 'bg-orange-600 text-white shadow-sm'
-                  : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {p}
-            </button>
-          )
-        )}
-        <button
-          onClick={() => onPage(page + 1)}
-          disabled={page >= totalPages}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   )
 }
@@ -279,8 +225,21 @@ const ActivityLogs = () => {
         </div>
 
         {/* ── Table ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="admin-data-scroll hover-scroll overflow-auto">
+        <AdminTableShell
+          footer={
+            !isLoading && logs.length > 0 ? (
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={meta.itemsPerPage || 10}
+                itemsOnPage={logs.length}
+                itemLabel="entries"
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        >
             <table className="w-full min-w-[960px] table-fixed">
               <colgroup>
                 <col className="w-[14%]" />
@@ -300,10 +259,10 @@ const ActivityLogs = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {isLoading && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">Loading activity logs...</td></tr>
+                  <AdminTableStatusRow colSpan={5} type="loading" title="Loading activity logs..." />
                 )}
                 {!isLoading && logs.length === 0 && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">No activity logs found.</td></tr>
+                  <AdminTableStatusRow colSpan={5} icon={Clock} title="No activity logs found" description="Audit entries will appear as admins work." />
                 )}
                 {logs.map((log) => {
                   const ModuleIcon = MODULE_ICONS[log.module] || FileText
@@ -330,7 +289,7 @@ const ActivityLogs = () => {
                         </div>
                       </td>
                       <td className="py-4 px-5 align-middle text-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
+                        <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '-'}
                         </span>
                       </td>
@@ -352,16 +311,7 @@ const ActivityLogs = () => {
                 })}
               </tbody>
             </table>
-          </div>
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            showing={logs.length}
-            onPage={setPage}
-          />
-        </div>
+        </AdminTableShell>
 
       </div>
     </AdminLayout>

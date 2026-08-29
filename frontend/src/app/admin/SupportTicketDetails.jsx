@@ -226,7 +226,7 @@ const SupportTicketDetails = () => {
                     </h2>
                   </div>
                   {isCorrectionTicket && (
-                    <span className="inline-flex w-fit items-center rounded-full bg-orange-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-orange-700">
+                    <span className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-orange-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-orange-700">
                       Candidate Correction
                     </span>
                   )}
@@ -594,7 +594,7 @@ const SupportTicketDetails = () => {
                           {linkedApplication.appliedPosts.map((post, index) => (
                             <span
                               key={`${post.postCode || post.title}-${index}`}
-                              className="rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700"
+                              className="whitespace-nowrap rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700"
                             >
                               {post.title || post.designation}
                               {post.postCode ? ` - ${post.postCode}` : ""}

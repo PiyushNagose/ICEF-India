@@ -1033,7 +1033,7 @@ const JobReview = () => {
                             {section.fields.map((field, fieldIndex) => (
                               <span
                                 key={`${field.label}-${fieldIndex}`}
-                                className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
+                                className="whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
                               >
                                 {field.label} - {field.type}
                                 {field.required ? " - required" : ""}
@@ -1077,11 +1077,11 @@ const JobReview = () => {
                           <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                           <span className="font-medium">{doc.name}</span>
                           {doc.required ? (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                            <span className="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                               Required
                             </span>
                           ) : (
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                               Optional
                             </span>
                           )}

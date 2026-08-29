@@ -29,6 +29,8 @@ const Badge = ({
         rounded-full
         text-[11px]
         font-semibold
+        whitespace-nowrap
+        leading-none
         tracking-wide
         `,
         variants[variant],

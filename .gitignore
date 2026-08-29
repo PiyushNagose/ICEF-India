@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+dist-ssr/
+
+# Logs and editor files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.vscode/
+.idea/
+.DS_Store
+
+# Runtime-generated recruitment service artifacts
+backend/apps/recruitment-service/tmp/
+backend/apps/recruitment-service/uploads/
+

@@ -77,8 +77,8 @@ app.use(
 );
 app.use(compression());
 app.use(morgan(env.isDevelopment ? "dev" : "combined"));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: env.URL_ENCODED_BODY_LIMIT }));
 app.use(cookieParser());
 
 // ── Swagger ───────────────────────────────────────────────────

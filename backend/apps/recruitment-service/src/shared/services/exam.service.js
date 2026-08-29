@@ -41,6 +41,7 @@ const DEFAULT_INSTRUCTIONS = [
 const buildTemplateConfig = (template) => ({
   templateId: template._id,
   baseLayout: template.baseLayout || "standard",
+  orientation: template.orientation || "portrait",
   logoUrl: template.logoUrl || "",
   watermarkUrl: template.watermarkUrl || "",
   primaryColor: template.primaryColor || "#f97316",
@@ -59,6 +60,7 @@ const TEMPLATE_DEFAULTS = {
   admit_card: {
     name: "Standard",
     baseLayout: "standard",
+    orientation: "portrait",
     primaryColor: "#f97316",
     organizationName: "Jharkhand Staff Selection Commission",
     organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
@@ -73,6 +75,7 @@ const TEMPLATE_DEFAULTS = {
   attendance_sheet: {
     name: "Standard Attendance Sheet",
     baseLayout: "standard",
+    orientation: "portrait",
     primaryColor: "#f97316",
     organizationName: "Jharkhand Staff Selection Commission",
     organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
@@ -98,6 +101,7 @@ const resolveTemplateConfig = async (templateId, templateType = "admit_card") =>
         name: fallback.name,
         templateType,
         baseLayout: fallback.baseLayout,
+        orientation: fallback.orientation,
         primaryColor: fallback.primaryColor,
         organizationName: fallback.organizationName,
         organizationNameLocal: fallback.organizationNameLocal,
@@ -145,6 +149,7 @@ const mergeTemplateDefaults = (templateType, config = {}) => {
     ...toPlainTemplateConfig(config),
     primaryColor: config.primaryColor || fallback.primaryColor || "#f97316",
     baseLayout: config.baseLayout || fallback.baseLayout || "standard",
+    orientation: config.orientation || fallback.orientation || "portrait",
     instructions: config.instructions || fallback.instructions || "",
   };
 
@@ -1975,6 +1980,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const signatureUrl = getDocumentUrl(application, "signature");
   const tplConfig = await resolveScheduleTemplateConfig(schedule, "admit_card");
   const baseLayout = tplConfig.baseLayout || "standard";
+  const isLandscape = tplConfig.orientation === "landscape";
   const logoUrl = tplConfig.logoUrl || schedule.admitCardLogoUrl;
   const watermarkUrl = tplConfig.watermarkUrl;
   const primaryColor = tplConfig.primaryColor || "#f97316";
@@ -2047,12 +2053,12 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   <meta charset="utf-8" />
   <title>Admit Card ${escapeHtml(admitCard.rollNumber)}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4 ${isLandscape ? "landscape" : "portrait"}; margin: 0; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 28px 38px 24px; page-break-after: always; break-after: page; background: #fff; }
+    .page { width: ${isLandscape ? "297mm" : "210mm"}; min-height: ${isLandscape ? "210mm" : "297mm"}; margin: 0 auto; padding: 28px 38px 24px; page-break-after: always; break-after: page; background: #fff; }
     .page:last-of-type { page-break-after: auto; }
-    .sheet { width: 574px; margin: 0 auto; }
+    .sheet { width: ${isLandscape ? "900px" : "574px"}; margin: 0 auto; }
     .header { text-align: center; line-height: 1.02; margin-bottom: 5px; }
     .seal { width: 42px; height: 42px; border: 2px solid #75a887; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; color: #1f6b43; font-family: "Times New Roman", Georgia, serif; font-size: 9px; font-weight: 700; box-shadow: inset 0 0 0 3px #eef7f1, inset 0 0 0 5px #c7ded0; }
     .commission { font-family: "Times New Roman", Georgia, serif; font-size: 22px; font-weight: 700; line-height: 1.05; }
@@ -2083,7 +2089,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .spacer { height: 7px; }
     .controller { margin-top: 47px; text-align: right; padding-right: 78px; font-size: 12px; font-weight: 700; }
     .instructions-page { padding-top: 29px; }
-    .instruction-sheet { width: 574px; margin: 0 auto; }
+    .instruction-sheet { width: ${isLandscape ? "900px" : "574px"}; margin: 0 auto; }
     .instruction-box { border: 1px solid ${primaryColor}; min-height: 627px; }
     .note { border-bottom: 1px solid ${primaryColor}; padding: 7px 8px; font-size: 10px; font-weight: 700; line-height: 1.25; text-align: justify; }
     .instruction-head { border-bottom: 1px solid ${primaryColor}; text-align: center; padding: 8px; font-size: 14px; font-weight: 700; line-height: 1.15; }
@@ -2170,6 +2176,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       <tr><td class="label">Reporting Time</td><td>${escapeHtml(schedule.reportingTime)}</td></tr>
       ${schedule.gateClosingTime ? `<tr><td class="label">Gate Closing Time</td><td>${escapeHtml(schedule.gateClosingTime)}</td></tr>` : ""}
       <tr><td class="label">Exam Time</td><td>${escapeHtml(schedule.examStartTime)}${schedule.examEndTime ? ` to ${escapeHtml(schedule.examEndTime)}` : ""}</td></tr>
+    </table>
 
     <div class="controller">${escapeHtml(controllerTitle)}</div>
     </div>
@@ -2519,6 +2526,7 @@ const generateCenterTemplate = async () => {
       "Center Name",
       "Address Line 1",
       "Address Line 2",
+      "Landmark",
       "City",
       "District",
       "State",
@@ -2531,13 +2539,19 @@ const generateCenterTemplate = async () => {
       "Block",
       "Floor",
       "Room Capacity",
+      "Room Usable Capacity",
+      "Seat Prefix",
       "Wheelchair Access",
+      "Ground Floor",
+      "Center Active",
+      "Room Active",
     ],
     [
       "CN-001",
       "Sample Exam Center",
       "123 Main Street",
       "",
+      "Near Main Gate",
       "Ranchi",
       "Ranchi",
       "Jharkhand",
@@ -2550,6 +2564,11 @@ const generateCenterTemplate = async () => {
       "A",
       "1st Floor",
       "50",
+      "48",
+      "A",
+      "TRUE",
+      "FALSE",
+      "TRUE",
       "TRUE",
     ],
   ]);
@@ -2557,6 +2576,29 @@ const generateCenterTemplate = async () => {
   xlsx.utils.book_append_sheet(wb, ws, "Centers and Rooms");
   const buffer = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
   return { buffer, fileName: "exam-centers-template.xlsx" };
+};
+
+const getBulkCell = (row, labels) => {
+  for (const label of labels) {
+    if (row[label] !== undefined && row[label] !== null && row[label] !== "") {
+      return row[label];
+    }
+  }
+  return "";
+};
+
+const parseBulkBoolean = (value, defaultValue = false) => {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "yes", "y", "1", "active"].includes(normalized)) return true;
+  if (["false", "no", "n", "0", "inactive"].includes(normalized)) return false;
+  return defaultValue;
+};
+
+const parseBulkNumber = (value) => {
+  if (value === undefined || value === null || value === "") return 0;
+  const number = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(number) ? number : 0;
 };
 
 const createCenterWithRooms = async (payload, adminId) => {
@@ -2641,7 +2683,9 @@ const bulkUploadCenters = async (fileBuffer, fileName, adminId) => {
   }
 
   const sheetName = workbook.SheetNames[0];
-  const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+  const rows = xlsx.utils
+    .sheet_to_json(workbook.Sheets[sheetName], { defval: "", raw: false })
+    .map((row, index) => ({ ...row, __rowNumber: index + 2 }));
 
   if (!rows || rows.length === 0) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "The uploaded file is empty.");
@@ -2651,42 +2695,61 @@ const bulkUploadCenters = async (fileBuffer, fileName, adminId) => {
   const centersMap = new Map();
 
   for (const row of rows) {
-    const centerCode = String(row["Center Code"] || "").trim().toUpperCase();
-    if (!centerCode) continue;
+    const centerCode = normalizeCode(String(getBulkCell(row, ["Center Code", "CenterCode", "Code"]) || ""));
+    if (!centerCode) {
+      continue;
+    }
 
     if (!centersMap.has(centerCode)) {
       centersMap.set(centerCode, {
         centerDetails: {
           centerCode,
-          name: row["Center Name"] || "",
-          addressLine1: row["Address Line 1"] || "",
-          addressLine2: row["Address Line 2"] || "",
-          city: row["City"] || "",
-          district: row["District"] || "",
-          state: row["State"] || "",
-          pincode: String(row["Pincode"] || ""),
+          name: String(getBulkCell(row, ["Center Name", "Name"]) || "").trim(),
+          addressLine1: String(getBulkCell(row, ["Address Line 1", "Address 1", "Address"]) || "").trim(),
+          addressLine2: String(getBulkCell(row, ["Address Line 2", "Address 2"]) || "").trim(),
+          landmark: String(getBulkCell(row, ["Landmark"]) || "").trim(),
+          city: String(getBulkCell(row, ["City"]) || "").trim(),
+          district: String(getBulkCell(row, ["District"]) || "").trim(),
+          state: String(getBulkCell(row, ["State"]) || "").trim(),
+          pincode: String(getBulkCell(row, ["Pincode", "Pin Code", "PIN"]) || "").replace(/\D/g, "").trim(),
           contact: {
-            name: row["Contact Name"] || "",
-            phone: String(row["Contact Phone"] || ""),
-            email: row["Contact Email"] || "",
-          }
+            name: String(getBulkCell(row, ["Contact Name", "Coordinator Name"]) || "").trim(),
+            phone: String(getBulkCell(row, ["Contact Phone", "Contact Mobile", "Mobile"]) || "").trim(),
+            email: String(getBulkCell(row, ["Contact Email", "Email"]) || "").trim().toLowerCase(),
+          },
+          active: parseBulkBoolean(getBulkCell(row, ["Center Active", "Active"]), true),
         },
-        rooms: []
+        rows: [],
+        rooms: [],
       });
     }
 
-    const roomCode = String(row["Room Code"] || "").trim().toUpperCase();
+    const centerEntry = centersMap.get(centerCode);
+    centerEntry.rows.push(row.__rowNumber);
+
+    const roomCode = normalizeCode(String(getBulkCell(row, ["Room Code", "RoomCode"]) || ""));
     if (roomCode) {
-      centersMap.get(centerCode).rooms.push({
+      const capacity = parseBulkNumber(getBulkCell(row, ["Room Capacity", "Capacity"]));
+      const usableCapacity =
+        parseBulkNumber(getBulkCell(row, ["Room Usable Capacity", "Usable Capacity"])) ||
+        capacity;
+      centerEntry.rooms.push({
+        rowNumber: row.__rowNumber,
         roomCode,
-        roomName: row["Room Name"] || roomCode,
-        block: row["Block"] || "",
-        floor: String(row["Floor"] || ""),
-        capacity: parseInt(row["Room Capacity"]) || 0,
+        roomName: String(getBulkCell(row, ["Room Name", "Room"]) || roomCode).trim(),
+        block: String(getBulkCell(row, ["Block"]) || "").trim(),
+        floor: String(getBulkCell(row, ["Floor"]) || "").trim(),
+        capacity,
+        usableCapacity,
+        seatPrefix: String(getBulkCell(row, ["Seat Prefix", "SeatPrefix"]) || "").trim(),
+        active: parseBulkBoolean(getBulkCell(row, ["Room Active"]), true),
         accessibility: {
-          wheelchairAccess: String(row["Wheelchair Access"]).toLowerCase() === "true" || String(row["Wheelchair Access"]).toLowerCase() === "yes",
-          groundFloor: String(row["Floor"]).toLowerCase().includes("ground") || String(row["Floor"]).trim() === "0",
-        }
+          wheelchairAccess: parseBulkBoolean(getBulkCell(row, ["Wheelchair Access", "Wheelchair"]), false),
+          groundFloor:
+            parseBulkBoolean(getBulkCell(row, ["Ground Floor"]), false) ||
+            String(getBulkCell(row, ["Floor"]) || "").toLowerCase().includes("ground") ||
+            String(getBulkCell(row, ["Floor"]) || "").trim() === "0",
+        },
       });
     }
   }
@@ -2699,8 +2762,11 @@ const bulkUploadCenters = async (fileBuffer, fileName, adminId) => {
   const summary = {
     totalRows: rows.length,
     createdCenters: 0,
+    updatedCenters: 0,
     createdRooms: 0,
-    errors: []
+    updatedRooms: 0,
+    skippedRows: rows.length - Array.from(centersMap.values()).reduce((sum, item) => sum + item.rows.length, 0),
+    errors: [],
   };
 
   try {
@@ -2711,43 +2777,71 @@ const bulkUploadCenters = async (fileBuffer, fileName, adminId) => {
         // Validate required center fields
         const { name, addressLine1, city, district, state, pincode } = data.centerDetails;
         if (!name || !addressLine1 || !city || !district || !state || !pincode) {
-          throw new Error(`Missing required center details for Center Code: ${centerCode}`);
+          throw new Error(`Missing required center details for Center Code: ${centerCode}. Required: Center Name, Address Line 1, City, District, State, Pincode.`);
+        }
+        if (!/^\d{4,12}$/.test(String(pincode))) {
+          throw new Error(`Invalid pincode for Center Code: ${centerCode}.`);
         }
 
-        // Upsert Center
+        // Upsert center master details so re-uploading the template corrects inventory.
         let center = await ExamCenter.findOne({ centerCode }).session(session);
         if (!center) {
-          [center] = await ExamCenter.create([{ ...data.centerDetails, createdBy: adminId }], { session });
+          [center] = await ExamCenter.create([{ ...data.centerDetails, createdBy: adminId, updatedBy: adminId }], { session });
           summary.createdCenters++;
         } else {
-          center.updatedBy = adminId;
+          Object.assign(center, data.centerDetails, { updatedBy: adminId });
+          await center.save({ session });
+          summary.updatedCenters++;
         }
 
-        let addedCapacity = 0;
+        const roomCodesInFile = new Set();
         // Process rooms
         for (const roomData of data.rooms) {
+          const { rowNumber, ...roomPayload } = roomData;
+          if (roomCodesInFile.has(roomPayload.roomCode)) {
+            throw new Error(`Duplicate Room Code ${roomPayload.roomCode} for Center ${centerCode} in uploaded file.`);
+          }
+          roomCodesInFile.add(roomPayload.roomCode);
+
           if (!roomData.capacity || roomData.capacity <= 0) {
-            throw new Error(`Invalid capacity for Room Code: ${roomData.roomCode} in Center: ${centerCode}`);
+            throw new Error(`Row ${rowNumber}: Invalid capacity for Room Code ${roomData.roomCode} in Center ${centerCode}.`);
+          }
+          if (!roomData.usableCapacity || roomData.usableCapacity <= 0) {
+            throw new Error(`Row ${rowNumber}: Invalid usable capacity for Room Code ${roomData.roomCode} in Center ${centerCode}.`);
+          }
+          if (roomData.usableCapacity > roomData.capacity) {
+            throw new Error(`Row ${rowNumber}: Usable capacity cannot exceed room capacity for Room Code ${roomData.roomCode}.`);
           }
 
           let room = await ExamRoom.findOne({ centerId: center._id, roomCode: roomData.roomCode }).session(session);
           if (!room) {
-            await ExamRoom.create([{ ...roomData, centerId: center._id, createdBy: adminId }], { session });
+            await ExamRoom.create([{ ...roomPayload, centerId: center._id, createdBy: adminId, updatedBy: adminId }], { session });
             summary.createdRooms++;
-            addedCapacity += roomData.capacity;
+          } else {
+            Object.assign(room, roomPayload, { updatedBy: adminId });
+            await room.save({ session });
+            summary.updatedRooms++;
           }
         }
 
-        if (addedCapacity > 0) {
-          center.totalCapacity = (center.totalCapacity || 0) + addedCapacity;
-          await center.save({ session });
-        }
+        const capacityResult = await ExamRoom.aggregate([
+          { $match: { centerId: center._id, active: true } },
+          { $group: { _id: "$centerId", total: { $sum: "$usableCapacity" } } },
+        ]).session(session);
+        center.totalCapacity = capacityResult[0]?.total || 0;
+        await center.save({ session });
       } catch (err) {
-        summary.errors.push(`Row processing error for ${centerCode}: ${err.message}`);
+        summary.errors.push(`Center ${centerCode} rows ${data.rows.join(", ")}: ${err.message}`);
       }
     }
 
-    if (summary.errors.length > 0 && summary.createdCenters === 0 && summary.createdRooms === 0) {
+    if (
+      summary.errors.length > 0 &&
+      summary.createdCenters === 0 &&
+      summary.updatedCenters === 0 &&
+      summary.createdRooms === 0 &&
+      summary.updatedRooms === 0
+    ) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "Failed to process any records due to errors: " + summary.errors.join("; "));
     }
 

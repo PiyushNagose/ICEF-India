@@ -49,5 +49,17 @@ const paymentSchema = new mongoose.Schema(
 paymentSchema.index({ candidateId: 1 });
 paymentSchema.index({ applicationId: 1 });
 paymentSchema.index({ status: 1 });
+paymentSchema.index({ candidateId: 1, createdAt: -1 });
+paymentSchema.index({ status: 1, createdAt: -1 });
+paymentSchema.index({ gateway: 1, status: 1, createdAt: -1 });
+paymentSchema.index(
+  { gatewayPaymentId: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { gatewayPaymentId: { $type: "string" } },
+  },
+);
+paymentSchema.index({ applicationId: 1, candidateId: 1, status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Payment", paymentSchema);

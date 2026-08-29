@@ -285,5 +285,8 @@ jobSchema.index({ status: 1 });
 jobSchema.index({ department: 1 });
 jobSchema.index({ applicationDeadline: 1 });
 jobSchema.index({ resultDate: 1 });
+jobSchema.index({ status: 1, isSoftDeleted: 1, publishedAt: -1 });
+jobSchema.index({ projectId: 1, status: 1, isSoftDeleted: 1, createdAt: -1 });
+jobSchema.index({ status: 1, isSoftDeleted: 1, applicationDeadline: 1 });
 
 module.exports = mongoose.model("Job", jobSchema);

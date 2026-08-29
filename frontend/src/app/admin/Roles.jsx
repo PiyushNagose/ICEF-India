@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Shield, Edit, Trash2, Eye, Users, Activity, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
@@ -45,7 +47,7 @@ const AvatarStack = ({ count }) => {
         ))}
       </div>
       {extra > 0 && (
-        <span className="ml-1.5 text-xs font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full">+{extra}</span>
+        <span className="ml-1.5 whitespace-nowrap text-xs font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full">+{extra}</span>
       )}
     </div>
   )
@@ -145,7 +147,7 @@ const Roles = () => {
               <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
                 <Shield className="w-5 h-5 text-orange-500" />
               </div>
-              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+              <span className="whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
             </div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Active Roles</p>
             <p className="text-3xl font-bold text-gray-900">{String(totalRoles).padStart(2, '0')}</p>
@@ -181,7 +183,22 @@ const Roles = () => {
             <h3 className="font-semibold text-gray-900 text-base">Access Control List</h3>
           </div>
 
-          <div className="admin-data-scroll hover-scroll overflow-auto">
+          <AdminTableShell
+            className="rounded-none border-0 shadow-none"
+            footer={
+              totalRoles > 0 ? (
+                <AdminPagination
+                  page={page}
+                  totalPages={totalPages}
+                  totalItems={totalRoles}
+                  pageSize={LIMIT}
+                  itemsOnPage={paged.length}
+                  itemLabel="active roles"
+                  onPageChange={setPage}
+                />
+              ) : null
+            }
+          >
             <table className="w-full min-w-[960px] table-fixed">
               <colgroup>
                 <col className="w-[22%]" />
@@ -199,10 +216,10 @@ const Roles = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {isLoading && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">Loading roles...</td></tr>
+                  <AdminTableStatusRow colSpan={5} type="loading" title="Loading roles..." />
                 )}
                 {!isLoading && roles.length === 0 && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">No roles found.</td></tr>
+                  <AdminTableStatusRow colSpan={5} icon={Shield} title="No roles found" description="Create a role to assign permissions." />
                 )}
                 {paged.map(role => {
                   const rtype = getRoleType(role)
@@ -214,7 +231,7 @@ const Roles = () => {
                           <div className={`w-1 h-10 rounded-full ${rtype.bar} flex-shrink-0`} />
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">{role.roleName}</p>
-                            <span className={`text-xs font-bold uppercase tracking-normal px-1.5 py-0.5 rounded ${rtype.bg} ${rtype.text}`}>
+                            <span className={`whitespace-nowrap text-xs font-bold uppercase tracking-normal px-1.5 py-0.5 rounded ${rtype.bg} ${rtype.text}`}>
                               {rtype.label}
                             </span>
                           </div>
@@ -282,28 +299,7 @@ const Roles = () => {
                 })}
               </tbody>
             </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {paged.length} of {totalRoles} active roles
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => p - 1)} disabled={page <= 1}
-                className="px-4 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}
-                className="px-4 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          </AdminTableShell>
         </div>
 
         {/* Permission Audit Banner */}

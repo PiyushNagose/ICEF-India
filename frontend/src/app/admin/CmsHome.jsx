@@ -22,6 +22,7 @@ import AdminLayout from "../../components/layouts/AdminLayout";
 import { adminService } from "../../services/admin.service";
 import { hasPermission, useAuth, isSuperAdminUser } from "../../hooks/useAuth";
 import ConfirmDeleteModal from "../../components/ui/ConfirmDeleteModal";
+import { AdminTableShell } from "../../components/ui/AdminTable";
 
 const STATUS_CFG = {
   published: {
@@ -330,7 +331,7 @@ const CmsHome = () => {
           )}
 
           {!isLoading && filtered.length > 0 && (
-            <div className="admin-data-scroll hover-scroll overflow-auto">
+            <AdminTableShell className="rounded-none border-0 shadow-none">
               <table className="w-full min-w-[920px] table-fixed">
                 <colgroup>
                   <col className="w-[24%]" />
@@ -394,7 +395,7 @@ const CmsHome = () => {
                         </td>
                         <td className="py-4 px-5 text-center">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}
+                            className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}
@@ -446,7 +447,7 @@ const CmsHome = () => {
                   })}
                 </tbody>
               </table>
-            </div>
+            </AdminTableShell>
           )}
         </div>
 

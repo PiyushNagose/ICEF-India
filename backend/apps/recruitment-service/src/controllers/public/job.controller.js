@@ -11,12 +11,21 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const getPublicListingFilter = (now = new Date()) => ({
   status: "active",
+  isSoftDeleted: { $ne: true },
   $or: [
     { applicationDeadline: { $exists: false } },
     { applicationDeadline: null },
     { applicationDeadline: { $gte: startOfDay(now) } },
   ],
 });
+
+const JOB_SORT_FIELDS = new Set([
+  "publishedAt",
+  "applicationDeadline",
+  "applicationStartDate",
+  "totalPosts",
+  "title",
+]);
 
 const getPublishedProjectIds = async (projectQuery = {}) =>
   Project.find({
@@ -132,12 +141,16 @@ const getJobs = asyncHandler(async (req, res) => {
     });
   }
 
+  const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+  const pageLimit = Math.min(50, Math.max(1, parseInt(limit, 10) || 12));
+  const safeSortBy = JOB_SORT_FIELDS.has(sortBy) ? sortBy : "publishedAt";
+
   // Build sort
   const sort = {};
-  sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+  sort[safeSortBy] = sortOrder === "desc" ? -1 : 1;
 
   // Execute query with pagination
-  const skip = (page - 1) * limit;
+  const skip = (pageNumber - 1) * pageLimit;
   const jobs = await Job.find(filter)
     .populate("projectId", "name department state publicSlug")
     .select(
@@ -145,36 +158,46 @@ const getJobs = asyncHandler(async (req, res) => {
     )
     .sort(sort)
     .skip(skip)
-    .limit(parseInt(limit));
+    .limit(pageLimit)
+    .lean();
 
-  const total = await Job.countDocuments(filter);
+  const [total, applicationCounts] = await Promise.all([
+    Job.countDocuments(filter),
+    jobs.length
+      ? Application.aggregate([
+          {
+            $match: {
+              jobId: { $in: jobs.map((job) => job._id) },
+              status: { $ne: "draft" },
+            },
+          },
+          { $group: { _id: "$jobId", total: { $sum: 1 } } },
+        ])
+      : [],
+  ]);
 
-  // Get application counts for each job
-  const jobsWithStats = await Promise.all(
-    jobs.map(async (job) => {
-      const applicationCount = await Application.countDocuments({
-        jobId: job._id,
-        status: { $ne: "draft" },
-      });
-
-      return {
-        ...job.toObject(),
-        totalApplicants: applicationCount,
-        availability: buildAvailability(job, now),
-        daysLeft: buildAvailability(job, now).daysLeft,
-        isApplicationOpen: buildAvailability(job, now).canApply,
-      };
-    }),
+  const countByJobId = new Map(
+    applicationCounts.map((row) => [String(row._id), row.total]),
   );
+  const jobsWithStats = jobs.map((job) => {
+    const availability = buildAvailability(job, now);
+    return {
+      ...job,
+      totalApplicants: countByJobId.get(String(job._id)) || 0,
+      availability,
+      daysLeft: availability.daysLeft,
+      isApplicationOpen: availability.canApply,
+    };
+  });
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Jobs fetched successfully", {
       jobs: jobsWithStats,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / pageLimit),
         totalItems: total,
-        itemsPerPage: parseInt(limit),
+        itemsPerPage: pageLimit,
       },
     }),
   );
@@ -189,6 +212,7 @@ const getJob = asyncHandler(async (req, res) => {
   const job = await Job.findOne({
     _id: req.params.id,
     status: { $in: ["active", "closed"] },
+    isSoftDeleted: { $ne: true },
   }).populate("projectId", "name department state description publicSlug status isPublished");
 
   if (

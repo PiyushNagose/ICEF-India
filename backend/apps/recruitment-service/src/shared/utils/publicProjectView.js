@@ -2,8 +2,8 @@ const { startOfDay, endOfDay } = require("./timeline");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-// Jobs that the public landing page is allowed to render
-const PUBLIC_JOB_FILTER = { status: "active" };
+// Jobs that the public landing page is allowed to render.
+const PUBLIC_JOB_FILTER = { status: "active", isSoftDeleted: { $ne: true } };
 
 // Job fields the public landing page (and its admin preview) needs
 const PUBLIC_JOB_FIELDS =

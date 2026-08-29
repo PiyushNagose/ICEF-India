@@ -206,7 +206,7 @@ const FunnelAnalysis = () => {
                 <span className="text-orange-500 text-lg">▼</span>
                 <span className="font-semibold text-gray-900">Conversion Funnel</span>
               </div>
-              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
+              <span className="whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
                 Overall: {conversionRate}%
               </span>
             </div>

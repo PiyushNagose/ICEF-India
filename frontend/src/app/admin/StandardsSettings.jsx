@@ -364,7 +364,7 @@ const StandardsSettings = () => {
                             <p className="truncate text-sm font-bold text-gray-900">{preset.name}</p>
                             <p className="mt-1 line-clamp-2 text-xs text-gray-500">{preset.description || `${physicalCount} physical, ${medicalCount} medical criteria`}</p>
                           </div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${preset.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          <span className={`whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-bold ${preset.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                             {preset.active ? "Active" : "Archived"}
                           </span>
                         </div>

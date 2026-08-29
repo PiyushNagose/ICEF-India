@@ -23,6 +23,17 @@ const {
   startOfDay,
   endOfDay,
 } = require("../../shared/utils/timeline");
+
+const JOB_SORT_FIELDS = new Set([
+  "createdAt",
+  "updatedAt",
+  "publishedAt",
+  "applicationDeadline",
+  "title",
+  "postCode",
+  "status",
+  "totalPosts",
+]);
 const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
@@ -362,8 +373,6 @@ const withComputedProjectStatus = (jobLike) => {
  */
 const getJobs = asyncHandler(async (req, res) => {
   const {
-    page = 1,
-    limit = 10,
     status,
     department,
     projectId,
@@ -371,6 +380,8 @@ const getJobs = asyncHandler(async (req, res) => {
     sortBy = "createdAt",
     sortOrder = "desc",
   } = req.query;
+  const pageNumber = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageLimit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 10), 100);
 
   // Build filter
   const filter = {};
@@ -393,46 +404,56 @@ const getJobs = asyncHandler(async (req, res) => {
 
   // Build sort
   const sort = {};
-  sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+  sort[JOB_SORT_FIELDS.has(sortBy) ? sortBy : "createdAt"] =
+    sortOrder === "desc" ? -1 : 1;
 
   // Execute query with pagination
-  const skip = (page - 1) * limit;
+  const skip = (pageNumber - 1) * pageLimit;
   const jobs = await Job.find(filter)
     .populate("projectId", "name department state status startDate endDate closureDate")
     .populate("createdBy", "fullName employeeId")
     .sort(sort)
     .skip(skip)
-    .limit(parseInt(limit));
+    .limit(pageLimit);
 
-  const total = await Job.countDocuments(filter);
+  const [total, applicationStats] = await Promise.all([
+    Job.countDocuments(filter),
+    jobs.length
+      ? Application.aggregate([
+          { $match: { jobId: { $in: jobs.map((job) => job._id) } } },
+          {
+            $group: {
+              _id: "$jobId",
+              totalApplicants: { $sum: 1 },
+              paidApplicants: {
+                $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
+              },
+            },
+          },
+        ])
+      : [],
+  ]);
 
-  // Get application counts for each job
-  const jobsWithStats = await Promise.all(
-    jobs.map(async (job) => {
-      const applicationCount = await Application.countDocuments({
-        jobId: job._id,
-      });
-      const paidCount = await Application.countDocuments({
-        jobId: job._id,
-        paymentStatus: "paid",
-      });
-
-      return {
-        ...withComputedProjectStatus(job),
-        totalApplicants: applicationCount,
-        paidApplicants: paidCount,
-      };
-    }),
+  const statsByJobId = new Map(
+    applicationStats.map((row) => [String(row._id), row]),
   );
+  const jobsWithStats = jobs.map((job) => {
+    const stats = statsByJobId.get(String(job._id));
+    return {
+      ...withComputedProjectStatus(job),
+      totalApplicants: stats?.totalApplicants || 0,
+      paidApplicants: stats?.paidApplicants || 0,
+    };
+  });
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Jobs fetched successfully", {
       jobs: jobsWithStats,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / pageLimit),
         totalItems: total,
-        itemsPerPage: parseInt(limit),
+        itemsPerPage: pageLimit,
       },
     }),
   );

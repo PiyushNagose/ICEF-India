@@ -16,8 +16,8 @@ import {
   LoadingState,
   PageFrame,
   PageHero,
+  PublicHero3D,
   SearchInput,
-  StatTile,
   fadeUp,
   formatDate,
   publicContainer,
@@ -54,11 +54,15 @@ const PublicRecruitments = () => {
         title="Current Recruitments"
         description="Choose an active recruitment to view official notices, available posts, deadlines, admit-card updates, and application instructions."
       >
-        <div className="grid grid-cols-3 gap-3">
-          <StatTile label="Projects" value={totalProjects || "-"} />
-          <StatTile label="Jobs" value={totalJobs || "-"} />
-          <StatTile label="Posts" value={totalPosts || "-"} />
-        </div>
+        <PublicHero3D
+          title="Recruitment Desk"
+          subtitle="Official project pages with notices, eligibility, payment, admit-card, and status services."
+          stats={[
+            { label: "Projects", value: totalProjects || "-" },
+            { label: "Jobs", value: totalJobs || "-" },
+            { label: "Posts", value: totalPosts || "-" },
+          ]}
+        />
       </PageHero>
 
       <section className={`${publicContainer} py-8 lg:py-10`}>

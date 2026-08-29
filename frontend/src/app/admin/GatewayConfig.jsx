@@ -372,7 +372,7 @@ const GatewayConfig = () => {
                     : 'Validate your API credentials with the gateway servers.'}
                 </p>
                 {testResult?.connected && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold mb-3">
+                  <div className="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold mb-3">
                     <CheckCircle className="w-3.5 h-3.5" />
                     Connection Successful
                   </div>

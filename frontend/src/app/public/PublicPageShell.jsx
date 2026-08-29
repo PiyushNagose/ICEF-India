@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Briefcase,
   Calendar,
+  CheckCircle2,
   Download,
   FileText,
   HelpCircle,
@@ -12,6 +13,7 @@ import {
   MapPin,
   Phone,
   Search,
+  ShieldCheck,
 } from "lucide-react";
 import PublicLayout from "../../components/layouts/PublicLayout";
 
@@ -63,6 +65,69 @@ export const PageHero = ({ eyebrow, title, description, children }) => (
     </div>
   </section>
 );
+
+export const PublicHero3D = ({
+  title = "Official Recruitment Portal",
+  subtitle = "Verified notices, secure applications, transparent updates.",
+  stats = [],
+}) => {
+  const displayStats = stats.filter(Boolean).slice(0, 3);
+
+  return (
+    <div className="public-hero-3d-stage" aria-hidden="true">
+      <div className="public-hero-3d-scene">
+        <div className="public-hero-3d-backplate" />
+        <div className="public-hero-3d-document">
+          <div className="flex items-start justify-between gap-4 border-b border-[#eadfd2] pb-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#e46a1d]">
+                Public Notice
+              </p>
+              <h3 className="mt-1 line-clamp-2 text-[18px] font-black leading-tight text-[#1f1d1b]">
+                {title}
+              </h3>
+            </div>
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+          </div>
+
+          <p className="mt-3 line-clamp-2 text-sm font-semibold leading-6 text-[#5f5752]">
+            {subtitle}
+          </p>
+
+          <div className="mt-3 grid grid-cols-3 gap-2 rounded-[8px] border border-[#eadfd2] bg-[#201d1a] p-2.5">
+            {displayStats.map((stat) => (
+              <div key={stat.label} className="min-w-0">
+                <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-white/55">
+                  {stat.label}
+                </p>
+                <p className="mt-1 truncate font-mono text-sm font-black text-white sm:text-base">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2.5 space-y-1.5">
+            {["OTP verification", "Published deadlines", "Candidate tracking"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 rounded-[6px] border border-[#efe5dc] bg-[#fbf7f1] px-3 py-1.5 text-xs font-black text-[#332d28]"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  {item}
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
 
 export const PageFrame = ({ children }) => (
   <PublicLayout>

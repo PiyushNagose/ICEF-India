@@ -21,6 +21,8 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import { jobService } from '../../services/job.service'
@@ -101,12 +103,13 @@ const Jobs = () => {
   const canEdit = hasPermission(user, 'jobs', 'edit')
   const canDelete = hasPermission(user, 'jobs', 'delete')
   const canPublish = hasPermission(user, 'jobs', 'publish')
+  const [page, setPage] = useState(1)
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, job: null })
 
   const { data: jobsData, isLoading } = useQuery({
-    queryKey: ['admin-jobs'],
+    queryKey: ['admin-jobs', page],
     queryFn: () =>
-      jobService.getAdminJobs({ limit: 50 }),
+      jobService.getAdminJobs({ page, limit: 10 }),
   })
 
   const { data: statsData } = useQuery({
@@ -235,6 +238,9 @@ const Jobs = () => {
   }
 
   const jobs = jobsData?.jobs || []
+  const pagination = jobsData?.pagination || jobsData?.meta || {}
+  const totalPages = pagination.totalPages || 1
+  const totalItems = pagination.totalItems || pagination.total || jobs.length
   const projects = (projectsData?.projects || []).map((project) => ({
     ...project,
     status: getProjectLifecycleStatus(project),
@@ -434,18 +440,23 @@ const Jobs = () => {
         </div>
 
         {/* TABLE */}
-        <div className="
-          flex min-h-[620px] xl:min-h-[calc(100vh_-_300px)] flex-col
-          rounded-[26px]
-          bg-white
-          border border-gray-200
-          shadow-sm
-          overflow-hidden
-        ">
-
-          <div className="
-            admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto
-          ">
+        <AdminTableShell
+          className="rounded-[26px]"
+          minHeight="min-h-[620px] xl:min-h-[calc(100vh_-_300px)]"
+          footer={
+            !isLoading && jobs.length > 0 ? (
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pagination.itemsPerPage || 10}
+                itemsOnPage={jobs.length}
+                itemLabel="jobs"
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        >
 
             <table className="w-full min-w-[980px] table-fixed">
               <colgroup>
@@ -496,30 +507,12 @@ const Jobs = () => {
               ">
 
                 {isLoading && (
-                  <tr>
-                    <td
-                      colSpan="6"
-                      className="
-                        p-6 text-sm text-gray-500
-                      "
-                    >
-                      Loading jobs...
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow colSpan={6} type="loading" title="Loading jobs..." />
                 )}
 
                 {!isLoading &&
                   jobs.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="6"
-                        className="
-                          p-6 text-sm text-gray-500
-                        "
-                      >
-                        No jobs found.
-                      </td>
-                    </tr>
+                    <AdminTableStatusRow colSpan={6} icon={Briefcase} title="No jobs found" description="Create a job to start a recruitment cycle." />
                   )}
 
                 {jobs.map((job) => (
@@ -787,8 +780,7 @@ const Jobs = () => {
               </tbody>
 
             </table>
-          </div>
-        </div>
+        </AdminTableShell>
 
         {/* MODAL */}
         {showProjectSelector && (

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft, Download, Mail, MapPin, Hash,
   FileText, Briefcase, Settings, Headphones, Users,
-  ChevronLeft, ChevronRight, Clock, Activity,
+  Clock, Activity,
   AlertTriangle, BarChart2, Monitor, Smartphone,
 } from 'lucide-react'
 import {
@@ -16,6 +16,8 @@ import CustomSelect from '../../components/ui/CustomSelect'
 import { adminService } from '../../services/admin.service'
 import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 
 const ACTION_CFG = {
   CREATE:   { bg: 'bg-emerald-500', text: 'text-white' },
@@ -33,50 +35,6 @@ const ACTION_CFG = {
 const MODULE_ICONS = {
   Jobs: Briefcase, Applications: FileText,
   Employees: Users, Settings: Settings, Support: Headphones,
-}
-
-
-
-// Numbered pagination
-const Pagination = ({ page, totalPages, total, showing, onPage }) => {
-  const pages = []
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i)
-  } else {
-    pages.push(1)
-    if (page > 3) pages.push('...')
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
-    if (page < totalPages - 2) pages.push('...')
-    pages.push(totalPages)
-  }
-  return (
-    <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-      <p className="text-sm text-gray-500">
-        Showing <span className="font-medium text-gray-700">{showing}</span> of{' '}
-        <span className="font-medium text-gray-700">{Number(total).toLocaleString('en-IN')}</span> entries
-      </p>
-      <div className="flex items-center gap-1">
-        <button onClick={() => onPage(page - 1)} disabled={page <= 1}
-          className="px-3 h-8 flex items-center gap-1 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-          <ChevronLeft className="w-3.5 h-3.5" /> Previous
-        </button>
-        {pages.map((p, i) =>
-          p === '...' ? (
-            <span key={`d${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm">...</span>
-          ) : (
-            <button key={p} onClick={() => onPage(p)}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                p === page ? 'bg-orange-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}>{p}</button>
-          )
-        )}
-        <button onClick={() => onPage(page + 1)} disabled={page >= totalPages}
-          className="px-3 h-8 flex items-center gap-1 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-          Next <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
-  )
 }
 
 const EmployeeActivityLog = () => {
@@ -167,7 +125,7 @@ const EmployeeActivityLog = () => {
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <h2 className="text-lg font-bold text-gray-900">{empName}</h2>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> ACTIVITY TRACKED
                   </span>
                 </div>
@@ -246,7 +204,22 @@ const EmployeeActivityLog = () => {
             </div>
           </div>
 
-          <div className="admin-data-scroll hover-scroll overflow-auto">
+          <AdminTableShell
+            className="rounded-none border-0 shadow-none"
+            footer={
+              !isLoading && logs.length > 0 ? (
+                <AdminPagination
+                  page={page}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={meta.itemsPerPage || 10}
+                  itemsOnPage={logs.length}
+                  itemLabel="entries"
+                  onPageChange={setPage}
+                />
+              ) : null
+            }
+          >
             <table className="w-full min-w-[960px] table-fixed">
               <colgroup>
                 <col className="w-[22%]" />
@@ -264,10 +237,10 @@ const EmployeeActivityLog = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {isLoading && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">Loading...</td></tr>
+                  <AdminTableStatusRow colSpan={5} type="loading" title="Loading activity..." />
                 )}
                 {!isLoading && logs.length === 0 && (
-                  <tr><td colSpan="5" className="py-16 text-center text-gray-400 text-sm">No activity logs found.</td></tr>
+                  <AdminTableStatusRow colSpan={5} icon={Activity} title="No activity logs found" description="Activity will appear after this employee works in the system." />
                 )}
                 {logs.map(log => {
                   const ModuleIcon = MODULE_ICONS[log.module] || FileText
@@ -288,7 +261,7 @@ const EmployeeActivityLog = () => {
                         </div>
                       </td>
                       <td className="py-4 px-5 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
+                        <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold tracking-normal ${acfg.bg} ${acfg.text}`}>
                           {actionKey || '-'}
                         </span>
                       </td>
@@ -314,9 +287,7 @@ const EmployeeActivityLog = () => {
                 })}
               </tbody>
             </table>
-          </div>
-
-          <Pagination page={page} totalPages={totalPages} total={totalItems} showing={logs.length} onPage={setPage} />
+          </AdminTableShell>
         </div>
 
         {/* Bottom Row: Activity Chart + Device Info */}
@@ -366,7 +337,7 @@ const EmployeeActivityLog = () => {
                       <p className="text-xs text-gray-400">Network - {ip}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">SECURE</span>
+                  <span className="whitespace-nowrap text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">SECURE</span>
                 </div>
               ))}
               {logs.filter(l => l.ipAddress).length === 0 && (

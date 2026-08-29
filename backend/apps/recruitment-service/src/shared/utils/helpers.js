@@ -7,8 +7,9 @@ const env = require("../config/env");
  */
 const generateApplicationId = () => {
   const year = new Date().getFullYear();
-  const random = Math.floor(10000 + Math.random() * 90000);
-  return `BR-${year}-${random}`;
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+  return `BR-${year}-${timestamp}${random}`;
 };
 
 /**
@@ -16,7 +17,7 @@ const generateApplicationId = () => {
  */
 const generateEmployeeId = () => {
   const year = new Date().getFullYear();
-  const random = Math.floor(1000 + Math.random() * 9000);
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
   return `EMP-${year}-${random}`;
 };
 
@@ -32,28 +33,48 @@ const generateOTP = () => {
  */
 const generateUUID = () => uuidv4();
 
+const getEncryptionKey = () => {
+  if (!env.ENCRYPTION_KEY) throw new Error("ENCRYPTION_KEY is required");
+  return crypto.createHash("sha256").update(env.ENCRYPTION_KEY).digest();
+};
+
 /**
  * Encrypt sensitive data (e.g. payment gateway API keys)
  */
 const encrypt = (text) => {
-  if (!env.ENCRYPTION_KEY) throw new Error("ENCRYPTION_KEY is required");
-  const key = Buffer.from(env.ENCRYPTION_KEY, "utf8").slice(0, 32);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
-  return `${iv.toString("hex")}:${encrypted}`;
+  const tag = cipher.getAuthTag().toString("hex");
+  return `gcm:${iv.toString("hex")}:${tag}:${encrypted}`;
 };
 
 /**
  * Decrypt sensitive data
  */
 const decrypt = (encryptedText) => {
-  if (!env.ENCRYPTION_KEY) throw new Error("ENCRYPTION_KEY is required");
-  const key = Buffer.from(env.ENCRYPTION_KEY, "utf8").slice(0, 32);
-  const [ivHex, encrypted] = encryptedText.split(":");
+  const key = getEncryptionKey();
+  const parts = String(encryptedText || "").split(":");
+  if (parts[0] === "gcm") {
+    const [, ivHex, tagHex, encrypted] = parts;
+    const decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      key,
+      Buffer.from(ivHex, "hex"),
+    );
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  }
+
+  if (parts.length !== 2) throw new Error("Invalid encrypted payload");
+  const [ivHex, encrypted] = parts;
+  const legacyKey = Buffer.from(env.ENCRYPTION_KEY, "utf8").slice(0, 32);
   const iv = Buffer.from(ivHex, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  const decipher = crypto.createDecipheriv("aes-256-cbc", legacyKey, iv);
   let decrypted = decipher.update(encrypted, "hex", "utf8");
   decrypted += decipher.final("utf8");
   return decrypted;

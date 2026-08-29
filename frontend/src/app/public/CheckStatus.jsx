@@ -322,8 +322,8 @@ export default function CheckStatus() {
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
             {/* Form */}
-            <div className="flex flex-col gap-5">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7">
+            <div className="contents">
+              <div className="flex flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm sm:p-7 lg:order-1 lg:min-h-[548px]">
                 <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#f0e8e0] pb-5">
                   <div>
                     <h2 className="flex items-center gap-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
@@ -342,7 +342,7 @@ export default function CheckStatus() {
                 </div>
 
                 {/* Registration Number */}
-                <div className="space-y-5">
+                <div className="flex flex-1 flex-col space-y-5">
                 <div>
                   <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
                     Registration Number <span className="text-red-500">*</span>
@@ -428,7 +428,7 @@ export default function CheckStatus() {
                   )}
                 </div>
 
-                <div className="pt-5">
+                <div className="pt-5 lg:mt-auto">
                   <button
                     disabled={checkLoading || !otpVerified || !regNumber.trim()}
                     onClick={handleCheckStatus}
@@ -452,7 +452,7 @@ export default function CheckStatus() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-4"
+                  className="space-y-4 lg:order-3 lg:col-span-2"
                 >
                   {/* Status header */}
                   <div className="overflow-hidden rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm">
@@ -819,7 +819,7 @@ export default function CheckStatus() {
             </div>
 
             {/* Sidebar */}
-            <aside className="self-start rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:sticky lg:top-24">
+            <aside className="flex self-start rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:order-2 lg:min-h-[548px] lg:flex-col lg:justify-between">
               <div>
                 <h3 className="mb-4 text-[18px] font-black text-[#1f1d1b]">
                   Other Services

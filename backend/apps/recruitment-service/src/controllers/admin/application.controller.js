@@ -54,6 +54,16 @@ const REVIEW_STATUSES = new Set([
   "clarification_required",
 ]);
 
+const APPLICATION_SORT_FIELDS = new Set([
+  "submittedAt",
+  "createdAt",
+  "updatedAt",
+  "applicationId",
+  "registrationNumber",
+  "status",
+  "paymentStatus",
+]);
+
 const sanitizeCorrectionIssues = (issues = []) =>
   (Array.isArray(issues) ? issues : [])
     .map((issue) => ({
@@ -347,8 +357,8 @@ const assertReviewTransitionAllowed = (application, status, reason, issues = [])
  * @access  Private (Admin)
  */
 const getApplications = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Strict limit to prevent DoS via lookup
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 10), 100);
   const {
     status,
     paymentStatus,
@@ -370,7 +380,8 @@ const getApplications = asyncHandler(async (req, res) => {
 
   // Build sort
   const sort = {};
-  sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+  sort[APPLICATION_SORT_FIELDS.has(sortBy) ? sortBy : "submittedAt"] =
+    sortOrder === "desc" ? -1 : 1;
 
   // Build aggregation pipeline
   const pipeline = [
@@ -431,7 +442,7 @@ const getApplications = asyncHandler(async (req, res) => {
 
   // Add pagination
   const skip = (page - 1) * limit;
-  pipeline.push({ $skip: skip }, { $limit: parseInt(limit) });
+  pipeline.push({ $skip: skip }, { $limit: limit });
 
   // Add projection to select required fields
   pipeline.push({
@@ -467,10 +478,10 @@ const getApplications = asyncHandler(async (req, res) => {
     new ApiResponse(StatusCodes.OK, "Applications fetched successfully", {
       applications,
       pagination: {
-        currentPage: parseInt(page),
+        currentPage: page,
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: parseInt(limit),
+        itemsPerPage: limit,
       },
     }),
   );

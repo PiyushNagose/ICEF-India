@@ -344,10 +344,15 @@ export default function CenterWizard() {
   const uploadMutation = useMutation({
     mutationFn: (formData) => adminService.bulkUploadCenters(formData),
     onSuccess: (res) => {
-      setResult(res.summary || res)
+      const summary = res.summary || res
+      setResult(summary)
       queryClient.invalidateQueries({ queryKey: ['admin-exam-centers'] })
       queryClient.invalidateQueries({ queryKey: ['exam-centers'] })
-      toast.success('File processed successfully')
+      if (summary.errors?.length > 0) {
+        toast(`File processed with ${summary.errors.length} issue${summary.errors.length > 1 ? 's' : ''}`)
+      } else {
+        toast.success('File processed successfully')
+      }
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, 'Failed to upload centers'))
@@ -729,6 +734,9 @@ export default function CenterWizard() {
                           <p>Total Rows: <span className="font-bold text-gray-900">{result.totalRows || 0}</span></p>
                           <p>Centers Created: <span className="font-bold text-gray-900">{result.createdCenters || 0}</span></p>
                           <p>Rooms Created: <span className="font-bold text-gray-900">{result.createdRooms || 0}</span></p>
+                          <p>Centers Updated: <span className="font-bold text-gray-900">{result.updatedCenters || 0}</span></p>
+                          <p>Rooms Updated: <span className="font-bold text-gray-900">{result.updatedRooms || 0}</span></p>
+                          <p>Skipped Rows: <span className="font-bold text-gray-900">{result.skippedRows || 0}</span></p>
                         </div>
                         {result.errors && result.errors.length > 0 && (
                           <div className="mt-3">

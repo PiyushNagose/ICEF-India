@@ -260,6 +260,7 @@ const AdmitCardTemplates = () => {
         name: template.isSystemDefault ? `${template.name} (Copy)` : template.name,
         templateType,
         baseLayout: template.baseLayout || 'standard',
+        orientation: template.orientation || 'portrait',
         logoUrl: template.logoUrl || '',
         watermarkUrl: template.watermarkUrl || '',
         primaryColor: template.primaryColor || '#f97316',
@@ -351,11 +352,15 @@ const AdmitCardTemplates = () => {
     }
 
     const { baseLayout, name, isSystemDefault } = template
+    const isLandscape = (template.orientation || 'portrait') === 'landscape'
+    const previewFrameClass = isLandscape ? 'w-[205px] h-[145px]' : 'w-[140px] h-[190px]'
+    const previewScale = isLandscape ? 0.22 : 0.24
+
     return (
       <div className="group relative border border-gray-200 rounded-xl bg-white hover:shadow-lg transition-all overflow-hidden flex flex-col h-64">
         <div className="flex-1 bg-gray-50 flex items-start justify-center p-4 relative overflow-hidden">
-          <div className="flex items-start justify-center w-[140px] h-[190px] overflow-hidden pointer-events-none">
-            {renderPreview(template)}
+          <div className={`flex items-start justify-center ${previewFrameClass} overflow-hidden pointer-events-none`}>
+            {renderPreview(template, previewScale)}
           </div>
 
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
@@ -383,7 +388,9 @@ const AdmitCardTemplates = () => {
         <div className="p-3 border-t border-gray-100 flex items-center justify-between bg-white">
           <div className="min-w-0">
             <h3 className="font-semibold text-gray-900 text-sm truncate">{name}</h3>
-            <p className="text-xs text-gray-500 capitalize">{baseLayout} Layout</p>
+            <p className="text-xs text-gray-500 capitalize">
+              {baseLayout} Layout - {template.orientation || 'portrait'}
+            </p>
           </div>
           {isSystemDefault && (
             <span className="text-[10px] uppercase font-bold tracking-wider text-orange-600 bg-orange-100 px-2 py-0.5 rounded">
@@ -397,9 +404,11 @@ const AdmitCardTemplates = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center p-20">
-        <Loader2 className="animate-spin text-orange-500" size={32} />
-      </div>
+      <AdminLayout title="Document Templates">
+        <div className="flex min-h-[calc(100vh-72px)] items-center justify-center p-20">
+          <Loader2 className="animate-spin text-orange-500" size={32} />
+        </div>
+      </AdminLayout>
     )
   }
 

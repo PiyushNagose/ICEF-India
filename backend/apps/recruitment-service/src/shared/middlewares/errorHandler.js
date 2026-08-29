@@ -21,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
   // Mongoose duplicate key error
   if (err.code === 11000) {
     statusCode = 409;
-    const field = Object.keys(err.keyValue)[0];
+    const field = Object.keys(err.keyValue || err.keyPattern || {})[0] || "record";
     if (field === "publicSlug") {
       message =
         "A project with this name already exists. Please choose a different project name.";
@@ -34,7 +34,9 @@ const errorHandler = (err, req, res, next) => {
   // Mongoose cast error (invalid ObjectId)
   if (err.name === "CastError") {
     statusCode = 400;
-    message = `Invalid ${err.path}: ${err.value}`;
+    const field = err.path === "_id" ? "record" : err.path;
+    message = `Please select a valid ${field}.`;
+    errors = [{ field, message }];
   }
 
   // JWT errors

@@ -93,7 +93,7 @@ const Analytics = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Total Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-2xl font-bold text-gray-900">{fmt(total)}</p>
-              <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                 <TrendingUp className="w-3 h-3" /> 12%
               </span>
             </div>
@@ -104,7 +104,7 @@ const Analytics = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Completed Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-2xl font-bold text-gray-900">{fmt(completed)}</p>
-              <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                 <CheckCircle className="w-3 h-3" /> 73%
               </span>
             </div>
@@ -115,7 +115,7 @@ const Analytics = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Pending Applications</p>
             <div className="flex items-end justify-between">
               <p className="text-2xl font-bold text-gray-900">{fmt(pending)}</p>
-              <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                 <Clock className="w-3 h-3" /> Processing...
               </span>
             </div>
@@ -126,7 +126,7 @@ const Analytics = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Payment Success Rate</p>
             <div className="flex items-end justify-between">
               <p className="text-2xl font-bold text-gray-900">{paySuccessRate}{paySuccessRate !== '—' ? '%' : ''}</p>
-              <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                 <Star className="w-3 h-3" /> High
               </span>
             </div>

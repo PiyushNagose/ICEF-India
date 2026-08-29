@@ -342,7 +342,7 @@ const AdminNotifications = () => {
                             {formatTime(n.createdAt)}
                           </span>
                           <span
-                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}
+                            className={`whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}
                           >
                             {cfg.label}
                           </span>

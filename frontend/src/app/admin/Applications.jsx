@@ -11,8 +11,6 @@ import {
   CheckCircle,
   Search,
   Download,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Clock,
   CreditCard,
@@ -23,7 +21,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import CustomSelect from "../../components/ui/CustomSelect";
-import Button from "../../components/ui/Button";
+import AdminPagination from "../../components/ui/AdminPagination";
+import { AdminTableShell, AdminTableStatusRow } from "../../components/ui/AdminTable";
 import { adminService } from "../../services/admin.service";
 
 const STATUS_CONFIG = {
@@ -84,7 +83,7 @@ const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
@@ -96,7 +95,7 @@ const PaymentBadge = ({ status }) => {
   const cfg = PAYMENT_CONFIG[status] || PAYMENT_CONFIG.unpaid;
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}
+      className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}
     >
       {cfg.label}
     </span>
@@ -484,7 +483,7 @@ const Applications = () => {
               </div>
 
               <div className="mt-4">
-                <span className="inline-flex max-w-full items-center rounded-full border border-orange-100 bg-white px-3 py-1.5 text-xs font-semibold text-orange-700">
+                <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-full border border-orange-100 bg-white px-3 py-1.5 text-xs font-semibold text-orange-700">
                   <span className="truncate">
                     {selectedJob
                       ? `${selectedJob.title || "Selected Job"}${selectedJob.postCode || selectedJob.code ? ` - ${selectedJob.postCode || selectedJob.code}` : ""}`
@@ -538,7 +537,7 @@ const Applications = () => {
                           {action.description}
                         </p>
                         {action.featured && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-normal text-orange-700">
+                          <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-normal text-orange-700">
                             ZIP
                           </span>
                         )}
@@ -600,7 +599,7 @@ const Applications = () => {
           </div>
 
           {/* Table */}
-          <div className="admin-data-scroll hover-scroll overflow-auto">
+          <AdminTableShell className="rounded-none border-0 shadow-none" minHeight="min-h-[420px]">
             <table className="w-full min-w-[1120px] table-fixed">
               <colgroup>
                 <col className="w-[22%]" />
@@ -638,35 +637,19 @@ const Applications = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoading && (
-                  <tr>
-                    <td colSpan="7" className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-3 text-gray-400">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                        <span className="text-sm">Loading applications...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow colSpan={7} type="loading" title="Loading applications..." />
                 )}
                 {!isLoading && applications.length === 0 && (
-                  <tr>
-                    <td colSpan="7" className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-3 text-gray-400">
-                        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
-                          <FileText className="w-7 h-7 text-gray-300" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">
-                            No applications found
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {search || selectedJobId
-                              ? "Try adjusting your search query"
-                              : "Applications will appear here once submitted"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow
+                    colSpan={7}
+                    icon={FileText}
+                    title="No applications found"
+                    description={
+                      search || selectedJobId
+                        ? "Try adjusting your search query"
+                        : "Applications will appear here once submitted"
+                    }
+                  />
                 )}
                 {applications.map((app) => {
                   const candidateName = getCandidateName(app);
@@ -745,7 +728,7 @@ const Applications = () => {
                         <div className="flex flex-col items-center gap-1.5">
                           <StatusBadge status={app.status} />
                           {hasPendingCorrection(app) && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-700">
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-700">
                               <AlertCircle className="h-3 w-3" />
                               Correction Pending
                             </span>
@@ -795,78 +778,19 @@ const Applications = () => {
                 })}
               </tbody>
             </table>
-          </div>
+          </AdminTableShell>
 
           {/* Pagination */}
           {!isLoading && applications.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50">
-              <p className="text-sm text-gray-500">
-                Showing{" "}
-                <span className="font-medium text-gray-700">
-                  {applications.length}
-                </span>{" "}
-                of{" "}
-                <span className="font-medium text-gray-700">
-                  {Number(total).toLocaleString("en-IN")}
-                </span>{" "}
-                applications
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="border-gray-300"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                {(() => {
-                  const pages = [];
-                  if (totalPages <= 7) {
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else {
-                    pages.push(1);
-                    if (page > 3) pages.push("...");
-                    for (
-                      let i = Math.max(2, page - 1);
-                      i <= Math.min(totalPages - 1, page + 1);
-                      i++
-                    )
-                      pages.push(i);
-                    if (page < totalPages - 2) pages.push("...");
-                    pages.push(totalPages);
-                  }
-                  return pages.map((p, i) =>
-                    p === "..." ? (
-                      <span
-                        key={`d${i}`}
-                        className="w-8 h-8 flex items-center justify-center text-gray-400 text-sm"
-                      >
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${p === page ? "bg-orange-600 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-                      >
-                        {p}
-                      </button>
-                    ),
-                  );
-                })()}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="border-gray-300"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+            <AdminPagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={total}
+              pageSize={pagination.itemsPerPage || 10}
+              itemsOnPage={applications.length}
+              itemLabel="applications"
+              onPageChange={setPage}
+            />
           )}
         </div>
       </div>

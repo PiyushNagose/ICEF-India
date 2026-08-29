@@ -388,10 +388,10 @@ export default function CorrectionRequest() {
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
-            <div className="flex flex-col gap-5">
+            <div className="contents">
           {/* Identity */}
           <div
-            className={`${panelClass} flex flex-col gap-5 ${
+            className={`${panelClass} flex flex-col gap-5 lg:order-1 lg:min-h-[500px] ${
               otpVerified ? "" : "min-h-[360px] justify-between"
             }`}
           >
@@ -501,7 +501,7 @@ export default function CorrectionRequest() {
           </div>
 
           {applicationLoading && (
-            <div className={`${panelClass} flex items-center gap-3`}>
+            <div className={`${panelClass} flex items-center gap-3 lg:order-3 lg:col-span-2`}>
               <Loader2 className="h-5 w-5 animate-spin text-[#e46a1d]" />
               <div>
                 <p className="text-sm font-black text-[#1f1d1b]">
@@ -518,7 +518,7 @@ export default function CorrectionRequest() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="overflow-hidden rounded-[8px] border border-emerald-200 bg-white shadow-sm"
+              className="overflow-hidden rounded-[8px] border border-emerald-200 bg-white shadow-sm lg:order-3 lg:col-span-2"
             >
               <div className="border-b border-emerald-100 bg-emerald-50 px-6 py-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
@@ -611,7 +611,7 @@ export default function CorrectionRequest() {
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-[8px] border border-amber-200 bg-amber-50 p-5 shadow-sm"
+                className="rounded-[8px] border border-amber-200 bg-amber-50 p-5 shadow-sm lg:order-3 lg:col-span-2"
               >
                 <div className="flex gap-3">
                   <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
@@ -649,7 +649,7 @@ export default function CorrectionRequest() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="overflow-hidden rounded-[8px] border border-orange-200 bg-white shadow-sm"
+              className="overflow-hidden rounded-[8px] border border-orange-200 bg-white shadow-sm lg:order-3 lg:col-span-2"
             >
               <div className="flex flex-col gap-3 border-b border-orange-100 bg-orange-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -733,7 +733,7 @@ export default function CorrectionRequest() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-5"
+              className="space-y-5 lg:order-3 lg:col-span-2"
             >
               <div className={`${panelClass} space-y-5`}>
                 <div className="flex items-center justify-between">
@@ -877,12 +877,12 @@ export default function CorrectionRequest() {
           )}
             </div>
 
-            <aside className="self-start lg:sticky lg:top-24">
+            <aside className="self-start lg:sticky lg:top-24 lg:order-2">
               <motion.div
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm"
+              className="flex rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm lg:min-h-[500px] lg:flex-col"
             >
                 <div className="border-b border-[#f0e8e0] p-5">
                   <div className="flex items-start gap-3">
@@ -904,7 +904,7 @@ export default function CorrectionRequest() {
                   </div>
                 </div>
 
-                <div className={`${selectedApplication ? "border-b border-[#f0e8e0]" : ""} p-5`}>
+                <div className={`${selectedApplication ? "border-b border-[#f0e8e0]" : ""} flex-1 p-5`}>
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
                     Before Submitting
                   </p>

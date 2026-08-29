@@ -52,5 +52,8 @@ const admitCardSchema = new mongoose.Schema(
 admitCardSchema.index({ examScheduleId: 1, applicationId: 1 }, { unique: true });
 admitCardSchema.index({ examScheduleId: 1, status: 1 });
 admitCardSchema.index({ candidateId: 1, status: 1 });
+admitCardSchema.index({ barcodeValue: 1 });
+admitCardSchema.index({ examScheduleId: 1, status: 1, rollNumber: 1 });
+admitCardSchema.index({ candidateId: 1, status: 1, publishedAt: -1 });
 
 module.exports = mongoose.model("AdmitCard", admitCardSchema);

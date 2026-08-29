@@ -62,6 +62,9 @@ const env = {
     parseInt(process.env.RATE_LIMIT_MAX, 10) ||
     (envName === "production" ? 100 : 1000),
 
+  REQUEST_BODY_LIMIT: process.env.REQUEST_BODY_LIMIT || "2mb",
+  URL_ENCODED_BODY_LIMIT: process.env.URL_ENCODED_BODY_LIMIT || "1mb",
+
   // Encryption
   ENCRYPTION_KEY: requireProductionValue(
     "ENCRYPTION_KEY",

@@ -53,6 +53,7 @@ const examScheduleSchema = new mongoose.Schema(
     admitCardTemplateConfig: {
       templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdmitCardTemplate' },
       baseLayout: { type: String, enum: ["standard", "modern", "compact"], default: "standard" },
+      orientation: { type: String, enum: ["portrait", "landscape"], default: "portrait" },
       logoUrl: { type: String, trim: true },
       watermarkUrl: { type: String, trim: true },
       primaryColor: { type: String, trim: true },
@@ -69,6 +70,7 @@ const examScheduleSchema = new mongoose.Schema(
     attendanceSheetTemplateConfig: {
       templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdmitCardTemplate' },
       baseLayout: { type: String, enum: ["standard", "modern", "compact"], default: "standard" },
+      orientation: { type: String, enum: ["portrait", "landscape"], default: "portrait" },
       logoUrl: { type: String, trim: true },
       watermarkUrl: { type: String, trim: true },
       primaryColor: { type: String, trim: true },

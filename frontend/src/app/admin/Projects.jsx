@@ -18,6 +18,8 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
+import AdminPagination from '../../components/ui/AdminPagination'
+import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import {
@@ -33,11 +35,12 @@ const Projects = () => {
   const canCreate = hasPermission(user, 'projects', 'create')
   const canEdit = hasPermission(user, 'projects', 'edit')
   const canDelete = hasPermission(user, 'projects', 'delete')
+  const [page, setPage] = useState(1)
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, project: null })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-projects'],
-    queryFn: () => adminService.getProjects({ limit: 50 }),
+    queryKey: ['admin-projects', page],
+    queryFn: () => adminService.getProjects({ page, limit: 10 }),
   })
 
 
@@ -75,6 +78,9 @@ const Projects = () => {
     ...project,
     status: getProjectLifecycleStatus(project),
   }))
+  const pagination = data?.pagination || data?.meta || {}
+  const totalPages = pagination.totalPages || 1
+  const totalItems = pagination.totalItems || pagination.total || projects.length
 
   const stats = [
     {
@@ -204,26 +210,33 @@ const Projects = () => {
         </div>
 
         {/* TABLE */}
-        <div className="
-          flex min-h-[620px] xl:min-h-[calc(100vh_-_300px)] flex-col
-          rounded-[24px]
-          bg-white
-          border border-gray-200
-          shadow-sm
-          overflow-hidden
-        ">
-
-          <div className="admin-data-scroll hover-scroll min-h-0 flex-1 overflow-auto">
+        <AdminTableShell
+          className="rounded-[24px]"
+          minHeight="min-h-[620px] xl:min-h-[calc(100vh_-_300px)]"
+          footer={
+            !isLoading && projects.length > 0 ? (
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pagination.itemsPerPage || 10}
+                itemsOnPage={projects.length}
+                itemLabel="projects"
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        >
 
             <table className="w-full min-w-[1040px] table-fixed">
               <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[12%]" />
-                <col className="w-[20%]" />
+                <col className="w-[24%]" />
+                <col className="w-[16%]" />
+                <col className="w-[16%]" />
                 <col className="w-[12%]" />
                 <col className="w-[10%]" />
                 <col className="w-[10%]" />
-                <col className="w-[8%]" />
+                <col className="w-[12%]" />
               </colgroup>
 
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -259,26 +272,12 @@ const Projects = () => {
               <tbody className="divide-y divide-gray-100">
 
                 {isLoading && (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="p-6 text-sm text-gray-500"
-                    >
-                      Loading projects...
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow colSpan={7} type="loading" title="Loading projects..." />
                 )}
 
                 {!isLoading &&
                   projects.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="p-6 text-sm text-gray-500"
-                      >
-                        No projects found.
-                      </td>
-                    </tr>
+                    <AdminTableStatusRow colSpan={7} icon={FolderOpen} title="No projects found" description="Create a project to organize recruitment jobs." />
                   )}
 
                 {projects.map((project) => (
@@ -410,8 +409,7 @@ const Projects = () => {
               </tbody>
 
             </table>
-          </div>
-        </div>
+        </AdminTableShell>
       </div>
 
       <ConfirmDeleteModal

@@ -163,7 +163,7 @@ const SettingsProfile = () => {
               )}
             </div>
           </div>
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+          <span className={`whitespace-nowrap text-xs font-bold px-2.5 py-1 rounded-full ${
             profile?.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
           }`}>
             {profile?.status || 'Active'}

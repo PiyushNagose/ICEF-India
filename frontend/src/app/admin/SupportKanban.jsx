@@ -119,7 +119,7 @@ const OverlayCard = ({ ticket }) => {
           <p className="font-semibold text-gray-900 text-xs line-clamp-2 flex-1">
             {ticket.subject || ticket.title || "Untitled"}
           </p>
-          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
+          <span className={`shrink-0 inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
             {(ticket.priority || "").charAt(0).toUpperCase() + (ticket.priority || "").slice(1).toLowerCase()}
           </span>
@@ -180,7 +180,7 @@ const TicketCard = ({ ticket, onNavigate }) => {
               {ticket.subject || ticket.title || "Untitled"}
             </p>
           </div>
-          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
+          <span className={`shrink-0 inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded-full text-xs font-bold ${p.bg} ${p.text}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
             {(ticket.priority || "").charAt(0).toUpperCase() + (ticket.priority || "").slice(1).toLowerCase()}
           </span>
@@ -239,7 +239,7 @@ const KanbanColumn = ({ col, tickets, onNavigate, isOver }) => {
           <Icon className="w-4 h-4 text-white/90" />
           <h3 className="font-bold text-white text-sm">{col.label}</h3>
         </div>
-        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/25 text-white">
+        <span className="whitespace-nowrap text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/25 text-white">
           {tickets.length}
         </span>
       </div>

@@ -96,7 +96,7 @@ const AddPaymentGateway = () => {
                 <div className="p-6">
                   {/* Badge */}
                   <div className="flex justify-end mb-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    <span className={`whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${
                       isActive
                         ? 'text-green-700 bg-green-100'
                         : isConfigured
@@ -131,7 +131,7 @@ const AddPaymentGateway = () => {
                     {gw.features.map(f => (
                       <span
                         key={f}
-                        className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium"
+                        className="whitespace-nowrap px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium"
                       >
                         {f}
                       </span>

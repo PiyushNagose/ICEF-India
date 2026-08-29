@@ -199,8 +199,8 @@ const AdmitCards = () => {
 
         <section className={`${heroContainer} py-8 lg:py-10`}>
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
-            <div className="space-y-5">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6">
+            <div className="contents">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6 lg:order-1 lg:min-h-[430px]">
                 <div className="flex items-start justify-between gap-4 border-b border-[#eadfd2] pb-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-50">
@@ -327,7 +327,7 @@ const AdmitCards = () => {
                 )}
               </div>
 
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6 lg:order-3 lg:col-span-2">
                 {resultLoading && <LoadingState label="Checking admit card..." />}
                 {resultError && (
                   <div className="rounded-[8px] border border-red-200 bg-red-50 p-5">
@@ -414,7 +414,7 @@ const AdmitCards = () => {
               </div>
             </div>
 
-            <aside className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start">
+            <aside className="grid gap-5 sm:grid-cols-2 lg:order-2 lg:min-h-[430px] lg:grid-cols-1 lg:self-start">
               <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
                 <h2 className="text-[24px] font-black leading-tight text-[#111827]">
                   Admit Card Rules

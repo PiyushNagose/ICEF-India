@@ -31,6 +31,12 @@ const initiatePayment = async (
   if (application.paymentStatus === "paid")
     throw new ApiError(400, "Payment already completed");
 
+  const openPayment = await Payment.findOne({
+    applicationId,
+    candidateId,
+    status: { $in: ["initiated", "pending"] },
+  }).sort({ createdAt: -1 });
+
   let totalFee = application.appliedPosts.reduce(
     (sum, p) => sum + (p.fee || 0),
     0,
@@ -43,6 +49,16 @@ const initiatePayment = async (
   }
   if (totalFee === 0)
     throw new ApiError(400, "No fee applicable for selected posts");
+
+  if (openPayment && openPayment.amount === totalFee && openPayment.gateway === gateway) {
+    return {
+      transactionId: openPayment.transactionId,
+      paymentId: openPayment._id,
+      amount: openPayment.amount,
+      currency: openPayment.currency || "INR",
+      gateway: openPayment.gateway,
+    };
+  }
 
   const transactionId = `TXN-${Date.now()}-${generateUUID().slice(0, 8).toUpperCase()}`;
 
@@ -75,6 +91,16 @@ const verifyPayment = async ({
 }) => {
   const payment = await Payment.findOne({ transactionId });
   if (!payment) throw new ApiError(404, "Transaction not found");
+  if (payment.status === "success") {
+    if (
+      gatewayPaymentId &&
+      payment.gatewayPaymentId &&
+      payment.gatewayPaymentId !== gatewayPaymentId
+    ) {
+      throw new ApiError(409, "Transaction is already completed with a different gateway payment ID");
+    }
+    return payment;
+  }
 
   payment.gatewayPaymentId = gatewayPaymentId;
   payment.gatewaySignature = gatewaySignature;

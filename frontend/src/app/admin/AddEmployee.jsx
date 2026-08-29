@@ -113,7 +113,7 @@ const AddEmployee = () => {
             <h1 className="text-2xl font-bold text-gray-900">Create New Profile</h1>
             <p className="text-sm text-gray-500 mt-0.5">Register a new employee to the central recruitment administration system.</p>
           </div>
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+          <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> SYSTEM ONLINE
           </span>
         </div>

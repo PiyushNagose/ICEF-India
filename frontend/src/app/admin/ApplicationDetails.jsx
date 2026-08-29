@@ -342,13 +342,13 @@ const ApplicationDetails = () => {
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${sCfg.cls}`}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold ${sCfg.cls}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dot}`} />
               {sCfg.label}
             </span>
             <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${payCfg}`}
+              className={`inline-flex items-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold ${payCfg}`}
             >
               {application.paymentStatus || "Unpaid"}
             </span>
@@ -768,7 +768,7 @@ const ApplicationDetails = () => {
                   <h3 className="text-base font-bold leading-6 text-gray-900">
                     Uploaded Documents
                   </h3>
-                  <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  <span className="ml-auto inline-flex items-center whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     {documents.filter((d) => d.cloudinaryUrl).length} /{" "}
                     {documents.length} uploaded
                   </span>
@@ -810,7 +810,7 @@ const ApplicationDetails = () => {
                               )}
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span
-                                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusCls}`}
+                                  className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold ${statusCls}`}
                                 >
                                   {doc.status || "pending"}
                                 </span>

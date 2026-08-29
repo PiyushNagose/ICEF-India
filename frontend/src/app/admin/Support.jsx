@@ -9,12 +9,13 @@ import {
   Search,
   LayoutGrid,
   Eye,
-  Loader2,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { Card } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
+import AdminPagination from "../../components/ui/AdminPagination";
+import { AdminTableShell, AdminTableStatusRow } from "../../components/ui/AdminTable";
 import { adminService } from "../../services/admin.service";
 
 // Model uses title-case: Open, In Progress, Resolved, Closed
@@ -31,12 +32,14 @@ const STATUS_COLORS = {
   Closed: "bg-gray-100 text-gray-800",
 };
 
+const PAGE_SIZE = 10;
 
 
 const Support = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   // Map tab id → model status value
   const STATUS_MAP = {
@@ -110,7 +113,10 @@ const Support = () => {
           t.registrationNumber?.toLowerCase().includes(search.toLowerCase()),
       )
     : tickets;
-  const displayTickets = filtered.map((ticket) => ({
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const pagedTickets = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const displayTickets = pagedTickets.map((ticket) => ({
     ...ticket,
     raisedBy: ticket.raisedBy || {
       fullName: ticket.guestContact?.name || "Public candidate",
@@ -169,7 +175,10 @@ const Support = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setPage(1);
+                }}
                 className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
                   activeTab === tab.id
                     ? "border-orange-500 text-orange-600"
@@ -193,13 +202,29 @@ const Support = () => {
             placeholder="Search by subject, ticket ID, or candidate..."
             className="w-full pl-9 pr-4 py-2 border border-orange-100 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
 
         {/* Table */}
-        <Card className="bg-white">
-          <div className="admin-data-scroll hover-scroll overflow-auto">
+        <AdminTableShell
+          footer={
+            !isLoading && filtered.length > 0 ? (
+              <AdminPagination
+                page={currentPage}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                pageSize={PAGE_SIZE}
+                itemsOnPage={pagedTickets.length}
+                itemLabel="tickets"
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        >
             <table className="w-full min-w-[1080px] table-fixed">
               <colgroup>
                 <col className="w-[14%]" />
@@ -234,19 +259,10 @@ const Support = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoading && (
-                  <tr>
-                    <td colSpan="8" className="py-8 text-center text-gray-500">
-                      <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
-                      Loading tickets...
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow colSpan={8} type="loading" title="Loading tickets..." />
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <tr>
-                    <td colSpan="8" className="py-8 text-center text-gray-500">
-                      No tickets found.
-                    </td>
-                  </tr>
+                  <AdminTableStatusRow colSpan={8} icon={Ticket} title="No tickets found" description="Try another status or search term." />
                 )}
                 {displayTickets.map((ticket) => (
                   <tr
@@ -268,7 +284,7 @@ const Support = () => {
                         </p>
                         {ticket.resolutionAction?.type ===
                           "application_correction" && (
-                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                          <span className="whitespace-nowrap rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                             Correction
                           </span>
                         )}
@@ -326,8 +342,7 @@ const Support = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        </Card>
+        </AdminTableShell>
       </div>
     </AdminLayout>
   );

@@ -16,6 +16,7 @@ import {
   X,
   MapPin
 } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
@@ -42,10 +43,25 @@ const menuItems = [
 const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
   const location = useLocation()
   const { user } = useAuth()
+  const navRef = useRef(null)
+  const activeItemRef = useRef(null)
   const visibleMenuItems = menuItems.filter((item) => {
     if (!item.permission) return true
     return hasPermission(user, item.permission[0], item.permission[1])
   })
+
+  useEffect(() => {
+    if (!activeItemRef.current || !navRef.current) return
+
+    const frame = window.requestAnimationFrame(() => {
+      activeItemRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.pathname, isCollapsed, isMobile])
 
   return (
     <div className="bg-white border-r border-orange-100 h-full flex flex-col shadow-sm overflow-hidden">
@@ -79,7 +95,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto hover-scroll p-3 space-y-0.5">
+      <nav ref={navRef} className="flex-1 overflow-y-auto hover-scroll p-3 space-y-0.5">
         {!isCollapsed || isMobile ? (
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 pb-2 pt-1">
             Main Navigation
@@ -96,6 +112,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
           return (
             <Link
               key={item.path}
+              ref={isActive ? activeItemRef : null}
               to={item.path}
               onClick={isMobile ? onClose : undefined}
               title={isCollapsed && !isMobile ? item.label : undefined}

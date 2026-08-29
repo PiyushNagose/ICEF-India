@@ -1,7 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/\.(xlsx|csv)$/i.test(file.originalname)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only .xlsx and .csv files are supported"));
+  },
+});
 const examController = require("../../controllers/admin/exam.controller");
 const authenticate = require("../../shared/middlewares/authenticate");
 const { authorize, checkPermission } = require("../../shared/middlewares/authorize");
