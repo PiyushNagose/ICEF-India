@@ -67,6 +67,23 @@ const getJobTime = (job) =>
 const getEntityId = (value) =>
   String(value?._id || value?.id || value || "");
 
+const isAdmitFormatConfigured = (schedule) => {
+  if (!schedule) return false;
+  const hasTemplate = Boolean(
+    schedule.admitCardTemplate ||
+      schedule.admitCardTemplateConfig?.templateId ||
+      schedule.admitCardTemplateConfig?.baseLayout,
+  );
+
+  return Boolean(
+    schedule.examName &&
+      schedule.examDate &&
+      schedule.reportingTime &&
+      schedule.examStartTime &&
+      hasTemplate,
+  );
+};
+
 const getMostRecentJob = (jobs = []) =>
   [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null;
 
@@ -487,13 +504,7 @@ const ProjectDetails = () => {
     (job) => String(job.status || "").toLowerCase() === "active",
   ).length;
   const jobComplete = isJobAdvertisementConfigured(selectedJob);
-  const admitFormatComplete = selectedJobSchedules.some(
-    (schedule) =>
-      schedule?.examName &&
-      schedule?.examDate &&
-      Array.isArray(schedule?.instructions) &&
-      schedule.instructions.length > 0,
-  );
+  const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured);
   const centersComplete = selectedJobSchedules.some(
     (schedule) => Array.isArray(schedule?.selectedCenterIds) && schedule.selectedCenterIds.length > 0,
   );

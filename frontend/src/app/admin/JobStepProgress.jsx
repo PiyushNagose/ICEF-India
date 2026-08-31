@@ -38,6 +38,23 @@ const isJobAdvertisementConfigured = (job) => {
 
 const getEntityId = (value) => String(value?._id || value?.id || value || '')
 
+const isAdmitFormatConfigured = (schedule) => {
+  if (!schedule) return false
+  const hasTemplate = Boolean(
+    schedule.admitCardTemplate ||
+      schedule.admitCardTemplateConfig?.templateId ||
+      schedule.admitCardTemplateConfig?.baseLayout,
+  )
+
+  return Boolean(
+    schedule.examName &&
+      schedule.examDate &&
+      schedule.reportingTime &&
+      schedule.examStartTime &&
+      hasTemplate,
+  )
+}
+
 /**
  * Shared 6-step progress stepper for the Job creation flow.
  *
@@ -105,13 +122,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   )
   const jobComplete = isJobAdvertisementConfigured(job)
 
-  const admitFormatComplete = selectedJobSchedules.some(
-    (schedule) =>
-      schedule?.examName &&
-      schedule?.examDate &&
-      Array.isArray(schedule?.instructions) &&
-      schedule.instructions.length > 0,
-  )
+  const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured)
 
   const centersComplete = selectedJobSchedules.some(
     (schedule) => Array.isArray(schedule?.selectedCenterIds) && schedule.selectedCenterIds.length > 0,

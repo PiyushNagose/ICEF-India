@@ -31,9 +31,6 @@ const AdmitCards = lazy(() => import("../app/public/AdmitCards"));
 const Contact = lazy(() => import("../app/public/Contact"));
 const HowToApply = lazy(() => import("../app/public/HowToApply"));
 const ProjectLanding = lazy(() => import("../app/public/ProjectLanding"));
-const PublicRecruitments = lazy(
-  () => import("../app/public/PublicRecruitments"),
-);
 const PublicApplyEntry = lazy(() => import("../app/public/PublicApplyEntry"));
 const CheckStatus = lazy(() => import("../app/public/CheckStatus"));
 const CorrectionRequest = lazy(() => import("../app/public/CorrectionRequest"));
@@ -89,11 +86,25 @@ const CmsHome = lazy(() => import("../app/admin/CmsHome"));
 const CmsCreate = lazy(() => import("../app/admin/CmsCreate"));
 const CmsEdit = lazy(() => import("../app/admin/CmsEdit"));
 
+const PublicEntryRedirect = () => {
+  const storedProjectSlug =
+    typeof window === "undefined"
+      ? ""
+      : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
+
+  return (
+    <Navigate
+      to={storedProjectSlug ? `/apply/${storedProjectSlug}` : "/check-status"}
+      replace
+    />
+  );
+};
+
 const AppRoutes = () => {
   return (
     <Suspense fallback={<GlobalPageLoader />}>
       <Routes>
-        <Route path="/" element={<PublicRecruitments />} />
+        <Route path="/" element={<PublicEntryRedirect />} />
 
         {/* Auth Routes */}
         <Route path="/auth/admin-login" element={<AdminLogin />} />
@@ -188,16 +199,16 @@ const AppRoutes = () => {
         />
 
         {/* Public Routes */}
-        <Route path="/jobs" element={<PublicRecruitments />} />
+        <Route path="/jobs" element={<PublicEntryRedirect />} />
         <Route path="/jobs/:id" element={<JobDetails />} />
-        <Route path="/about" element={<PublicRecruitments />} />
-        <Route path="/eligible-jobs" element={<PublicRecruitments />} />
+        <Route path="/about" element={<PublicEntryRedirect />} />
+        <Route path="/eligible-jobs" element={<PublicEntryRedirect />} />
         <Route path="/results" element={<Results />} />
-        <Route path="/notices" element={<PublicRecruitments />} />
+        <Route path="/notices" element={<PublicEntryRedirect />} />
         <Route path="/admit-cards" element={<AdmitCards />} />
         <Route path="/admit-cards/verify/:token" element={<AdmitCards />} />
-        <Route path="/downloads" element={<PublicRecruitments />} />
-        <Route path="/faq" element={<PublicRecruitments />} />
+        <Route path="/downloads" element={<PublicEntryRedirect />} />
+        <Route path="/faq" element={<PublicEntryRedirect />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/how-to-apply" element={<HowToApply />} />
         <Route path="/help-center" element={<Contact />} />
@@ -593,7 +604,7 @@ const AppRoutes = () => {
         />
         <Route
           path="/candidate/jobs"
-          element={<PublicRecruitments />}
+          element={<PublicEntryRedirect />}
         />
         <Route
           path="/candidate/applications"
@@ -633,7 +644,7 @@ const AppRoutes = () => {
         />
 
         {/* Fallback Route */}
-        <Route path="*" element={<PublicRecruitments />} />
+        <Route path="*" element={<PublicEntryRedirect />} />
       </Routes>
     </Suspense>
   );

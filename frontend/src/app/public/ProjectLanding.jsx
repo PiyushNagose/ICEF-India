@@ -639,11 +639,11 @@ export default function ProjectLanding({ preview = false }) {
                 "The recruitment link you visited is invalid or has been removed."}
             </p>
             <button
-              onClick={() => navigate("/jobs")}
+              onClick={() => navigate("/check-status")}
               className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#e46a1d] px-6 text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-[#cb5d16]"
             >
-              Browse All Recruitments
-              <ArrowRight className="h-4 w-4" />
+              Check Application Status
+              <SearchCheck className="h-4 w-4" />
             </button>
           </motion.div>
         </div>
@@ -711,7 +711,7 @@ export default function ProjectLanding({ preview = false }) {
             <div className="absolute inset-0 bg-black/20" />
           </div>
 
-          <div className="relative mx-auto flex min-h-[inherit] max-w-[1380px] flex-col justify-center px-4 py-11 sm:px-6 sm:py-[52px] lg:px-8 lg:py-[58px]">
+          <div className="relative mx-auto flex min-h-[inherit] max-w-[1380px] flex-col justify-center px-4 py-11 sm:px-6 sm:py-[52px] lg:px-8 lg:py-11">
             {/* Trust Badges */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -834,7 +834,7 @@ export default function ProjectLanding({ preview = false }) {
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.45, delay: 0.18 }}
-                className="self-start"
+                className="public-project-hero-card self-stretch"
               >
                 <PublicHero3D
                   title="Recruitment Desk"

@@ -96,13 +96,13 @@ export const PublicHero3D = ({
             {subtitle}
           </p>
 
-          <div className="mt-3 grid grid-cols-3 gap-2 rounded-[8px] border border-[#eadfd2] bg-[#201d1a] p-2.5">
+          <div className="public-hero-3d-stats mt-3 grid grid-cols-3 gap-2 rounded-[8px] border border-[#eadfd2] bg-[#201d1a] p-2.5">
             {displayStats.map((stat) => (
               <div key={stat.label} className="min-w-0">
                 <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-white/55">
                   {stat.label}
                 </p>
-                <p className="mt-1 truncate font-mono text-sm font-black text-white sm:text-base">
+                <p className="public-hero-3d-stat-value mt-1 truncate font-mono text-sm font-black text-white sm:text-base">
                   {stat.value}
                 </p>
               </div>

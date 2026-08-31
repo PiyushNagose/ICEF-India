@@ -790,16 +790,6 @@
   perspective: 1100px;
 }
 
-.public-recruitments-hero-grid {
-  display: grid;
-  align-items: center;
-  gap: 48px;
-}
-
-.public-recruitments-hero-card {
-  width: min(100%, 360px);
-}
-
 .public-hero-3d-scene {
   position: relative;
   min-height: 0;
@@ -836,16 +826,59 @@
   z-index: 2;
 }
 
-.public-recruitments-hero-card .public-hero-3d-scene {
-  padding: 4px 6px 8px 0;
+.public-project-hero-card {
+  display: flex;
+  width: min(100%, 420px);
+  justify-self: end;
 }
 
-.public-recruitments-hero-card .public-hero-3d-backplate {
-  inset: 18px 6px 0 18px;
+.public-project-hero-card .public-hero-3d-stage,
+.public-project-hero-card .public-hero-3d-scene {
+  width: 100%;
 }
 
-.public-recruitments-hero-card .public-hero-3d-document {
-  padding: 16px;
+.public-project-hero-card .public-hero-3d-scene {
+  display: flex;
+  min-height: 390px;
+  padding: 10px 12px 14px 0;
+}
+
+.public-project-hero-card .public-hero-3d-backplate {
+  inset: 32px 8px 0 22px;
+}
+
+.public-project-hero-card .public-hero-3d-document {
+  display: flex;
+  min-height: 360px;
+  width: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px;
+}
+
+.public-project-hero-card .public-hero-3d-document > p {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.public-project-hero-card .public-hero-3d-stats {
+  padding: 13px 14px;
+}
+
+.public-project-hero-card .public-hero-3d-stat-value {
+  margin-top: 7px;
+  font-size: 21px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.public-project-hero-card .public-hero-3d-document > div:last-child {
+  display: grid;
+  gap: 10px;
+}
+
+.public-project-hero-card .public-hero-3d-document > div:last-child > div {
+  min-height: 40px;
 }
 
 @keyframes public-hero-float {
@@ -859,12 +892,18 @@
 }
 
 @media (max-width: 1023px) {
-  .public-recruitments-hero-grid {
-    gap: 36px;
+  .public-project-hero-card {
+    width: min(100%, 390px);
+    justify-self: start;
   }
 
-  .public-recruitments-hero-card {
-    justify-self: start;
+  .public-project-hero-card .public-hero-3d-scene {
+    min-height: 0;
+  }
+
+  .public-project-hero-card .public-hero-3d-document {
+    min-height: 0;
+    padding: 18px;
   }
 
   .public-hero-3d-scene {
@@ -872,17 +911,7 @@
   }
 }
 
-@media (min-width: 1024px) {
-  .public-recruitments-hero-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
-  }
-}
-
 @media (max-width: 640px) {
-  .public-recruitments-hero-card {
-    width: 100%;
-  }
-
   .public-hero-3d-document {
     padding: 16px;
     transform: rotateY(-2deg) rotateX(1deg) translateZ(18px);

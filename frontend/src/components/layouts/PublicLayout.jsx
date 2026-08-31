@@ -27,7 +27,6 @@ const PublicLayout = ({ children }) => {
       : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
   const projectSlug = currentProjectSlug || storedProjectSlug;
   const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
-  const recruitmentListPath = "/";
   const isProjectScopedPage = Boolean(projectMatch);
 
   useEffect(() => {
@@ -80,11 +79,6 @@ const PublicLayout = ({ children }) => {
   };
 
   const navItems = [
-    {
-      label: "Recruitment",
-      path: recruitmentListPath,
-    },
-
     {
       label: "How to Apply",
       path: "/how-to-apply",
@@ -142,11 +136,7 @@ const PublicLayout = ({ children }) => {
 
             <nav className="hidden lg:flex h-full items-center gap-10 xl:gap-12 2xl:gap-14">
               {navItems.map((item) => {
-                const isRecruitment = item.label === "Recruitment";
-                const active = isRecruitment
-                  ? location.pathname === "/" ||
-                    location.pathname === "/jobs"
-                  : location.pathname === item.path;
+                const active = location.pathname === item.path;
 
                 return (
                   <Link
@@ -218,10 +208,7 @@ const PublicLayout = ({ children }) => {
           <div className="lg:hidden border-t border-[#ddd4ca] bg-[#f6f1ea]">
             <div className="px-4 py-5 space-y-1">
               {navItems.map((item) => {
-                const isRecruitment = item.label === "Recruitment";
-                const active = isRecruitment
-                  ? location.pathname === "/" || location.pathname === "/jobs"
-                  : location.pathname === item.path;
+                const active = location.pathname === item.path;
 
                 return (
                   <Link
@@ -343,7 +330,6 @@ const PublicLayout = ({ children }) => {
 
               <div className="mt-6 space-y-4">
                 {[
-                  ["Recruitments", projectHomePath],
                   ["Results", "/results"],
                   ["Admit Cards", "/admit-cards"],
                   ["Check Status", "/check-status"],
