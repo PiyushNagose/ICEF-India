@@ -80,6 +80,17 @@ const getRequestStatusLabel = (status) => {
   return "Pending Review";
 };
 
+const getCorrectionReadiness = (corrections = []) => {
+  const completeRows = corrections.filter(
+    (item) => item.field && String(item.newValue || "").trim(),
+  );
+  const fieldValues = completeRows.map((item) => item.field);
+  return {
+    hasCompleteCorrection: completeRows.length > 0,
+    hasDuplicateFields: new Set(fieldValues).size !== fieldValues.length,
+  };
+};
+
 const getCorrectionWindowState = (source) => {
   const startDate = source?.correctionStartDate || source?.startDate;
   const endDate =
@@ -247,10 +258,19 @@ export default function CorrectionRequest() {
       return;
     }
     const hasInvalidCorrection = corrections.some(
-      (c) => !c.field || !c.newValue,
+      (c) => !c.field || !String(c.newValue || "").trim(),
     );
     if (hasInvalidCorrection) {
       toast.error("Fill in all correction fields");
+      return;
+    }
+    const readiness = getCorrectionReadiness(corrections);
+    if (!readiness.hasCompleteCorrection) {
+      toast.error("Add at least one correction before submitting");
+      return;
+    }
+    if (readiness.hasDuplicateFields) {
+      toast.error("Select each correction field only once");
       return;
     }
 
@@ -366,6 +386,12 @@ export default function CorrectionRequest() {
     otpVerified &&
     selectedApplication &&
     correctionWindowState.status === "open";
+  const correctionReadiness = getCorrectionReadiness(corrections);
+  const canSubmitCorrectionRequest =
+    canEnterCorrection &&
+    !hasExistingPublicCorrection &&
+    correctionReadiness.hasCompleteCorrection &&
+    !correctionReadiness.hasDuplicateFields;
 
   return (
     <PublicLayout>
@@ -859,7 +885,7 @@ export default function CorrectionRequest() {
                 </div>
 
                 <button
-                  disabled={submitLoading}
+                  disabled={submitLoading || !canSubmitCorrectionRequest}
                   onClick={handleSubmit}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-50"
                 >

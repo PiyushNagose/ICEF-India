@@ -83,6 +83,38 @@ const requiredCenterFields = [
   ['pincode', 'Pincode'],
 ]
 
+const getCenterSnapshot = (center, rooms) =>
+  JSON.stringify({
+    center: {
+      centerCode: (center.centerCode || '').trim().toUpperCase(),
+      name: (center.name || '').trim(),
+      addressLine1: (center.addressLine1 || '').trim(),
+      addressLine2: (center.addressLine2 || '').trim(),
+      landmark: (center.landmark || '').trim(),
+      city: toDisplayCase(center.city || ''),
+      district: toDisplayCase(center.district || ''),
+      state: toDisplayCase(center.state || ''),
+      pincode: (center.pincode || '').trim(),
+      contactName: (center.contactName || '').trim(),
+      contactPhone: (center.contactPhone || '').trim(),
+      contactEmail: (center.contactEmail || '').trim(),
+      active: Boolean(center.active),
+    },
+    rooms: rooms.map((room) => ({
+      _id: room._id || '',
+      roomCode: (room.roomCode || '').trim().toUpperCase(),
+      roomName: (room.roomName || '').trim(),
+      block: (room.block || '').trim(),
+      floor: (room.floor || '').trim(),
+      capacity: String(room.capacity || ''),
+      usableCapacity: String(room.usableCapacity || ''),
+      seatPrefix: (room.seatPrefix || '').trim(),
+      active: Boolean(room.active),
+      wheelchairAccess: Boolean(room.wheelchairAccess),
+      groundFloor: Boolean(room.groundFloor),
+    })),
+  })
+
 export default function CenterWizard() {
   const navigate = useNavigate()
   const { id: centerId } = useParams()
@@ -99,6 +131,7 @@ export default function CenterWizard() {
   const [result, setResult] = useState(null)
   const [pincodeStatus, setPincodeStatus] = useState('')
   const [formErrors, setFormErrors] = useState({})
+  const [savedSnapshot, setSavedSnapshot] = useState('')
 
   const totalCapacity = useMemo(
     () => rooms.reduce((sum, room) => sum + Number(room.usableCapacity || room.capacity || 0), 0),
@@ -117,7 +150,7 @@ export default function CenterWizard() {
     const savedRooms = centerData.rooms || centerData.data?.rooms || []
 
     const timer = setTimeout(() => {
-      setCenter({
+      const nextCenter = {
         centerCode: savedCenter.centerCode || '',
         name: savedCenter.name || '',
         addressLine1: savedCenter.addressLine1 || '',
@@ -131,8 +164,8 @@ export default function CenterWizard() {
         contactPhone: savedCenter.contact?.phone || '',
         contactEmail: savedCenter.contact?.email || '',
         active: savedCenter.active !== false,
-      })
-      setRooms(
+      }
+      const nextRooms =
         savedRooms.length > 0
           ? savedRooms.map((room) => ({
               _id: room._id || '',
@@ -147,8 +180,11 @@ export default function CenterWizard() {
               wheelchairAccess: Boolean(room.accessibility?.wheelchairAccess),
               groundFloor: Boolean(room.accessibility?.groundFloor),
             }))
-          : [createRoom()],
-      )
+          : [createRoom()]
+
+      setCenter(nextCenter)
+      setRooms(nextRooms)
+      setSavedSnapshot(getCenterSnapshot(nextCenter, nextRooms))
     }, 0)
 
     return () => clearTimeout(timer)
@@ -360,6 +396,15 @@ export default function CenterWizard() {
   })
 
   const handleManualSubmit = () => {
+    if (
+      isEditMode &&
+      savedSnapshot &&
+      getCenterSnapshot(center, rooms) === savedSnapshot
+    ) {
+      toast('No center changes to save')
+      return
+    }
+
     if (!validateManualForm()) return
 
     manualMutation.mutate({
@@ -428,6 +473,10 @@ export default function CenterWizard() {
   const handleDownloadTemplate = () => {
     window.open(adminService.getCenterBulkTemplateUrl(), '_blank')
   }
+
+  const hasUnsavedChanges =
+    !isEditMode ||
+    (Boolean(savedSnapshot) && getCenterSnapshot(center, rooms) !== savedSnapshot)
 
   return (
     <AdminLayout title={isEditMode ? 'Edit Exam Center' : 'Add Exam Centers'}>
@@ -648,7 +697,7 @@ export default function CenterWizard() {
                   <div className="rounded-2xl bg-orange-50 px-4 py-3 text-sm text-orange-900">
                     <span className="font-bold">{rooms.length}</span> rooms configured - <span className="font-bold">{totalCapacity}</span> usable seats
                   </div>
-                  <Button onClick={handleManualSubmit} disabled={manualMutation.isPending}>
+                  <Button onClick={handleManualSubmit} disabled={manualMutation.isPending || (isEditMode && !hasUnsavedChanges)}>
                     {manualMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -657,7 +706,7 @@ export default function CenterWizard() {
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4 mr-2" />
-                        {isEditMode ? 'Update Center' : 'Save Center'}
+                        {isEditMode ? (hasUnsavedChanges ? 'Update Center' : 'No Changes') : 'Save Center'}
                       </>
                     )}
                   </Button>

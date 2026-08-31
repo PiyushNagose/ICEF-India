@@ -92,6 +92,7 @@ const Documents = () => {
   }, [location.state]);
 
   const applicationId = getAppId();
+  const isReviewEdit = Boolean(location.state?.returnToReview);
   const [uploading, setUploading] = useState({}); // { docId: true/false }
   const [uploadedDocs, setUploadedDocs] = useState({}); // { docId: { url, name } }
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -469,7 +470,7 @@ const Documents = () => {
             disabled={!applicationId}
             className="px-6 bg-orange-600 hover:bg-orange-700"
           >
-            Save & Continue →
+            {isReviewEdit ? "Save & Return to Review" : "Save & Continue"}
           </Button>
         </div>
       </div>

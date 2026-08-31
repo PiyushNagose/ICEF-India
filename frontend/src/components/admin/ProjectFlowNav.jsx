@@ -139,7 +139,8 @@ const ProjectFlowNav = ({
     publishComplete,
     jobId,
   });
-  const completedCount = steps.filter((step) => step.complete).length;
+  const requiredSteps = steps.filter((step) => !step.optional);
+  const completedRequiredCount = requiredSteps.filter((step) => step.complete).length;
   const currentIndex = steps.findIndex((step) => step.key === current);
   const currentStep = currentIndex >= 0 ? steps[currentIndex] : null;
   const doLaterTargetKey = currentStep ? DO_LATER_TARGETS[currentStep.key] : "";
@@ -147,9 +148,7 @@ const ProjectFlowNav = ({
     ? steps.find((step) => step.key === doLaterTargetKey)
     : null;
   const nextStepCandidates =
-    workflowScope === "project"
-      ? steps.filter((step) => !step.optional)
-      : steps;
+    steps.filter((step) => !step.optional);
   const nextStep =
     nextStepCandidates
       .slice(currentIndex >= 0 ? currentIndex + 1 : 0)
@@ -192,7 +191,7 @@ const ProjectFlowNav = ({
             </div>
           )}
           <div className="w-fit rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600">
-            {completedCount}/{steps.length} complete
+            {completedRequiredCount}/{requiredSteps.length} required complete
           </div>
           {showDoLater && (
             <button
@@ -226,6 +225,7 @@ const ProjectFlowNav = ({
           const Icon = step.icon;
           const active = step.key === current;
           const activeComplete = active && step.complete;
+          const optionalPending = step.optional && !step.complete;
 
           return (
             <button
@@ -240,7 +240,9 @@ const ProjectFlowNav = ({
                   ? "border-orange-400 bg-green-50/70 shadow-[0_12px_26px_rgba(34,197,94,0.12)]"
                   : step.complete
                   ? "border-green-200 bg-green-50/50 hover:border-green-300 hover:bg-green-50"
-                  : active
+                    : optionalPending
+                      ? "border-dashed border-gray-200 bg-gray-50/70 hover:border-orange-200 hover:bg-orange-50/40"
+                    : active
                     ? "border-orange-500 bg-orange-50 shadow-[0_12px_26px_rgba(234,88,12,0.12)]"
                     : "border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/50"
               }`}
@@ -252,6 +254,8 @@ const ProjectFlowNav = ({
                       ? activeComplete
                         ? "bg-orange-600 text-white"
                         : "bg-green-600 text-white"
+                      : optionalPending
+                        ? "bg-white text-gray-400 ring-1 ring-gray-200"
                       : active
                         ? "bg-orange-600 text-white"
                         : "bg-gray-100 text-gray-500"
@@ -265,6 +269,8 @@ const ProjectFlowNav = ({
                       ? activeComplete
                         ? "text-orange-600"
                         : "text-green-600"
+                      : optionalPending
+                        ? "text-gray-400 group-hover:text-orange-500"
                       : active
                         ? "text-orange-600"
                         : "text-gray-400 group-hover:text-orange-500"
@@ -285,6 +291,8 @@ const ProjectFlowNav = ({
                         ? activeComplete
                           ? "bg-orange-100 text-orange-700"
                           : "bg-green-100 text-green-700"
+                        : optionalPending
+                          ? "bg-white text-gray-500 ring-1 ring-gray-200"
                         : active
                           ? "bg-orange-100 text-orange-700"
                           : "bg-gray-100 text-gray-500"
@@ -292,6 +300,8 @@ const ProjectFlowNav = ({
                   >
                     {step.complete
                       ? "Completed"
+                      : optionalPending
+                        ? "Do later"
                       : active
                         ? "In progress"
                         : "Pending"}

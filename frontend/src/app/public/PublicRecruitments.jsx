@@ -15,7 +15,6 @@ import {
   ErrorState,
   LoadingState,
   PageFrame,
-  PageHero,
   PublicHero3D,
   SearchInput,
   fadeUp,
@@ -49,21 +48,34 @@ const PublicRecruitments = () => {
 
   return (
     <PageFrame>
-      <PageHero
-        eyebrow="Recruitment"
-        title="Current Recruitments"
-        description="Choose an active recruitment to view official notices, available posts, deadlines, admit-card updates, and application instructions."
-      >
-        <PublicHero3D
-          title="Recruitment Desk"
-          subtitle="Official project pages with notices, eligibility, payment, admit-card, and status services."
-          stats={[
-            { label: "Projects", value: totalProjects || "-" },
-            { label: "Jobs", value: totalJobs || "-" },
-            { label: "Posts", value: totalPosts || "-" },
-          ]}
-        />
-      </PageHero>
+      <section className="bg-[#201d1a] text-white">
+        <div className={`${publicContainer} public-recruitments-hero-grid min-h-[430px] py-12 lg:min-h-[460px]`}>
+          <div className="max-w-[760px]">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-300">
+              Recruitment
+            </p>
+            <h1 className="mt-4 text-[36px] font-black leading-[1.08] text-white sm:text-[46px] lg:text-[58px]">
+              Current Recruitments
+            </h1>
+            <p className="mt-5 max-w-[720px] text-[15px] font-semibold leading-7 text-white/78 sm:text-base">
+              Choose an active recruitment to view official notices, available
+              posts, deadlines, admit-card updates, and application instructions.
+            </p>
+          </div>
+
+          <div className="public-recruitments-hero-card justify-self-end">
+            <PublicHero3D
+              title="Recruitment Desk"
+              subtitle="Official project pages with notices, eligibility, payment, admit-card, and status services."
+              stats={[
+                { label: "Projects", value: totalProjects || "-" },
+                { label: "Jobs", value: totalJobs || "-" },
+                { label: "Posts", value: totalPosts || "-" },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
 
       <section className={`${publicContainer} py-8 lg:py-10`}>
         <div className="mb-5 max-w-xl">

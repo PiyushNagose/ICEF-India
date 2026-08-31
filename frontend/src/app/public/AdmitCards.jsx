@@ -112,6 +112,12 @@ const AdmitCards = () => {
     },
   });
 
+  const resetLookupResult = () => {
+    if (!token && (lookupMutation.data || lookupMutation.error)) {
+      lookupMutation.reset();
+    }
+  };
+
   useEffect(() => {
     if (token) verifyMutation.mutate(token);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -177,6 +183,10 @@ const AdmitCards = () => {
   const previewUrl = previewId
     ? `${jobService.getPublicAdmitCardHtmlUrl(previewId)}?embed=1`
     : "";
+  const hasRegistrationNumber = Boolean(registrationNumber.trim());
+  const hasValidMobile = /^[6-9]\d{9}$/.test(mobile);
+  const canLookupAdmitCard =
+    hasRegistrationNumber && hasValidMobile && otpVerified;
 
   return (
     <PublicLayout>
@@ -198,9 +208,9 @@ const AdmitCards = () => {
         </div>
 
         <section className={`${heroContainer} py-8 lg:py-10`}>
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-stretch">
             <div className="contents">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6 lg:order-1 lg:min-h-[430px]">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm sm:p-6 lg:order-1 lg:h-full">
                 <div className="flex items-start justify-between gap-4 border-b border-[#eadfd2] pb-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-50">
@@ -234,9 +244,10 @@ const AdmitCards = () => {
                       <FieldLabel icon={Search}>Registration Number *</FieldLabel>
                       <input
                         value={registrationNumber}
-                        onChange={(e) =>
-                          setRegistrationNumber(e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => {
+                          setRegistrationNumber(e.target.value.toUpperCase());
+                          resetLookupResult();
+                        }}
                         placeholder="e.g. JPSC26000001"
                         className="h-12 w-full rounded border border-[#ded4ca] px-4 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#f15a0b] focus:ring-2 focus:ring-orange-100"
                         required
@@ -262,7 +273,10 @@ const AdmitCards = () => {
                           value={mobile}
                           onChange={(e) => {
                             setMobile(e.target.value.replace(/\D/g, "").slice(0, 10));
+                            setOtpSent(false);
                             setOtpVerified(false);
+                            setOtp("");
+                            resetLookupResult();
                           }}
                           placeholder="10-digit mobile"
                           className="h-12 min-w-0 flex-1 rounded border border-[#ded4ca] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#f15a0b] focus:ring-2 focus:ring-orange-100"
@@ -271,7 +285,7 @@ const AdmitCards = () => {
                         <button
                           type="button"
                           onClick={handleSendOTP}
-                          disabled={sendLoading || otpVerified}
+                          disabled={sendLoading || otpVerified || !hasValidMobile}
                           className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded bg-[#f15a0b] px-5 text-xs font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(241,90,11,0.2)] transition hover:bg-[#d94f08] disabled:cursor-not-allowed disabled:opacity-45 sm:w-[150px]"
                         >
                           {sendLoading ? (
@@ -311,18 +325,28 @@ const AdmitCards = () => {
                       </div>
                     )}
 
-                    <button
-                      type="submit"
-                      disabled={lookupMutation.isPending || !otpVerified}
-                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded bg-[#f15a0b] px-5 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_18px_32px_rgba(241,90,11,0.2)] transition hover:bg-[#d94f08] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      {lookupMutation.isPending ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
+                    {result?.admitCardId ? (
+                      <a
+                        href={jobService.getPublicAdmitCardPdfUrl(result.admitCardId)}
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded bg-[#f15a0b] px-5 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_18px_32px_rgba(241,90,11,0.2)] transition hover:bg-[#d94f08]"
+                      >
                         <Download className="h-5 w-5" />
-                      )}
-                      Get Admit Card
-                    </button>
+                        Download Existing PDF
+                      </a>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={lookupMutation.isPending || !canLookupAdmitCard}
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded bg-[#f15a0b] px-5 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_18px_32px_rgba(241,90,11,0.2)] transition hover:bg-[#d94f08] disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        {lookupMutation.isPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Download className="h-5 w-5" />
+                        )}
+                        Get Admit Card
+                      </button>
+                    )}
                   </form>
                 )}
               </div>
@@ -414,8 +438,8 @@ const AdmitCards = () => {
               </div>
             </div>
 
-            <aside className="grid gap-5 sm:grid-cols-2 lg:order-2 lg:min-h-[430px] lg:grid-cols-1 lg:self-start">
-              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
+            <aside className="grid gap-5 sm:grid-cols-2 lg:order-2 lg:flex lg:h-full lg:flex-col lg:self-stretch">
+              <div className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:min-h-0 lg:flex-1">
                 <h2 className="text-[24px] font-black leading-tight text-[#111827]">
                   Admit Card Rules
                 </h2>

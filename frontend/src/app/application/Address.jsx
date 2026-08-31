@@ -24,7 +24,7 @@ const getAppId = () => {
 const emptyAddr = () => ({
   addressLine1: "",
   addressLine2: "",
-  state: "Bihar",
+  state: "",
   district: "",
   policeStation: "",
   pincode: "",
@@ -175,6 +175,7 @@ const Address = () => {
   }, [location.state]);
 
   const applicationId = getAppId();
+  const isReviewEdit = Boolean(location.state?.returnToReview);
   const [dataLoaded, setDataLoaded] = useState(false);
   const configuredFieldsRef = useRef(null);
 
@@ -233,7 +234,7 @@ const Address = () => {
         setPermanent({
           addressLine1: addr.permanent.addressLine1 || "",
           addressLine2: addr.permanent.addressLine2 || "",
-          state: addr.permanent.state || "Bihar",
+          state: addr.permanent.state || "",
           district: addr.permanent.district || "",
           policeStation: addr.permanent.policeStation || "",
           pincode: addr.permanent.pincode || "",
@@ -243,7 +244,7 @@ const Address = () => {
         setCorrespondence({
           addressLine1: addr.correspondence.addressLine1 || "",
           addressLine2: addr.correspondence.addressLine2 || "",
-          state: addr.correspondence.state || "Bihar",
+          state: addr.correspondence.state || "",
           district: addr.correspondence.district || "",
           policeStation: addr.correspondence.policeStation || "",
           pincode: addr.correspondence.pincode || "",
@@ -423,7 +424,7 @@ const Address = () => {
                 Saving...
               </>
             ) : (
-              "Save & Continue →"
+              isReviewEdit ? "Save & Return to Review" : "Save & Continue"
             )}
           </Button>
         </div>

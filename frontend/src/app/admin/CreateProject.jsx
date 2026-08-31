@@ -87,6 +87,17 @@ const todayDate = () => {
   return d
 }
 
+const getProjectSnapshot = (data = {}) =>
+  JSON.stringify({
+    name: (data.name || '').trim(),
+    state: data.state || '',
+    department: (data.department || '').trim(),
+    description: (data.description || '').trim(),
+    status: data.status || 'Upcoming',
+    startDate: data.startDate || '',
+    endDate: data.endDate || '',
+  })
+
 const CreateProject = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -106,6 +117,7 @@ const CreateProject = () => {
   const [errors, setErrors] = useState({})
   const [createdProject, setCreatedProject] = useState(null)
   const [showCreatedModal, setShowCreatedModal] = useState(false)
+  const [savedSnapshot, setSavedSnapshot] = useState('')
 
   const { data: projectData, isLoading: isProjectLoading } = useQuery({
     queryKey: ['admin-project', id],
@@ -118,8 +130,7 @@ const CreateProject = () => {
   useEffect(() => {
     if (!project) return
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFormData({
+    const nextFormData = {
       name: project.name || '',
       state: project.state || 'Bihar',
       department: project.department || '',
@@ -127,7 +138,11 @@ const CreateProject = () => {
       status: project.status || 'Upcoming',
       startDate: toDateInput(project.startDate),
       endDate: toDateInput(project.endDate || project.closureDate),
-    })
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormData(nextFormData)
+    setSavedSnapshot(getProjectSnapshot(nextFormData))
   }, [project])
 
   const { mutate: createProject, isPending: isCreating } =
@@ -262,7 +277,11 @@ const CreateProject = () => {
       return
     }
 
-    delete payload.status
+    if (savedSnapshot && getProjectSnapshot(formData) === savedSnapshot) {
+      toast('No project changes to save')
+      return
+    }
+
     updateProject(payload)
   }
 
@@ -292,6 +311,9 @@ const CreateProject = () => {
   }
 
   const isPending = isCreating || isUpdating
+  const hasUnsavedChanges =
+    !isEditMode ||
+    (Boolean(savedSnapshot) && getProjectSnapshot(formData) !== savedSnapshot)
 
   return (
     <AdminLayout title={isEditMode ? 'Edit Project' : 'Create Project'}>
@@ -510,12 +532,13 @@ const CreateProject = () => {
 
               <Button
                 onClick={handleSubmit}
-                disabled={isPending}
+                disabled={isPending || (isEditMode && !hasUnsavedChanges)}
                 className="
                   bg-orange-600 hover:bg-orange-700
                   text-white rounded-2xl
                   h-11 px-6
                   shadow-lg shadow-orange-200
+                  disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60
                 "
               >
                 {isPending ? (
@@ -526,7 +549,11 @@ const CreateProject = () => {
                 ) : (
                   <>
                     <Plus className="w-4 h-4 mr-2" />
-                    {isEditMode ? 'Save Changes' : 'Create Project'}
+                    {isEditMode
+                      ? hasUnsavedChanges
+                        ? 'Save Changes'
+                        : 'No Changes'
+                      : 'Create Project'}
                   </>
                 )}
               </Button>

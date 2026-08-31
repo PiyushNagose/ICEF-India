@@ -790,6 +790,16 @@
   perspective: 1100px;
 }
 
+.public-recruitments-hero-grid {
+  display: grid;
+  align-items: center;
+  gap: 48px;
+}
+
+.public-recruitments-hero-card {
+  width: min(100%, 360px);
+}
+
 .public-hero-3d-scene {
   position: relative;
   min-height: 0;
@@ -826,6 +836,18 @@
   z-index: 2;
 }
 
+.public-recruitments-hero-card .public-hero-3d-scene {
+  padding: 4px 6px 8px 0;
+}
+
+.public-recruitments-hero-card .public-hero-3d-backplate {
+  inset: 18px 6px 0 18px;
+}
+
+.public-recruitments-hero-card .public-hero-3d-document {
+  padding: 16px;
+}
+
 @keyframes public-hero-float {
   0%,
   100% {
@@ -837,12 +859,30 @@
 }
 
 @media (max-width: 1023px) {
+  .public-recruitments-hero-grid {
+    gap: 36px;
+  }
+
+  .public-recruitments-hero-card {
+    justify-self: start;
+  }
+
   .public-hero-3d-scene {
     padding-right: 10px;
   }
 }
 
+@media (min-width: 1024px) {
+  .public-recruitments-hero-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  }
+}
+
 @media (max-width: 640px) {
+  .public-recruitments-hero-card {
+    width: 100%;
+  }
+
   .public-hero-3d-document {
     padding: 16px;
     transform: rotateY(-2deg) rotateX(1deg) translateZ(18px);

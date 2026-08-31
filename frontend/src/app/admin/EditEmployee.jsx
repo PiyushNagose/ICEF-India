@@ -22,6 +22,20 @@ const Label = ({ children }) => (
 )
 const Err = ({ msg }) => msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null
 
+const getEmployeeSnapshot = (data = {}) =>
+  JSON.stringify({
+    fullName: (data.fullName || '').trim(),
+    dateOfBirth: data.dateOfBirth || '',
+    gender: data.gender || '',
+    contactNumber: data.contactNumber || '',
+    department: data.department || '',
+    roleDesignation: (data.roleDesignation || '').trim(),
+    dateOfJoining: data.dateOfJoining || '',
+    systemRole: data.systemRole || '',
+    status: data.status || 'Active',
+    password: data.password || '',
+  })
+
 const Section = ({ icon: Icon, title, color, children }) => (
   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
     <div className={`flex items-center gap-3 px-6 py-4 border-l-4 ${color}`}>
@@ -38,6 +52,7 @@ const EditEmployee = () => {
   const queryClient = useQueryClient()
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
+  const [savedSnapshot, setSavedSnapshot] = useState('')
 
   const [formData, setFormData] = useState({
     fullName:'', dateOfBirth:'', gender:'', contactNumber:'',
@@ -67,8 +82,7 @@ const EditEmployee = () => {
   useEffect(() => {
     if (employeeData?.employee) {
       const emp = employeeData.employee
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFormData({
+      const nextFormData = {
         fullName: emp.fullName || '',
         dateOfBirth: emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : '',
         gender: emp.gender || '',
@@ -81,7 +95,10 @@ const EditEmployee = () => {
         password: '',
         systemRole: emp.systemRole?._id || '',
         status: emp.status || 'Active',
-      })
+      }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData(nextFormData)
+      setSavedSnapshot(getEmployeeSnapshot(nextFormData))
     }
   }, [employeeData])
 
@@ -102,6 +119,8 @@ const EditEmployee = () => {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
+  const hasUnsavedChanges = Boolean(savedSnapshot) && getEmployeeSnapshot(formData) !== savedSnapshot
+
   const validate = () => {
     const e = {}
     if (!formData.fullName.trim()) e.fullName = 'Full name is required'
@@ -117,6 +136,10 @@ const EditEmployee = () => {
   }
 
   const handleSubmit = () => {
+    if (!hasUnsavedChanges) {
+      toast('No employee changes to save')
+      return
+    }
     if (!validate()) return
     updateEmployee({ id, data: {
       fullName: formData.fullName.trim(),
@@ -307,10 +330,10 @@ const EditEmployee = () => {
             className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors">
             <X className="w-4 h-4" /> Cancel
           </button>
-          <button onClick={handleSubmit} disabled={isPending}
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors disabled:opacity-60 shadow-sm">
+          <button onClick={handleSubmit} disabled={isPending || !hasUnsavedChanges}
+            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60 shadow-sm">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {isPending ? 'Saving...' : 'Save Changes'}
+            {isPending ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'No Changes'}
           </button>
         </div>
 

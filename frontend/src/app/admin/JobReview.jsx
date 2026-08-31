@@ -532,6 +532,27 @@ const JobReview = () => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current));
   };
 
+  const cacheDraftJobId = (jobId) => {
+    if (!jobId) return;
+    const current = readStoredDraft();
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...current, _jobId: jobId }),
+    );
+  };
+
+  const jobMatchesProject = (job, projectId) => {
+    const jobProjectId = job?.projectId?._id || job?.projectId || "";
+    return Boolean(job?._id && projectId && String(jobProjectId) === String(projectId));
+  };
+
+  const findExistingJobForCurrentProject = async (postCode, projectId) => {
+    if (!postCode || !projectId) return null;
+    const res = await adminService.getAdminJobByPostCode(postCode);
+    const existingJob = res?.job || res;
+    return jobMatchesProject(existingJob, projectId) ? existingJob : null;
+  };
+
   // Create job or recover existing ID on 409 conflict
   const getOrCreateJobId = async () => {
     const currentDraft = readStoredDraft();
@@ -564,41 +585,45 @@ const JobReview = () => {
     };
 
     try {
+      const existingSameProjectJob = await findExistingJobForCurrentProject(
+        createPayload.postCode,
+        createPayload.projectId,
+      );
+      if (existingSameProjectJob?._id) {
+        cacheDraftJobId(existingSameProjectJob._id);
+        return existingSameProjectJob._id;
+      }
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+    }
+
+    try {
       const res = await createJob(createPayload);
       const jobId = res?.job?._id;
-      if (jobId) {
-        // Store the jobId in draft so retries skip the create step
-        const current = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
-        sessionStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({ ...current, _jobId: jobId }),
-        );
-      }
+      cacheDraftJobId(jobId);
       return jobId || null;
     } catch (err) {
       if (err?.status === 409) {
         // postCode already in DB — fetch that job directly
         try {
-          const res = await adminService.getAdminJobByPostCode(createPayload.postCode);
-          const existingJob = res?.job || res;
-          const jobId = existingJob?._id;
-          const existingProjectId = existingJob?.projectId?._id || existingJob?.projectId || "";
-          if (jobId && String(existingProjectId) === String(createPayload.projectId)) {
-            // Cache it for future retries
-            const current = JSON.parse(
-              sessionStorage.getItem(STORAGE_KEY) || "{}",
-            );
-            sessionStorage.setItem(
-              STORAGE_KEY,
-              JSON.stringify({ ...current, _jobId: jobId }),
-            );
-            return jobId;
+          const existingJob = await findExistingJobForCurrentProject(
+            createPayload.postCode,
+            createPayload.projectId,
+          );
+          if (existingJob?._id) {
+            cacheDraftJobId(existingJob._id);
+            return existingJob._id;
           }
-        } catch {
-          // lookup failed
+        } catch (lookupError) {
+          if (lookupError?.status !== 404) {
+            toast.error(
+              lookupError?.message ||
+                "Unable to confirm the existing job for this post code.",
+            );
+          }
         }
         toast.error(
-          `Post code "${createPayload.postCode}" is already used. Go to Step 1 and change it.`,
+          `Post code "${createPayload.postCode}" is already used by another job. Edit Basic Info and enter a unique code.`,
         );
         return null;
       }
@@ -746,10 +771,24 @@ const JobReview = () => {
     }
   };
 
-  const editStep = (step) =>
+  const editStep = (step) => {
+    const targetJobId = draftJobId || hydratedJob?._id || draft._jobId || "";
+    const reviewDraft = {
+      ...draft,
+      ...(effectiveProjectId ? { projectId: effectiveProjectId } : {}),
+      ...(targetJobId ? { _jobId: targetJobId } : {}),
+      completedStep: Math.max(Number(draft.completedStep) || 0, 5),
+      resumeStep: "review",
+      updatedAt: new Date().toISOString(),
+    };
+
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(reviewDraft));
     navigate(
-      getJobWizardPath(step, effectiveProjectId, draftJobId, { returnToReview: true }),
+      getJobWizardPath(step, effectiveProjectId, targetJobId, {
+        returnToReview: true,
+      }),
     );
+  };
 
   return (
     <AdminLayout title="Create Job - Review">
@@ -1112,7 +1151,7 @@ const JobReview = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => editStep("basic-info")}
+                      onClick={() => editStep("payment")}
                       className="text-orange-600 hover:bg-orange-50"
                     >
                       <Edit className="w-3.5 h-3.5 mr-1" />

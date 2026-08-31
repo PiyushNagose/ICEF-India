@@ -51,7 +51,7 @@ export const PageHero = ({ eyebrow, title, description, children }) => (
       <p className="text-[11px] uppercase tracking-[0.16em] font-black text-orange-300">
         {eyebrow}
       </p>
-      <div className="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-end">
+      <div className="mt-3 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-center">
         <div>
           <h1 className="text-[32px] font-black leading-[1.12] text-white sm:text-[40px] lg:text-[48px]">
             {title}

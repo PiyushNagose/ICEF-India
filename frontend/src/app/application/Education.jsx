@@ -52,6 +52,7 @@ const Education = () => {
   }, [location.state]);
 
   const applicationId = getAppId();
+  const isReviewEdit = Boolean(location.state?.returnToReview);
   const [dataLoaded, setDataLoaded] = useState(false);
   const configuredFieldsRef = useRef(null);
 
@@ -516,7 +517,7 @@ const Education = () => {
                 Saving...
               </>
             ) : (
-              "Save & Continue →"
+              isReviewEdit ? "Save & Return to Review" : "Save & Continue"
             )}
           </Button>
         </div>

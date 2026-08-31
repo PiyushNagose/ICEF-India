@@ -42,6 +42,7 @@ const PersonalDetails = () => {
       return null;
     }
   })();
+  const isReviewEdit = Boolean(location.state?.returnToReview);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -486,7 +487,7 @@ const PersonalDetails = () => {
                 Saving...
               </>
             ) : (
-              "Save & Continue →"
+              isReviewEdit ? "Save & Return to Review" : "Save & Continue"
             )}
           </Button>
         </div>

@@ -45,6 +45,9 @@ const initialLookup = {
   contact: "",
 };
 
+const isValidEmail = (value = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const isValidMobile = (value = "") => /^[6-9]\d{9}$/.test(value);
+
 const contactCards = [
   {
     icon: Phone,
@@ -85,8 +88,22 @@ const Contact = () => {
   const setLookupField = (key, value) =>
     setLookup((prev) => ({ ...prev, [key]: value }));
 
+  const canSubmitTicket =
+    form.name.trim().length >= 2 &&
+    isValidMobile(form.mobile) &&
+    isValidEmail(form.email.trim()) &&
+    form.category &&
+    form.title.trim().length >= 4 &&
+    form.description.trim().length >= 10;
+  const canTrackTicket =
+    lookup.ticketId.trim().length > 0 && lookup.contact.trim().length > 0;
+
   const submit = async (event) => {
     event.preventDefault();
+    if (!canSubmitTicket) {
+      toast.error("Complete all required ticket details");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = Object.fromEntries(
@@ -108,6 +125,10 @@ const Contact = () => {
 
   const fetchTicket = async (event) => {
     event?.preventDefault();
+    if (!canTrackTicket) {
+      toast.error("Enter ticket ID and registered contact");
+      return;
+    }
     setTracking(true);
     try {
       const result = await publicService.lookupSupportTicket({
@@ -295,7 +316,7 @@ const Contact = () => {
                 <div className="mt-auto pt-5">
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !canSubmitTicket}
                     className="flex h-12 w-full items-center justify-center gap-2 rounded bg-[#e65f16] text-sm font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_28px_rgba(230,95,22,0.22)] transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="h-4 w-4" />
@@ -329,8 +350,8 @@ const Contact = () => {
                   </Field>
                   <button
                     type="submit"
-                    disabled={tracking}
-                    className="mt-auto flex h-12 items-center justify-center gap-2 rounded bg-[#e65f16] px-6 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#cb5d16] disabled:opacity-60"
+                    disabled={tracking || !canTrackTicket}
+                    className="mt-auto flex h-12 items-center justify-center gap-2 rounded bg-[#e65f16] px-6 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Search className="h-4 w-4" />
                     {tracking ? "Checking" : "Check"}

@@ -27,6 +27,7 @@ const PublicLayout = ({ children }) => {
       : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
   const projectSlug = currentProjectSlug || storedProjectSlug;
   const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
+  const recruitmentListPath = "/";
   const isProjectScopedPage = Boolean(projectMatch);
 
   useEffect(() => {
@@ -81,7 +82,7 @@ const PublicLayout = ({ children }) => {
   const navItems = [
     {
       label: "Recruitment",
-      path: projectHomePath,
+      path: recruitmentListPath,
     },
 
     {
@@ -143,9 +144,7 @@ const PublicLayout = ({ children }) => {
               {navItems.map((item) => {
                 const isRecruitment = item.label === "Recruitment";
                 const active = isRecruitment
-                  ? (projectSlug &&
-                      location.pathname.startsWith(`/apply/${projectSlug}`)) ||
-                    location.pathname === "/" ||
+                  ? location.pathname === "/" ||
                     location.pathname === "/jobs"
                   : location.pathname === item.path;
 
@@ -218,16 +217,27 @@ const PublicLayout = ({ children }) => {
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-[#ddd4ca] bg-[#f6f1ea]">
             <div className="px-4 py-5 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={`${item.label}-${item.path}`}
-                  to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block px-4 py-3 rounded-[4px] text-[12px] uppercase tracking-[0.12em] font-black text-[#3f3a36] hover:bg-[#ece5dc]"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const isRecruitment = item.label === "Recruitment";
+                const active = isRecruitment
+                  ? location.pathname === "/" || location.pathname === "/jobs"
+                  : location.pathname === item.path;
+
+                return (
+                  <Link
+                    key={`${item.label}-${item.path}`}
+                    to={item.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`block rounded-[4px] px-4 py-3 text-[12px] font-black uppercase tracking-[0.12em] transition-colors ${
+                      active
+                        ? "bg-orange-50 text-[#e46a1d]"
+                        : "text-[#3f3a36] hover:bg-[#ece5dc]"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
 
               {!isLoggedIn && (
                 <>

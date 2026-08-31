@@ -837,8 +837,8 @@ export default function ProjectLanding({ preview = false }) {
                 className="self-start"
               >
                 <PublicHero3D
-                  title={cmsPage?.heroTitle || project.name}
-                  subtitle={`${project.department || "Recruitment"} application services for ${project.state || "India"}.`}
+                  title="Recruitment Desk"
+                  subtitle="Official notices, posts, deadlines, and candidate services in one place."
                   stats={[
                     {
                       label: "Vacancies",

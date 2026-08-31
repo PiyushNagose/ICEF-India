@@ -54,6 +54,43 @@ const Label = ({ children }) => (
   </label>
 );
 
+const normalizeCmsPayload = (payload = {}) => ({
+  projectId: payload.projectId || "",
+  heroTitle: (payload.heroTitle || "").trim(),
+  heroSubtitle: (payload.heroSubtitle || "").trim(),
+  bannerImage: payload.bannerImage || "",
+  featuredJobs: (payload.featuredJobs || []).map((job) =>
+    String(job?._id || job || ""),
+  ),
+  announcements: (payload.announcements || []).map((item) => ({
+    text: (item.text || "").trim(),
+    link: (item.link || "").trim(),
+    priority: item.priority || "medium",
+  })),
+  quickLinks: payload.quickLinks || {},
+  instructions: (payload.instructions || []).map((item) =>
+    String(item || "").trim(),
+  ),
+  downloads: (payload.downloads || []).map((item) => ({
+    title: (item.title || "").trim(),
+    url: (item.url || "").trim(),
+    type: (item.type || "").trim() || "PDF",
+  })),
+  faqs: (payload.faqs || []).map((item) => ({
+    question: (item.question || "").trim(),
+    answer: (item.answer || "").trim(),
+  })),
+  helpdesk: {
+    phone: (payload.helpdesk?.phone || "").trim(),
+    email: (payload.helpdesk?.email || "").trim(),
+    hours: (payload.helpdesk?.hours || "").trim(),
+    address: (payload.helpdesk?.address || "").trim(),
+  },
+  sectionVisibility: payload.sectionVisibility || {},
+});
+
+const getCmsSnapshot = (payload) => JSON.stringify(normalizeCmsPayload(payload));
+
 const formatProjectDate = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -152,6 +189,7 @@ const CmsEdit = () => {
   });
   const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
   const [jobSearch, setJobSearch] = useState("");
+  const [savedSnapshot, setSavedSnapshot] = useState("");
 
   const { data: pageData, isLoading: pageLoading } = useQuery({
     queryKey: ["admin-cms-page", stateName, projectId],
@@ -218,8 +256,7 @@ const CmsEdit = () => {
     if (projectId && !project) return;
     const p = pageData.page;
     const defaults = getProjectDefaults(project, stateName);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- query data is copied into editable draft form state.
-    setForm({
+    const nextForm = {
       heroTitle: p.heroTitle || defaults.heroTitle,
       heroSubtitle: p.heroSubtitle || defaults.heroSubtitle,
       bannerImage: p.bannerImage || "",
@@ -255,7 +292,10 @@ const CmsEdit = () => {
         support: true,
       },
       status: p.status || "draft",
-    });
+    };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- query data is copied into editable draft form state.
+    setForm(nextForm);
+    setSavedSnapshot(getCmsSnapshot({ ...nextForm, projectId }));
   }, [form, pageData, project, projectId, stateName]);
 
   useEffect(() => {
@@ -431,6 +471,10 @@ const CmsEdit = () => {
     sectionVisibility: form.sectionVisibility,
   });
 
+  const hasUnsavedChanges =
+    Boolean(form && savedSnapshot) &&
+    getCmsSnapshot(buildPayload()) !== savedSnapshot;
+
   // Stash the current (possibly unsaved) draft and open the public preview in a
   // new tab. Only meaningful for project landing pages, which have a public URL.
   const handlePreview = () => {
@@ -461,6 +505,7 @@ const CmsEdit = () => {
       ),
     onSuccess: () => {
       toast.success(projectId ? "Landing page saved." : "Page saved as draft");
+      setSavedSnapshot(getCmsSnapshot(buildPayload()));
       clearCmsPreviewDraft(projectId);
       queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
       queryClient.invalidateQueries({
@@ -491,6 +536,7 @@ const CmsEdit = () => {
     },
     onSuccess: () => {
       toast.success(projectId ? "Landing page published." : "Page published");
+      setSavedSnapshot(getCmsSnapshot(buildPayload()));
       clearCmsPreviewDraft(projectId);
       queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
       queryClient.invalidateQueries({
@@ -938,22 +984,26 @@ const CmsEdit = () => {
                 )}
                 <button
                   onClick={() => saveAndPublish(buildPayload())}
-                  disabled={isPublishing || isSaving}
-                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                  disabled={isPublishing || isSaving || !hasUnsavedChanges}
+                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   {isPublishing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <CheckCircle2 className="w-4 h-4" />
                   )}
-                  {isPublishing ? "Publishing..." : "Publish Page"}
+                  {isPublishing
+                    ? "Publishing..."
+                    : hasUnsavedChanges
+                      ? "Publish Page"
+                      : "No Changes to Publish"}
                 </button>
                 <button
                   onClick={() =>
                     saveUpdate({ ...buildPayload(), status: "draft" })
                   }
-                  disabled={isSaving || isPublishing}
-                  className="w-full py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                  disabled={isSaving || isPublishing || !hasUnsavedChanges}
+                  className="w-full py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-50 disabled:text-gray-400"
                 >
                   {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save as Draft
@@ -1182,9 +1232,13 @@ const CmsEdit = () => {
 
           {/* Bottom bar */}
           <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-200">
-            <div className="flex items-center gap-2 text-xs text-emerald-600">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full" />
-              All changes saved
+            <div
+              className={`flex items-center gap-2 text-xs ${hasUnsavedChanges ? "text-orange-600" : "text-emerald-600"}`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${hasUnsavedChanges ? "bg-orange-500" : "bg-emerald-500"}`}
+              />
+              {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -1207,18 +1261,18 @@ const CmsEdit = () => {
                 onClick={() =>
                   saveUpdate({ ...buildPayload(), status: "draft" })
                 }
-                disabled={isSaving || isPublishing}
-                className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+                disabled={isSaving || isPublishing || !hasUnsavedChanges}
+                className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 Save Draft
               </button>
               <button
                 onClick={() => saveAndPublish(buildPayload())}
-                disabled={isSaving || isPublishing}
-                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center gap-2"
+                disabled={isSaving || isPublishing || !hasUnsavedChanges}
+                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60 flex items-center gap-2"
               >
                 {isPublishing && <Loader2 className="w-4 h-4 animate-spin" />}
-                Publish Changes
+                {hasUnsavedChanges ? "Publish Changes" : "No Changes"}
               </button>
             </div>
           </div>

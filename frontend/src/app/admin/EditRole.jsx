@@ -48,6 +48,13 @@ const emptyPermissions = () =>
     MODULES.map(m => [m.id, Object.fromEntries(ACTIONS.map(a => [a, false]))])
   )
 
+const getRoleSnapshot = ({ roleName, roleDescription, permissions }) =>
+  JSON.stringify({
+    roleName: (roleName || '').trim(),
+    roleDescription: (roleDescription || '').trim(),
+    permissions,
+  })
+
 const EditRole = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -56,6 +63,7 @@ const EditRole = () => {
   const [roleDescription, setRoleDescription] = useState('')
   const [permissions, setPermissions] = useState(emptyPermissions())
   const [errors, setErrors] = useState({})
+  const [savedSnapshot, setSavedSnapshot] = useState('')
 
   const { data: roleData, isLoading } = useQuery({
     queryKey: ['admin-role', id],
@@ -68,20 +76,25 @@ const EditRole = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRoleName(role.roleName || '')
       setRoleDescription(role.roleDescription || '')
+      let nextPermissions = emptyPermissions()
       if (role.permissions) {
         // Merge existing permissions with empty template (handles missing modules)
-        const merged = emptyPermissions()
         Object.entries(role.permissions).forEach(([mod, perms]) => {
-          if (merged[mod]) {
+          if (nextPermissions[mod]) {
             Object.entries(perms).forEach(([action, val]) => {
-              if (merged[mod][action] !== undefined) {
-                merged[mod][action] = Boolean(val)
+              if (nextPermissions[mod][action] !== undefined) {
+                nextPermissions[mod][action] = Boolean(val)
               }
             })
           }
         })
-        setPermissions(merged)
       }
+      setPermissions(nextPermissions)
+      setSavedSnapshot(getRoleSnapshot({
+        roleName: role.roleName || '',
+        roleDescription: role.roleDescription || '',
+        permissions: nextPermissions,
+      }))
     }
   }, [roleData])
 
@@ -97,6 +110,11 @@ const EditRole = () => {
   })
 
   const isSystemRole = roleData?.role?.isSystemRole
+  const hasUnsavedChanges = Boolean(savedSnapshot) && getRoleSnapshot({
+    roleName,
+    roleDescription,
+    permissions,
+  }) !== savedSnapshot
 
   const togglePermission = (moduleId, action) => {
     if (isSystemRole) return
@@ -120,6 +138,10 @@ const EditRole = () => {
   const handleSubmit = () => {
     if (isSystemRole) {
       toast.error('System roles are locked and cannot be modified')
+      return
+    }
+    if (!hasUnsavedChanges) {
+      toast('No role changes to save')
       return
     }
     const e = {}
@@ -293,10 +315,10 @@ const EditRole = () => {
               {!isSystemRole && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={isPending}
+                  disabled={isPending || !hasUnsavedChanges}
                   className="w-full bg-orange-600 hover:bg-orange-700 text-white"
                 >
-                  {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
+                  {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : hasUnsavedChanges ? 'Save Changes' : 'No Changes'}
                 </Button>
               )}
               <Button variant="outline" onClick={() => navigate('/admin/roles')} className="w-full">

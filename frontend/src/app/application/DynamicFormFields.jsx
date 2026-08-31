@@ -103,6 +103,7 @@ const DynamicFormFields = () => {
   const queryClient = useQueryClient();
   const draft = readApplicationDraft();
   const applicationId = location.state?.applicationId || draft.applicationId;
+  const isReviewEdit = Boolean(location.state?.returnToReview);
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [loadedForApp, setLoadedForApp] = useState(null);
@@ -307,8 +308,8 @@ const DynamicFormFields = () => {
               </>
             ) : (
               <>
-                Save & Continue
-                <ArrowRight className="w-4 h-4" />
+                {isReviewEdit ? "Save & Return to Review" : "Save & Continue"}
+                {!isReviewEdit && <ArrowRight className="w-4 h-4" />}
               </>
             )}
           </Button>

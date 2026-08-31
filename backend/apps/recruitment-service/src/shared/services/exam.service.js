@@ -2001,6 +2001,12 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .map((line) => escapeHtml(line))
     .join("<br/>");
   const controllerTitle = tplConfig.controllerTitle || "Examination Controller";
+  const disabilityValue = String(
+    personal.disability || personal.pwd || personal.isDisabled || "",
+  ).toLowerCase();
+  const disabilityText = ["yes", "true", "1", "pwd", "disabled"].includes(disabilityValue)
+    ? "YES"
+    : "NO";
 
   const templateInstructions = tplConfig.instructions
     ? tplConfig.instructions.split('\n').filter(line => line.trim().length > 0).map((text, i) => ({ order: i + 1, text: text.trim() }))
@@ -2039,9 +2045,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       (paper) => `
     <tr>
       <td>${escapeHtml(paper.name)}</td>
-      <td>${escapeHtml(paper.numberOfQuestions)}</td>
-      <td></td>
-      <td></td>
+      <td>${escapeHtml(formatDate(schedule.examDate))}, ${escapeHtml(schedule.examStartTime)}${schedule.examEndTime ? ` - ${escapeHtml(schedule.examEndTime)}` : ""}</td>
     </tr>
   `,
     )
@@ -2055,55 +2059,58 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   <style>
     @page { size: A4 ${isLandscape ? "landscape" : "portrait"}; margin: 0; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { width: ${isLandscape ? "297mm" : "210mm"}; min-height: ${isLandscape ? "210mm" : "297mm"}; margin: 0 auto; padding: 28px 38px 24px; page-break-after: always; break-after: page; background: #fff; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #f3f4f6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { width: ${isLandscape ? "297mm" : "210mm"}; height: ${isLandscape ? "210mm" : "297mm"}; margin: 20px auto; padding: ${isLandscape ? "24px 34px 22px" : "28px 38px 24px"}; page-break-after: always; break-after: page; background: #fff; position: relative; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     .page:last-of-type { page-break-after: auto; }
+    .page-bg { position: absolute; inset: 0; background: #fff; opacity: ${watermarkUrl ? "0.9" : "1"}; z-index: 0; }
+    .page-content { position: relative; z-index: 1; }
     .sheet { width: ${isLandscape ? "900px" : "574px"}; margin: 0 auto; }
-    .header { text-align: center; line-height: 1.02; margin-bottom: 5px; }
+    .header { text-align: center; line-height: 1.02; margin-bottom: 11px; }
     .seal { width: 42px; height: 42px; border: 2px solid #75a887; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; color: #1f6b43; font-family: "Times New Roman", Georgia, serif; font-size: 9px; font-weight: 700; box-shadow: inset 0 0 0 3px #eef7f1, inset 0 0 0 5px #c7ded0; }
     .commission { font-family: "Times New Roman", Georgia, serif; font-size: 22px; font-weight: 700; line-height: 1.05; }
     .local { font-size: 15px; font-weight: 700; line-height: 1.05; }
     .exam { font-size: 10px; font-weight: 700; line-height: 1.05; margin-top: 2px; }
     .title { font-size: 13px; font-weight: 700; line-height: 1.05; }
-    .barcode { height: 27px; margin: 4px auto 5px; line-height: 0; overflow: hidden; white-space: nowrap; text-align: center; }
+    .barcode { height: 27px; margin: 6px auto 5px; line-height: 0; overflow: hidden; white-space: nowrap; text-align: center; }
     .verify { font-size: 8px; font-weight: 700; margin-top: 2px; word-break: break-all; }
     .barcode span { height: 28px !important; vertical-align: top; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; border: 1px solid ${primaryColor}; }
-    th, td { border: 1px solid ${primaryColor}; padding: 4px 7px; vertical-align: middle; line-height: 1.12; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; border: 1px solid #9ca3af; margin-bottom: 14px; }
+    th, td { border: 1px solid #9ca3af; padding: 6px 8px; vertical-align: middle; line-height: 1.15; }
     th { text-align: center; font-weight: 700; }
     .label { width: 25%; font-weight: 700; }
     .value { font-weight: 500; }
     .photo-cell { width: 25%; text-align: center; padding: 0; vertical-align: top; }
-    .candidate td { height: 34px; }
-    .photo-box { height: 70px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #9aa8bd; }
+    .candidate td { height: 31px; }
+    .photo-box { height: 82px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #9ca3af; background: #f8fafc; }
     .photo-box img { max-width: 66px; max-height: 66px; object-fit: cover; }
-    .photo-placeholder { width: 58px; height: 58px; border-radius: 50%; background: #f1f3f5; color: #8a93a3; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
-    .paste-text { height: 112px; display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 10px; font-weight: 700; line-height: 1.16; }
+    .photo-placeholder { width: 64px; height: 64px; border-radius: 4px; background: #e5e7eb; color: #8a93a3; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; }
+    .paste-text { height: 96px; display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 8px; font-weight: 700; line-height: 1.12; }
     .paste-text small { display: block; margin-top: 5px; font-size: 8px; line-height: 1.1; }
-    .sign-box { height: 52px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #9aa8bd; background: #fafafa; }
+    .sign-box { height: 54px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #9ca3af; background: #fafafa; }
     .sign-box img { max-width: 105px; max-height: 46px; object-fit: contain; }
-    .section-title { text-align: center; font-weight: 700; font-size: 14px; background: #fff; padding: 3px 6px; }
-    .paper th { font-size: 12px; padding: 5px 6px; }
-    .paper td { height: 36px; font-weight: 700; }
-    .venue td { padding: 4px 8px; height: 27px; }
-    .spacer { height: 7px; }
-    .controller { margin-top: 47px; text-align: right; padding-right: 78px; font-size: 12px; font-weight: 700; }
-    .instructions-page { padding-top: 29px; }
+    .section-title { text-align: center; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; background: ${primaryColor}; color: #fff; padding: 7px 6px; }
+    .paper th { font-size: 10px; padding: 6px; background: ${primaryColor}; color: #fff; }
+    .paper td { height: 27px; font-weight: 700; text-align: center; }
+    .venue td { padding: 6px 8px; height: 28px; }
+    .note-inline { margin-top: 3px; border: 1px solid #fed7aa; border-radius: 4px; background: #fff7ed; color: #9a3412; padding: 8px; font-size: 9px; font-weight: 700; line-height: 1.25; text-align: justify; }
+    .controller { margin-top: 38px; text-align: right; padding-right: 38px; font-size: 10px; font-weight: 700; }
+    .signature-label { margin-bottom: 31px; }
+    .instructions-page { padding-top: 30px; }
     .instruction-sheet { width: ${isLandscape ? "900px" : "574px"}; margin: 0 auto; }
-    .instruction-box { border: 1px solid ${primaryColor}; min-height: 627px; }
-    .note { border-bottom: 1px solid ${primaryColor}; padding: 7px 8px; font-size: 10px; font-weight: 700; line-height: 1.25; text-align: justify; }
-    .instruction-head { border-bottom: 1px solid ${primaryColor}; text-align: center; padding: 8px; font-size: 14px; font-weight: 700; line-height: 1.15; }
-    ol { margin: 12px 12px 24px 45px; padding: 0; font-size: 10px; font-weight: 700; line-height: 1.25; }
-    li { padding: 8px 0 9px; border-bottom: 1px solid #aaa; }
-    li:last-child { border-bottom: 1px solid #aaa; }
-    .actions { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; }
+    .instruction-title { text-align: center; font-size: 14px; font-weight: 700; margin: 16px 0 10px; }
+    .instruction-head { text-align: center; padding: 0 8px 12px; font-size: 10px; font-weight: 700; line-height: 1.35; }
+    ol { margin: 0 10px 24px 30px; padding: 0; font-size: 11px; font-weight: 500; line-height: 1.32; text-align: justify; }
+    li { padding: 8px 0 9px; border-bottom: 1px solid #eef2f7; }
+    li:last-child { border-bottom: 0; }
+    .actions { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 10; }
     .actions button { border: 0; background: #ea580c; color: #fff; padding: 8px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; }
-    @media print { .actions { display: none; } .page { margin: 0; } }
+    @media print { body { background: #fff; } .actions { display: none; } .page { margin: 0; box-shadow: none; } }
     /* Template styles */
     body.template-modern { font-family: "Segoe UI", Roboto, sans-serif; }
-    body.template-modern table { border-color: #334155; }
+    body.template-modern table { border-color: #cbd5e1; }
     body.template-modern th { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
     body.template-modern td { border-color: #cbd5e1; }
+    body.template-modern .section-title, body.template-modern .paper th { background: #f8fafc; color: #0f172a; }
     body.template-compact .page { padding: 15px 20px 10px; }
     body.template-compact table { font-size: 10px; }
     body.template-compact th, body.template-compact td { padding: 2px 4px; }
@@ -2115,7 +2122,7 @@ const renderAdmitCardHtml = async (id, options = {}) => {
     .logo-container img { max-width: 50px; max-height: 50px; object-fit: contain; }
   </style>
 </head>
-<body class="template-${baseLayout}" ${watermarkUrl ? `style="background-image: url('${watermarkUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;"` : ""}>
+<body class="template-${baseLayout}">
   ${
     options.embed
       ? ""
@@ -2129,8 +2136,9 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       window.location.href = window.location.pathname.replace(/\\/html$/, "/pdf") + window.location.search;
     }
   </script>
-  <section class="page">
-    <div class="sheet">
+  <section class="page" ${watermarkUrl ? `style="background-image: url('${escapeHtml(watermarkUrl)}'); background-size: cover; background-position: center; background-repeat: no-repeat;"` : ""}>
+    <div class="page-bg"></div>
+    <div class="page-content sheet">
       <div class="header">
         ${logoUrl ? `<div class="logo-container"><img src="${escapeHtml(logoUrl)}" alt="Logo" /></div>` : `<div class="seal" style="border-color: ${primaryColor}80; color: ${primaryColor}; box-shadow: inset 0 0 0 3px ${primaryColor}10, inset 0 0 0 5px ${primaryColor}20;">${escapeHtml(sealText)}</div>`}
         <div class="commission">${escapeHtml(organizationName)}</div>
@@ -2158,39 +2166,34 @@ const renderAdmitCardHtml = async (id, options = {}) => {
       <tr><td class="label">Gender</td><td class="value">${escapeHtml(personal.gender)}</td></tr>
       <tr><td class="label">Category</td><td class="value">${escapeHtml(personal.category)}</td></tr>
       <tr><td class="label">Date of Birth</td><td class="value">${escapeHtml(formatDate(personal.dateOfBirth))}</td></tr>
-      <tr><td class="label">Identification Mark</td><td class="value">${escapeHtml(personal.identificationMark)}</td></tr>
+      <tr><td class="label">Disability</td><td class="value">${escapeHtml(disabilityText)}</td></tr>
     </table>
 
-    <div class="spacer"></div>
+    <table class="venue">
+      <tr><th colspan="2" class="section-title">Exam Center Details</th></tr>
+      <tr><td class="label">Center Code</td><td>${escapeHtml(center?.centerCode || "-")}</td></tr>
+      <tr><td class="label">Venue Address</td><td>${escapeHtml(venue)}</td></tr>
+    </table>
+
     <table class="paper">
-      <tr><th colspan="4" class="section-title">Examination Details</th></tr>
-      <tr><th>Details of paper</th><th>Number of questions</th><th>Candidate's Signature</th><th>Invigilator's Signature</th></tr>
+      <tr><th>Subject / Paper</th><th>Date & Time</th></tr>
       ${rows}
     </table>
 
-    <div class="spacer"></div>
-    <table class="venue">
-      <tr><th colspan="2" class="section-title">Venue/ Time Details</th></tr>
-      <tr><td class="label">Examination Center</td><td><strong>${escapeHtml(venue)}</strong></td></tr>
-      <tr><td class="label">Exam Date</td><td>${escapeHtml(formatDate(schedule.examDate))}</td></tr>
-      <tr><td class="label">Reporting Time</td><td>${escapeHtml(schedule.reportingTime)}</td></tr>
-      ${schedule.gateClosingTime ? `<tr><td class="label">Gate Closing Time</td><td>${escapeHtml(schedule.gateClosingTime)}</td></tr>` : ""}
-      <tr><td class="label">Exam Time</td><td>${escapeHtml(schedule.examStartTime)}${schedule.examEndTime ? ` to ${escapeHtml(schedule.examEndTime)}` : ""}</td></tr>
-    </table>
+    <div class="note-inline">NOTE: ${escapeHtml(provisionalNote)}</div>
 
-    <div class="controller">${escapeHtml(controllerTitle)}</div>
+    <div class="controller"><div class="signature-label">Signature</div><div>${escapeHtml(controllerTitle)}</div></div>
     </div>
   </section>
 
   <section class="page instructions-page">
-    <div class="instruction-sheet">
-      <div class="instruction-box">
-        <div class="note">${escapeHtml(provisionalNote)}</div>
-        <div class="instruction-head">${escapeHtml(instructionHeading)}</div>
-        <ol>
-          ${instructions.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}
-        </ol>
-      </div>
+    <div class="page-bg"></div>
+    <div class="page-content instruction-sheet">
+      <div class="instruction-title">INSTRUCTIONS FOR CANDIDATES</div>
+      <div class="instruction-head">${escapeHtml(instructionHeading)}</div>
+      <ol>
+        ${instructions.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}
+      </ol>
     </div>
   </section>
 </body>
