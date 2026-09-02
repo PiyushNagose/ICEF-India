@@ -17,6 +17,7 @@ import { adminService } from '../../services/admin.service'
 import Button from '../../components/ui/Button'
 import AdmitCardPreview from './components/AdmitCardPreview'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import ConfirmActionModal from '../../components/ui/ConfirmActionModal'
 
 const TEMPLATE_TYPES = [
   {
@@ -223,6 +224,7 @@ const AdmitCardTemplates = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState(null)
   const [form, setForm] = useState(blankForm(initialType))
+  const [deleteTemplateId, setDeleteTemplateId] = useState('')
 
   const activeMeta = TEMPLATE_TYPES.find((type) => type.id === activeType) || TEMPLATE_TYPES[0]
   const ActiveIcon = activeMeta.icon
@@ -319,11 +321,12 @@ const AdmitCardTemplates = () => {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this template? Existing schedules will keep their saved copy.')) return
+  const confirmDeleteTemplate = async () => {
+    if (!deleteTemplateId) return
     try {
-      await adminService.deleteAdmitCardTemplate(id)
+      await adminService.deleteAdmitCardTemplate(deleteTemplateId)
       toast.success('Template deleted')
+      setDeleteTemplateId('')
       fetchTemplates()
     } catch (err) {
       toast.error(err?.message || 'Could not delete this template.')
@@ -375,7 +378,7 @@ const AdmitCardTemplates = () => {
             {!isSystemDefault && (
               <button
                 type="button"
-                onClick={() => handleDelete(template._id)}
+                onClick={() => setDeleteTemplateId(template._id)}
                 className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
                 title="Delete template"
               >
@@ -761,6 +764,15 @@ const AdmitCardTemplates = () => {
           </div>
         )}
       </div>
+      <ConfirmActionModal
+        isOpen={Boolean(deleteTemplateId)}
+        onClose={() => setDeleteTemplateId('')}
+        onConfirm={confirmDeleteTemplate}
+        title="Delete Template"
+        message="Delete this custom template? Existing schedules will keep their saved copy."
+        confirmLabel="Delete Template"
+        tone="red"
+      />
     </AdminLayout>
   )
 }

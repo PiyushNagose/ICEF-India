@@ -10,6 +10,7 @@ import CustomSelect from "../../components/ui/CustomSelect";
 import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -127,7 +128,7 @@ const AdditionalInfo = () => {
   const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     const payload = {

@@ -203,10 +203,12 @@ exports.checkStatus = asyncHandler(async (req, res) => {
 
   // Find application
   const application = await Application.findOne({ registrationNumber })
-    .populate(
-      "jobId",
-      "title department postCode examDate admitCardReleaseDate resultDate applicationDeadline correctionStartDate correctionDeadline",
-    )
+    .populate({
+      path: "jobId",
+      select:
+        "title department postCode examDate admitCardReleaseDate resultDate applicationDeadline correctionStartDate correctionDeadline projectId",
+      populate: { path: "projectId", select: "name publicSlug department state" },
+    })
     .populate("candidateId", "email registeredMobile dateOfBirth")
     .lean();
 
@@ -301,6 +303,7 @@ exports.checkStatus = asyncHandler(async (req, res) => {
             admitCardDate: job.admitCardReleaseDate,
             resultDate: job.resultDate,
             applicationDeadline: job.applicationDeadline,
+            projectSlug: job.projectId?.publicSlug,
           }
         : null,
       correctionWindow: {

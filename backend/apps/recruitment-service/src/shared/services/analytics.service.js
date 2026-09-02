@@ -4,6 +4,7 @@ const Project = require("../models/Project");
 const Payment = require("../models/Payment");
 const SupportTicket = require("../models/SupportTicket");
 const User = require("../models/User");
+const { startOfToday } = require("../utils/timeline");
 
 const getDashboardStats = async () => {
   const [
@@ -24,7 +25,14 @@ const getDashboardStats = async () => {
     }),
     Application.countDocuments({ status: "under_review" }),
     Job.countDocuments(),
-    Job.countDocuments({ status: "active" }),
+    Job.countDocuments({
+      status: "active",
+      $or: [
+        { applicationDeadline: { $exists: false } },
+        { applicationDeadline: null },
+        { applicationDeadline: { $gte: startOfToday() } },
+      ],
+    }),
     Project.countDocuments(),
     Project.countDocuments({ status: "Active" }),
     User.countDocuments({ role: "candidate" }),

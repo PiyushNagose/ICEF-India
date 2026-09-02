@@ -8,6 +8,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import KpiDateRangeFilter from '../../components/common/KpiDateRangeFilter'
 import {
   DEFAULT_KPI_DATE_RANGE,
@@ -45,7 +46,7 @@ const Analytics = () => {
   const paySuccess = countPay('paid') + countPay('success')
   const paySuccessRate = (paySuccess + payFailed) > 0
     ? ((paySuccess / (paySuccess + payFailed)) * 100).toFixed(1)
-    : '—'
+    : 'â€”'
 
   const ticketsRaised   = supportStats.reduce((s, x) => s + (x.count || 0), 0)
   const ticketsResolved = countSupport('Resolved') || countSupport('resolved')
@@ -63,7 +64,7 @@ const Analytics = () => {
   const maxFunnel = Math.max(...funnelStages.map(f => f.value || 0), 1)
 
   const fmt = (n) => {
-    if (!n && n !== 0) return '—'
+    if (!n && n !== 0) return 'â€”'
     if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
     return Number(n).toLocaleString('en-IN')
   }
@@ -85,99 +86,54 @@ const Analytics = () => {
           />
         </div>
 
-        {/* ── Row 1: 4 main stat cards ── */}
+        {/* â”€â”€ Row 1: 4 main stat cards â”€â”€ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-          {/* Total Applications */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Total Applications</p>
-            <div className="flex items-end justify-between">
-              <p className="text-2xl font-bold text-gray-900">{fmt(total)}</p>
-              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                <TrendingUp className="w-3 h-3" /> 12%
-              </span>
-            </div>
-          </div>
+          <AdminKpiCard
+            title="Total Applications"
+            value={fmt(total)}
+            icon={TrendingUp}
+            tone="orange"
+            badge={{ label: '12%', className: 'bg-emerald-50 text-emerald-600' }}
+            valueClassName="text-2xl"
+          />
 
-          {/* Completed Applications */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Completed Applications</p>
-            <div className="flex items-end justify-between">
-              <p className="text-2xl font-bold text-gray-900">{fmt(completed)}</p>
-              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                <CheckCircle className="w-3 h-3" /> 73%
-              </span>
-            </div>
-          </div>
+          <AdminKpiCard
+            title="Completed Applications"
+            value={fmt(completed)}
+            icon={CheckCircle}
+            tone="green"
+            badge={{ label: '73%', className: 'bg-emerald-50 text-emerald-600' }}
+            valueClassName="text-2xl"
+          />
 
-          {/* Pending Applications */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-amber-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Pending Applications</p>
-            <div className="flex items-end justify-between">
-              <p className="text-2xl font-bold text-gray-900">{fmt(pending)}</p>
-              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                <Clock className="w-3 h-3" /> Processing...
-              </span>
-            </div>
-          </div>
-
-          {/* Payment Success Rate */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-blue-500 p-5 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-3">Payment Success Rate</p>
-            <div className="flex items-end justify-between">
-              <p className="text-2xl font-bold text-gray-900">{paySuccessRate}{paySuccessRate !== '—' ? '%' : ''}</p>
-              <span className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                <Star className="w-3 h-3" /> High
-              </span>
-            </div>
-          </div>
+          <AdminKpiCard
+            title="Pending Applications"
+            value={fmt(pending)}
+            icon={Clock}
+            tone="amber"
+            badge={{ label: 'Processing', className: 'bg-amber-50 text-amber-600' }}
+            valueClassName="text-2xl"
+          />
+          <AdminKpiCard
+            title="Payment Success Rate"
+            value={`${paySuccessRate}${paySuccessRate !== 'â€”' ? '%' : ''}`}
+            icon={Star}
+            tone="blue"
+            badge={{ label: 'High', className: 'bg-amber-50 text-amber-600' }}
+            valueClassName="text-2xl"
+          />
         </div>
 
-        {/* ── Row 2: 4 secondary stat cards ── */}
+        {/* â”€â”€ Row 2: 4 secondary stat cards â”€â”€ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-red-400 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <XCircle className="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Dropped</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(dropped).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-400 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Payment Failures</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(payFailed).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-amber-400 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Ticket className="w-5 h-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Raised</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(ticketsRaised).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-400 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <BadgeCheck className="w-5 h-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Tickets Resolved</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(ticketsResolved).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
+          <AdminKpiCard title="Dropped" value={dropped} icon={XCircle} tone="red" valueClassName="text-2xl" />
+          <AdminKpiCard title="Payment Failures" value={payFailed} icon={AlertCircle} tone="orange" valueClassName="text-2xl" />
+          <AdminKpiCard title="Tickets Raised" value={ticketsRaised} icon={Ticket} tone="amber" valueClassName="text-2xl" />
+          <AdminKpiCard title="Tickets Resolved" value={ticketsResolved} icon={BadgeCheck} tone="green" valueClassName="text-2xl" />
         </div>
 
-        {/* ── Conversion Funnel ── */}
+        {/* â”€â”€ Conversion Funnel â”€â”€ */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-base font-semibold text-gray-900">Application Conversion Funnel</h3>
@@ -209,7 +165,7 @@ const Analytics = () => {
                       {fmt(stage.value)}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {stage.pctLabel || (pct > 0 ? `${pct}% conversion` : '—')}
+                      {stage.pctLabel || (pct > 0 ? `${pct}% conversion` : 'â€”')}
                     </p>
                   </div>
                   {/* Arrow between steps */}
@@ -230,7 +186,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* ── Bottom Row: Top Jobs + Support Snapshot ── */}
+        {/* â”€â”€ Bottom Row: Top Jobs + Support Snapshot â”€â”€ */}
         <div className="grid grid-cols-1 items-stretch lg:grid-cols-3 gap-5">
 
           {/* Top Jobs */}

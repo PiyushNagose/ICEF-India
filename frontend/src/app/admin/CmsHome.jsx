@@ -23,6 +23,7 @@ import { adminService } from "../../services/admin.service";
 import { hasPermission, useAuth, isSuperAdminUser } from "../../hooks/useAuth";
 import ConfirmDeleteModal from "../../components/ui/ConfirmDeleteModal";
 import { AdminTableShell } from "../../components/ui/AdminTable";
+import AdminKpiCard from "../../components/ui/AdminKpiCard";
 
 const STATUS_CFG = {
   published: {
@@ -86,34 +87,9 @@ const getPublicPath = (page) => {
   return slug ? `/apply/${slug}` : "";
 };
 
-const StatCard = ({ icon: Icon, label, value, color, sub }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-4">
-    <div className="flex min-h-[72px] items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className="mb-2 text-xs font-bold uppercase leading-none tracking-normal text-gray-500">
-          {label}
-        </p>
-        <p className="text-2xl font-bold leading-none text-gray-900">{value}</p>
-        {sub && (
-          <p className="mt-2 text-xs font-medium leading-none text-gray-400">
-            {sub}
-          </p>
-        )}
-      </div>
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${color}`}
-      >
-        <Icon className="h-4 w-4 text-white" />
-      </div>
-    </div>
-  </div>
-);
-
-
-
 // Time-ago helper
 const timeAgo = (date) => {
-  if (!date) return "—";
+  if (!date) return "â€”";
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -207,7 +183,7 @@ const CmsHome = () => {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : "—";
+      : "â€”";
 
   const lastUpdated = stats.lastUpdated
     ? (() => {
@@ -218,7 +194,7 @@ const CmsHome = () => {
         if (h < 24) return `${h}h ago`;
         return `${Math.floor(h / 24)}d ago`;
       })()
-    : "—";
+    : "â€”";
 
   return (
     <AdminLayout title="CMS">
@@ -250,31 +226,17 @@ const CmsHome = () => {
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
+          <AdminKpiCard
             icon={Layers}
-            label="Total Landing Pages"
+            title="Total Landing Pages"
             value={stats.total ?? 0}
-            color="bg-orange-500"
-            sub={stats.total > 0 ? "+2 New" : "—"}
+            tone="orange"
+            helper={stats.total > 0 ? "+2 New" : "—"}
+            valueClassName="text-2xl"
           />
-          <StatCard
-            icon={Globe}
-            label="Published"
-            value={stats.published ?? 0}
-            color="bg-emerald-500"
-          />
-          <StatCard
-            icon={FileText}
-            label="Draft"
-            value={stats.draft ?? 0}
-            color="bg-amber-500"
-          />
-          <StatCard
-            icon={Clock}
-            label="Last Updated"
-            value={lastUpdated}
-            color="bg-orange-500"
-          />
+          <AdminKpiCard icon={Globe} title="Published" value={stats.published ?? 0} tone="green" valueClassName="text-2xl" />
+          <AdminKpiCard icon={FileText} title="Draft" value={stats.draft ?? 0} tone="amber" valueClassName="text-2xl" />
+          <AdminKpiCard icon={Clock} title="Last Updated" value={lastUpdated} tone="blue" valueClassName="text-2xl" />
         </div>
 
         {/* Pages table */}

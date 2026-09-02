@@ -13,8 +13,9 @@ import { hasPermission, useAuth } from '../../hooks/useAuth'
 import CustomSelect from '../../components/ui/CustomSelect'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 
-// ── Action badge config ───────────────────────────────────
+// â”€â”€ Action badge config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ACTION_CFG = {
   CREATE:   { bg: 'bg-emerald-500', text: 'text-white' },
   UPDATE:   { bg: 'bg-amber-400',   text: 'text-white' },
@@ -105,7 +106,7 @@ const ActivityLogs = () => {
     <AdminLayout title="Activity Logs">
       <div className="p-5 space-y-5">
 
-        {/* ── Header ── */}
+        {/* â”€â”€ Header â”€â”€ */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Activity Logs</h1>
@@ -123,51 +124,22 @@ const ActivityLogs = () => {
           </div>
         </div>
 
-        {/* ── Stat Cards ── */}
+        {/* â”€â”€ Stat Cards â”€â”€ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5 text-orange-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Changes Today</p>
-              <p className="text-3xl font-bold text-gray-900">{Number(totalItems).toLocaleString('en-IN')}</p>
-              <p className="text-xs text-emerald-600 font-medium mt-0.5">Live audit trail</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <UserCheck className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Active Employees</p>
-              <p className="text-3xl font-bold text-gray-900">{uniqueEmps}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Currently session active</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <BriefcaseIcon className="w-5 h-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Jobs Updated</p>
-              <p className="text-3xl font-bold text-gray-900">{jobLogs}</p>
-              <p className="text-xs text-amber-600 font-medium mt-0.5">Pending validation</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal">Critical Alerts</p>
-              <p className="text-3xl font-bold text-red-600">{String(criticals).padStart(2, '0')}</p>
-              <p className="text-xs text-red-500 font-medium mt-0.5">Requires immediate review</p>
-            </div>
-          </div>
+          <AdminKpiCard title="Changes Today" value={totalItems} icon={Clock} tone="orange" helper="Live audit trail" />
+          <AdminKpiCard title="Active Employees" value={uniqueEmps} icon={UserCheck} tone="blue" helper="Currently session active" />
+          <AdminKpiCard title="Jobs Updated" value={jobLogs} icon={BriefcaseIcon} tone="amber" helper="Pending validation" />
+          <AdminKpiCard
+            title="Critical Alerts"
+            value={String(criticals).padStart(2, '0')}
+            icon={AlertCircle}
+            tone="red"
+            helper="Requires immediate review"
+            valueClassName="text-red-600"
+          />
         </div>
 
-        {/* ── Filters Bar ── */}
+        {/* â”€â”€ Filters Bar â”€â”€ */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 flex-shrink-0">
@@ -224,7 +196,7 @@ const ActivityLogs = () => {
           </div>
         </div>
 
-        {/* ── Table ── */}
+        {/* â”€â”€ Table â”€â”€ */}
         <AdminTableShell
           footer={
             !isLoading && logs.length > 0 ? (

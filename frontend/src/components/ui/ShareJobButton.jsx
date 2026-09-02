@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Share2, X, Copy, Check, MessageCircle, Mail, Twitter, Linkedin } from 'lucide-react'
+import { getPublicJobPath } from '../../utils/publicNavigation'
 
 /**
  * ShareJobButton — icon-only trigger, popup centered on screen
@@ -13,7 +14,7 @@ const ShareJobButton = ({ job, className = '' }) => {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const jobUrl = `${window.location.origin}/jobs/${job._id}`
+  const jobUrl = `${window.location.origin}${getPublicJobPath(job)}`
   const shareText = `🏛️ ${job.title}${job.department ? ` — ${job.department}` : ''}\nApply now: ${jobUrl}`
 
   const handleOpen = (e) => {

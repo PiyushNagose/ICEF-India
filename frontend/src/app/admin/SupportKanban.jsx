@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import Button from "../../components/ui/Button";
+import AdminKpiCard from "../../components/ui/AdminKpiCard";
 import { adminService } from "../../services/admin.service";
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ const COLUMNS = [
     activeBg: "bg-red-100",
     Icon: Circle,
     iconColor: "text-red-400",
+    tone: "red",
   },
   {
     id: "In Progress",
@@ -61,6 +63,7 @@ const COLUMNS = [
     activeBg: "bg-amber-100",
     Icon: RefreshCw,
     iconColor: "text-amber-400",
+    tone: "amber",
   },
   {
     id: "Resolved",
@@ -72,6 +75,7 @@ const COLUMNS = [
     activeBg: "bg-emerald-100",
     Icon: CheckCircle2,
     iconColor: "text-emerald-400",
+    tone: "green",
   },
   {
     id: "Closed",
@@ -83,6 +87,7 @@ const COLUMNS = [
     activeBg: "bg-gray-100",
     Icon: XCircle,
     iconColor: "text-gray-400",
+    tone: "slate",
   },
 ];
 
@@ -450,20 +455,16 @@ const SupportKanban = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {COLUMNS.map((col) => {
-            const { Icon } = col;
-            return (
-              <div key={col.id} className={`bg-white rounded-xl border-2 ${col.border} p-4 flex items-center gap-3`}>
-                <div className={`w-10 h-10 rounded-xl ${col.headerBg} flex items-center justify-center shrink-0`}>
-                  <Icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900 leading-none">{countByStatus(col.id)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 font-medium">{col.label}</p>
-                </div>
-              </div>
-            );
-          })}
+          {COLUMNS.map((col) => (
+            <AdminKpiCard
+              key={col.id}
+              title={col.label}
+              value={countByStatus(col.id)}
+              icon={col.Icon}
+              tone={col.tone}
+              valueClassName="text-2xl"
+            />
+          ))}
         </div>
 
         {/* Filters */}

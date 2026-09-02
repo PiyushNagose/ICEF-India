@@ -5,7 +5,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getDashboardPath, isCandidateUser, useAuth } from "../../hooks/useAuth";
+import { publicService } from "../../services/public.service";
+import PublicBrandMark from "../ui/PublicBrandMark";
+import {
+  getProjectAwarePublicPath,
+  readProjectSlugFromSearch,
+} from "../../utils/publicNavigation";
 import logo from "../../assets/logo.png";
 
 const PublicLayout = ({ children }) => {
@@ -21,18 +28,54 @@ const PublicLayout = ({ children }) => {
   const location = useLocation();
   const projectMatch = location.pathname.match(/^\/apply\/([^/]+)/);
   const currentProjectSlug = projectMatch?.[1] || "";
+  const queryProjectSlug = readProjectSlugFromSearch(location.search);
   const storedProjectSlug =
     typeof window === "undefined"
       ? ""
       : window.sessionStorage.getItem("lastPublicProjectSlug") || "";
-  const projectSlug = currentProjectSlug || storedProjectSlug;
+  const publicApplyContext = (() => {
+    try {
+      return typeof window === "undefined"
+        ? {}
+        : JSON.parse(window.sessionStorage.getItem("publicApplyContext") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+  const projectSlug =
+    currentProjectSlug ||
+    queryProjectSlug ||
+    storedProjectSlug ||
+    publicApplyContext?.projectSlug ||
+    "";
   const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
   const isProjectScopedPage = Boolean(projectMatch);
+  const { data: projectBrandingData } = useQuery({
+    queryKey: ["public-project-branding", projectSlug],
+    queryFn: () => publicService.getProjectBySlug(projectSlug),
+    enabled: Boolean(projectSlug),
+    staleTime: 60000,
+  });
+  const brandingCmsPage = projectBrandingData?.cmsPage;
+  const brandingProject = projectBrandingData?.project;
+  const publicLogo = brandingCmsPage?.projectLogo || logo;
+  const hasUploadedProjectLogo = Boolean(brandingCmsPage?.projectLogo);
+  const publicLogoAlt =
+    brandingCmsPage?.heroTitle || brandingProject?.name || "Recruitment Portal";
+  const publicBrandTitle =
+    brandingCmsPage?.heroTitle || brandingProject?.name || "Recruitment Portal";
+  const publicBrandMeta =
+    brandingProject?.department || brandingProject?.state || "Government Recruitment";
+  const scopedPath = (path) => getProjectAwarePublicPath(path, projectSlug);
+  const effectiveDashboardPath = isCandidateUser(user)
+    ? scopedPath("/check-status")
+    : dashboardPath;
 
   useEffect(() => {
-    if (!currentProjectSlug) return;
-    window.sessionStorage.setItem("lastPublicProjectSlug", currentProjectSlug);
-  }, [currentProjectSlug]);
+    const slugToStore = currentProjectSlug || queryProjectSlug;
+    if (!slugToStore) return;
+    window.sessionStorage.setItem("lastPublicProjectSlug", slugToStore);
+  }, [currentProjectSlug, queryProjectSlug]);
 
   useEffect(() => {
     document.documentElement.classList.add("public-scroll-page");
@@ -81,22 +124,22 @@ const PublicLayout = ({ children }) => {
   const navItems = [
     {
       label: "How to Apply",
-      path: "/how-to-apply",
+      path: scopedPath("/how-to-apply"),
     },
 
     {
       label: "Admit Card",
-      path: "/admit-cards",
+      path: scopedPath("/admit-cards"),
     },
 
     {
       label: "Check Status",
-      path: "/check-status",
+      path: scopedPath("/check-status"),
     },
 
     {
       label: "Support",
-      path: "/contact",
+      path: scopedPath("/contact"),
     },
   ];
 
@@ -123,20 +166,19 @@ const PublicLayout = ({ children }) => {
             {/* LOGO */}
 
             <Link to={projectHomePath} className="flex items-center gap-3">
-              <div className="h-12 px-5 rounded-[6px] bg-[#1f1d1b] flex items-center justify-center">
-                <img
-                  src={logo}
-                  alt="Recruitment Portal"
-                  className="h-9 w-auto object-contain"
-                />
-              </div>
+              <PublicBrandMark
+                src={publicLogo}
+                alt={publicLogoAlt}
+                uploaded={hasUploadedProjectLogo}
+                variant="header"
+              />
             </Link>
 
             {/* DESKTOP NAV */}
 
             <nav className="hidden lg:flex h-full items-center gap-10 xl:gap-12 2xl:gap-14">
               {navItems.map((item) => {
-                const active = location.pathname === item.path;
+                const active = location.pathname === item.path.split("?")[0];
 
                 return (
                   <Link
@@ -164,13 +206,13 @@ const PublicLayout = ({ children }) => {
               {!isLoggedIn && (
                 <>
                   <Link
-                    to="/check-status"
+                    to={scopedPath("/check-status")}
                     className="hidden sm:flex h-[42px] px-6 bg-white border-2 border-[#e46a1d] text-[#e46a1d] hover:bg-[#e46a1d] hover:text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all"
                   >
                     Check Status
                   </Link>
                   <Link
-                    to="/admit-cards"
+                    to={scopedPath("/admit-cards")}
                     className="hidden sm:flex h-[42px] px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all shadow-lg shadow-orange-200"
                   >
                     Admit Card
@@ -179,7 +221,7 @@ const PublicLayout = ({ children }) => {
               )}
               {isLoggedIn && (
                 <Link
-                  to={dashboardPath}
+                  to={effectiveDashboardPath}
                   className="hidden sm:flex h-[42px] px-6 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-[4px] items-center justify-center text-[11px] uppercase tracking-[0.12em] font-black transition-all shadow-lg shadow-orange-200"
                 >
                   {dashboardLabel}
@@ -208,7 +250,7 @@ const PublicLayout = ({ children }) => {
           <div className="lg:hidden border-t border-[#ddd4ca] bg-[#f6f1ea]">
             <div className="px-4 py-5 space-y-1">
               {navItems.map((item) => {
-                const active = location.pathname === item.path;
+                const active = location.pathname === item.path.split("?")[0];
 
                 return (
                   <Link
@@ -229,13 +271,13 @@ const PublicLayout = ({ children }) => {
               {!isLoggedIn && (
                 <>
                   <Link
-                    to="/check-status"
+                    to={scopedPath("/check-status")}
                     className="mt-4 flex h-[46px] bg-white border-2 border-[#e46a1d] text-[#e46a1d] rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                   >
                     Check Status
                   </Link>
                   <Link
-                    to="/admit-cards"
+                    to={scopedPath("/admit-cards")}
                     className="mt-2 flex h-[46px] bg-[#e46a1d] text-white rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                   >
                     Admit Card
@@ -244,7 +286,7 @@ const PublicLayout = ({ children }) => {
               )}
               {isLoggedIn && (
                 <Link
-                  to={dashboardPath}
+                  to={effectiveDashboardPath}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-4 flex h-[46px] bg-[#e46a1d] text-white rounded-[4px] items-center justify-center text-[12px] uppercase tracking-[0.12em] font-black"
                 >
@@ -297,20 +339,22 @@ const PublicLayout = ({ children }) => {
             {/* BRAND */}
 
             <div>
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-[150px] shrink-0 items-center justify-center rounded-[6px] bg-[#1f1d1b]">
-                  <img
-                    src={logo}
-                    alt="ICEF India"
-                    className="h-9 w-auto object-contain"
-                  />
-                </div>
+              <div className="flex items-start gap-4">
+                <PublicBrandMark
+                  src={publicLogo}
+                  alt={publicLogoAlt}
+                  uploaded={hasUploadedProjectLogo}
+                  variant="footer"
+                  className="mt-0.5"
+                />
 
-                <div>
-                  <h3 className="text-[18px] font-black">Recruitment Portal</h3>
+                <div className="min-w-0 pt-0.5">
+                  <h3 className="max-w-[360px] text-[18px] font-black leading-tight">
+                    {publicBrandTitle}
+                  </h3>
 
                   <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/50">
-                    Government of India
+                    {publicBrandMeta}
                   </p>
                 </div>
               </div>
@@ -330,9 +374,9 @@ const PublicLayout = ({ children }) => {
 
               <div className="mt-6 space-y-4">
                 {[
-                  ["Results", "/results"],
-                  ["Admit Cards", "/admit-cards"],
-                  ["Check Status", "/check-status"],
+                  ["Results", scopedPath("/results")],
+                  ["Admit Cards", scopedPath("/admit-cards")],
+                  ["Check Status", scopedPath("/check-status")],
                 ].map(([item, path]) => (
                   <Link
                     key={item}
@@ -354,9 +398,9 @@ const PublicLayout = ({ children }) => {
 
               <div className="mt-6 space-y-4">
                 {[
-                  ["How to Apply", "/how-to-apply"],
-                  ["Request Correction", "/correction-request"],
-                  ["Contact Us", "/contact"],
+                  ["How to Apply", scopedPath("/how-to-apply")],
+                  ["Request Correction", scopedPath("/correction-request")],
+                  ["Contact Us", scopedPath("/contact")],
                 ].map(([item, path]) => (
                   <Link
                     key={item}
@@ -411,10 +455,10 @@ const PublicLayout = ({ children }) => {
               <Link to={projectHomePath} className="hover:text-orange-300 transition-colors">
                 Current Recruitment
               </Link>
-              <Link to="/contact" className="hover:text-orange-300 transition-colors">
+              <Link to={scopedPath("/contact")} className="hover:text-orange-300 transition-colors">
                 Support
               </Link>
-              <Link to="/check-status" className="hover:text-orange-300 transition-colors">
+              <Link to={scopedPath("/check-status")} className="hover:text-orange-300 transition-colors">
                 Status
               </Link>
             </div>

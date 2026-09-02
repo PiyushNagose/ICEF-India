@@ -11,11 +11,11 @@ import {
   Eye,
 } from "lucide-react";
 import AdminLayout from "../../components/layouts/AdminLayout";
-import { Card } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
 import AdminPagination from "../../components/ui/AdminPagination";
 import { AdminTableShell, AdminTableStatusRow } from "../../components/ui/AdminTable";
+import AdminKpiCard from "../../components/ui/AdminKpiCard";
 import { adminService } from "../../services/admin.service";
 
 // Model uses title-case: Open, In Progress, Resolved, Closed
@@ -70,25 +70,25 @@ const Support = () => {
     {
       title: "OPEN",
       value: count("Open"),
-      color: "border-l-red-500",
+      tone: "red",
       icon: Ticket,
     },
     {
       title: "IN PROGRESS",
       value: count("In Progress"),
-      color: "border-l-amber-500",
+      tone: "amber",
       icon: Clock,
     },
     {
       title: "RESOLVED",
       value: count("Resolved"),
-      color: "border-l-emerald-500",
+      tone: "green",
       icon: CheckCircle,
     },
     {
       title: "TOTAL",
       value: totalCount,
-      color: "border-l-orange-500",
+      tone: "orange",
       icon: Zap,
     },
   ];
@@ -153,19 +153,7 @@ const Support = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map((s) => (
-            <Card key={s.title} className={`border-l-4 ${s.color} bg-white`}>
-              <div className="p-5 flex justify-between items-start">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">
-                    {s.title}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {Number(s.value).toLocaleString("en-IN")}
-                  </p>
-                </div>
-                <s.icon className="w-5 h-5 text-gray-400" />
-              </div>
-            </Card>
+            <AdminKpiCard key={s.title} {...s} />
           ))}
         </div>
 

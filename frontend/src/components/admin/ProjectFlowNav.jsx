@@ -17,6 +17,11 @@ const getWorkflowCompleteMap = (project) => {
   return new Map(checks.map((check) => [check.key, Boolean(check.complete)]));
 };
 
+const getWorkflowCheckMap = (project) => {
+  const checks = project?.workflowReadiness?.checks || [];
+  return new Map(checks.map((check) => [check.key, check]));
+};
+
 const getWorkflowOptionalMap = (project) => {
   const checks = project?.workflowReadiness?.checks || [];
   return new Map(checks.map((check) => [check.key, Boolean(check.optional)]));
@@ -33,6 +38,7 @@ const buildSteps = (
 ) => {
   const projectId = getProjectId(project);
   const state = encodeURIComponent(project?.state || "All");
+  const checkMap = getWorkflowCheckMap(project);
   const completeMap = getWorkflowCompleteMap(project);
   const optionalMap = getWorkflowOptionalMap(project);
   const isJobWorkflow = workflowScope === "job";
@@ -107,9 +113,20 @@ const buildSteps = (
     },
     {
       key: "publish",
-      label: workflowScope === "job" ? "Publish Job" : "Publish / Verify",
+      label:
+        checkMap.get("publish")?.label ||
+        (workflowScope === "job" && projectPublished
+          ? "Published"
+          : workflowScope === "job"
+            ? "Publish Job"
+            : "Publish / Verify"),
       helper:
-        workflowScope === "job" ? "Make this job active" : "Release public URL",
+        checkMap.get("publish")?.helper ||
+        (workflowScope === "job" && projectPublished
+          ? "Visible on public URL"
+          : workflowScope === "job"
+            ? "Make this job active"
+            : "Release public URL"),
       icon: Send,
       path: `/admin/projects/${projectId}?review=1${jobQuery}#publish`,
       complete: projectPublished,

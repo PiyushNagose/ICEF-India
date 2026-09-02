@@ -7,6 +7,7 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import CustomSelect from '../../components/ui/CustomSelect'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
@@ -124,58 +125,16 @@ const Employees = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-orange-500 p-5 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Total Employees</p>
-                <p className="text-3xl font-bold text-gray-900">{Number(totalEmp).toLocaleString('en-IN')}</p>
-                <p className="text-xs text-gray-400 mt-1">Registered staff</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Users className="w-5 h-5 text-orange-500" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-emerald-500 p-5 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Active Accounts</p>
-                <p className="text-3xl font-bold text-gray-900">{Number(activeEmp).toLocaleString('en-IN')}</p>
-                <p className="text-xs text-gray-400 mt-1">Allowed to sign in</p>
-              </div>
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-emerald-500" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-blue-500 p-5 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Departments</p>
-                <p className="text-3xl font-bold text-gray-900">{deptCount}</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-blue-500" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 border-t-4 border-t-red-400 p-5 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">Inactive Accounts</p>
-                <p className="text-3xl font-bold text-gray-900">{inactiveEmp}</p>
-                {inactiveEmp > 0 && (
-                  <span className="inline-block whitespace-nowrap text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full mt-1">REVIEW</span>
-                )}
-              </div>
-              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-red-400" />
-              </div>
-            </div>
-          </div>
+          <AdminKpiCard title="Total Employees" value={totalEmp} icon={Users} tone="orange" helper="Registered staff" />
+          <AdminKpiCard title="Active Accounts" value={activeEmp} icon={UserCheck} tone="green" helper="Allowed to sign in" />
+          <AdminKpiCard title="Departments" value={deptCount} icon={Building2} tone="blue" />
+          <AdminKpiCard
+            title="Inactive Accounts"
+            value={inactiveEmp}
+            icon={AlertCircle}
+            tone="red"
+            badge={inactiveEmp > 0 ? { label: 'Review', className: 'bg-orange-100 text-orange-700' } : null}
+          />
         </div>
 
         {/* Filters */}

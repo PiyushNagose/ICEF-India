@@ -118,7 +118,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   )
   const jobIsPublished = Boolean(
     job?._id &&
-      String(job.status || '').toLowerCase() === 'active',
+      ['active', 'closed', 'published'].includes(String(job.status || '').toLowerCase()),
   )
   const jobComplete = isJobAdvertisementConfigured(job)
 

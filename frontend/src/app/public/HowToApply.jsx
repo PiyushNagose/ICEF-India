@@ -9,17 +9,18 @@ import {
   fadeUp,
   publicContainer,
 } from "./PublicPageShell";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const steps = [
   {
     icon: ShieldCheck,
     title: "Verify Your Contact",
     description:
-      "Start from an active job and verify your email and mobile OTP. No candidate account is required.",
+      "Start from an open job and verify your email and mobile OTP. No candidate account is required.",
   },
   {
     icon: FileCheck2,
-    title: "Choose an Active Job",
+    title: "Choose an Open Job",
     description:
       "Open the job detail page, review eligibility, documents, fee, and deadline.",
   },
@@ -42,7 +43,7 @@ const HowToApply = () => (
     <PageHero
       eyebrow="Candidate Guide"
       title="How to Apply"
-      description="Follow the official application flow from OTP verification to final submission. The same steps are used by every active job published on this portal."
+      description="Follow the official application flow from OTP verification to final submission. Closed posts remain available only for details, status, admit card, and result updates."
     />
 
     <section className={`${publicContainer} py-8 lg:py-10`}>
@@ -86,7 +87,7 @@ const HowToApply = () => (
             <ResourceCard
               title="Back to Recruitment"
               description="Return to the project public URL and choose the published post you want to apply for."
-              to="/"
+              to={getLastPublicProjectPath()}
             />
           </motion.div>
           <motion.div
@@ -107,7 +108,7 @@ const HowToApply = () => (
             className="sm:col-span-2 lg:col-span-1"
           >
             <Link
-              to="/"
+              to={getLastPublicProjectPath()}
               className="flex h-12 items-center justify-center rounded bg-[#e46a1d] text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16] transition-colors"
             >
               Open Recruitment

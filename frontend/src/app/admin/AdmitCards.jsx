@@ -13,9 +13,17 @@ import Button from '../../components/ui/Button'
 import CustomSelect from '../../components/ui/CustomSelect'
 import AppDatePicker from '../../components/ui/AppDatePicker'
 import TimeSelect from '../../components/ui/TimeSelect'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import DocumentPreviewFrame from '../../components/common/DocumentPreviewFrame'
 import ProjectFlowNav from '../../components/admin/ProjectFlowNav'
+import ConfirmActionModal from '../../components/ui/ConfirmActionModal'
 import { adminService } from '../../services/admin.service'
+import { formatJobStatus } from '../../utils/jobAvailability'
+import {
+  buildAdminJobWorkflow,
+  getEntityId,
+  pickDefaultAdminJob,
+} from '../../utils/adminWorkflow'
 
 const emptyPaper = {
   name: '',
@@ -90,23 +98,6 @@ const toDateInputValue = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
-const isJobAdvertisementConfigured = (job) => {
-  if (!job?._id) return false
-  const posts = Array.isArray(job.posts) ? job.posts : []
-  const hasVacancies =
-    Number(job.totalPosts || 0) > 0 ||
-    posts.some((post) => Number(post.vacancies || 0) > 0)
-
-  return Boolean(
-    job.title &&
-      job.postCode &&
-      job.department &&
-      hasVacancies &&
-      job.applicationStartDate &&
-      job.applicationDeadline,
-  )
-}
-
 const statusTone = {
   draft: 'bg-gray-100 text-gray-700',
   allocated: 'bg-orange-50 text-orange-700',
@@ -114,14 +105,6 @@ const statusTone = {
   published: 'bg-green-50 text-green-700',
   cancelled: 'bg-red-50 text-red-700',
 }
-
-const getJobTime = (job) =>
-  new Date(job?.createdAt || job?.updatedAt || 0).getTime() || 0
-
-const getMostRecentJob = (jobs = []) =>
-  [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null
-
-const getEntityId = (value) => String(value?._id || value?.id || value || '')
 
 const useQueryErrorToast = (error, fallbackMessage) => {
   const lastMessageRef = useRef('')
@@ -136,16 +119,15 @@ const useQueryErrorToast = (error, fallbackMessage) => {
   }, [error, fallbackMessage])
 }
 
-const Stat = ({ icon: Icon, label, value }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
-    <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
-      <Icon className="w-4 h-4 text-orange-600" />
-    </div>
-    <div>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value ?? 0}</p>
-    </div>
-  </div>
+const Stat = ({ icon, label, value, tone = 'orange' }) => (
+  <AdminKpiCard
+    icon={icon}
+    title={label}
+    value={value ?? 0}
+    tone={tone}
+    valueClassName="text-2xl"
+    className="rounded-xl p-4"
+  />
 )
 
 const AdmitCards = () => {
@@ -165,6 +147,11 @@ const AdmitCards = () => {
   const [previewAdmitCard, setPreviewAdmitCard] = useState(null)
   const [previewAttendance, setPreviewAttendance] = useState(null)
   const [search, setSearch] = useState('')
+  const [adminActionError, setAdminActionError] = useState('')
+  const [scheduleActionModal, setScheduleActionModal] = useState({
+    isOpen: false,
+    type: '',
+  })
 
   const { data: centersData, isLoading: centersLoading, error: centersError } = useQuery({
     queryKey: ['exam-centers'],
@@ -225,9 +212,13 @@ const AdmitCards = () => {
     return null
   }, [jobs, selectedJobData, selectedJobId, projectId])
   const jobOptions = useMemo(() => {
-    const options = [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a)).map((job) => ({
+    const options = [...jobs].sort((a, b) => {
+      const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime() || 0
+      const bTime = new Date(b?.updatedAt || b?.createdAt || 0).getTime() || 0
+      return bTime - aTime
+    }).map((job) => ({
       value: job._id,
-      label: `${job.title}${job.postCode ? ` (${job.postCode})` : ''}${job.status ? ` - ${job.status}` : ''}`,
+      label: `${job.title}${job.postCode ? ` (${job.postCode})` : ''} - ${formatJobStatus(job)}`,
     }))
     if (
       selectedJob?._id &&
@@ -235,7 +226,7 @@ const AdmitCards = () => {
     ) {
       options.unshift({
         value: selectedJob._id,
-        label: `${selectedJob.title}${selectedJob.postCode ? ` (${selectedJob.postCode})` : ''}${selectedJob.status ? ` - ${selectedJob.status}` : ''}`,
+        label: `${selectedJob.title}${selectedJob.postCode ? ` (${selectedJob.postCode})` : ''} - ${formatJobStatus(selectedJob)}`,
       })
     }
     return options
@@ -268,9 +259,9 @@ const AdmitCards = () => {
       jobParamInCurrentJobs ||
       (jobs.some((job) => String(job._id) === String(selectedJobId))
         ? selectedJobId
-        : '') ||
+          : '') ||
           formJobInCurrentJobs ||
-          getMostRecentJob(jobs)?._id ||
+          pickDefaultAdminJob(jobs)?._id ||
           ''
 
     if (nextJobId && nextJobId !== selectedJobId) {
@@ -327,37 +318,20 @@ const AdmitCards = () => {
   const admitWorkflowProject = useMemo(() => {
     if (!project) return project
 
-    const landingComplete = Boolean(project?.workflowReadiness?.checks?.find((check) => check.key === 'landing')?.complete || project?.isPublished)
-    const jobComplete = isJobAdvertisementConfigured(selectedJob)
-    const admitFormatComplete = Boolean(
-      selectedSchedule?.examName &&
-      selectedSchedule?.examDate &&
-      (selectedSchedule?.admitCardTemplate || selectedSchedule?.admitCardTemplateConfig?.templateId),
-    )
-    const centersComplete = Boolean(selectedSchedule?.selectedCenterIds?.length)
-    const publishComplete = Boolean(
-      selectedJob?._id &&
-        String(selectedJob.status || '').toLowerCase() === 'active' &&
-        project?.isPublished,
-    )
-    const reviewComplete = publishComplete
-    const checks = [
-      { key: 'landing', label: 'Landing CMS', complete: landingComplete },
-      { key: 'job', label: 'Job Advertisement', complete: jobComplete },
-      { key: 'admit-format', label: 'Admit Format', complete: admitFormatComplete, optional: true },
-      { key: 'centers', label: 'Centers', complete: centersComplete, optional: true },
-      { key: 'review', label: 'Final Review', complete: reviewComplete },
-    ]
+    const workflow = buildAdminJobWorkflow({
+      project,
+      job: selectedJob,
+      schedules: selectedSchedule ? [selectedSchedule] : selectedJobSchedules,
+      centers,
+      admitPhaseActive: true,
+    })
 
     return {
       ...project,
-      isPublished: publishComplete,
-      workflowReadiness: {
-        complete: checks.every((check) => check.complete),
-        checks,
-      },
+      isPublished: workflow.publishComplete,
+      workflowReadiness: workflow,
     }
-  }, [project, selectedJob, selectedSchedule])
+  }, [centers, project, selectedJob, selectedJobSchedules, selectedSchedule])
 
   const activeScheduleId = getEntityId(selectedSchedule)
 
@@ -445,6 +419,7 @@ const AdmitCards = () => {
 
   const actionMutation = useMutation({
     mutationFn: async ({ type, id }) => {
+      setAdminActionError('')
       if (type === 'preview') return adminService.previewExamAllocation(id)
       if (type === 'allocate') return adminService.queueExamAllocation(id)
       if (type === 'lock') return adminService.lockExamAllocation(id)
@@ -475,7 +450,10 @@ const AdmitCards = () => {
         navigate(`/admin/projects/${projectId}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}`)
       }
     },
-    onError: (err) => toast.error(err.message || 'Action failed'),
+    onError: (err) => {
+      setAdminActionError(err.message || 'Action failed')
+      toast.error(err.message || 'Action failed')
+    },
   })
 
   const bulkMutation = useMutation({
@@ -500,14 +478,15 @@ const AdmitCards = () => {
   const scheduleCapacity = Number(stats.totalCapacity || 0)
   const scheduleAllocated = Number(stats.allocatedCandidates || 0)
   const opsCards = [
-    { label: 'Released Windows', value: selectedSchedule?.status === 'published' ? 1 : 0, icon: Send },
+    { label: 'Released Windows', value: selectedSchedule?.status === 'published' ? 1 : 0, icon: Send, tone: 'green' },
     {
       label: 'On-demand Cards',
       value: Number(admitCardCounts.published || 0) + Number(admitCardCounts.generated || 0),
       icon: FileBadge,
+      tone: 'orange',
     },
-    { label: 'Seats Remaining', value: Math.max(0, scheduleCapacity - scheduleAllocated), icon: Users },
-    { label: 'Pending Corrections', value: stats.pendingCorrections || 0, icon: CalendarClock },
+    { label: 'Seats Remaining', value: Math.max(0, scheduleCapacity - scheduleAllocated), icon: Users, tone: 'blue' },
+    { label: 'Pending Corrections', value: stats.pendingCorrections || 0, icon: CalendarClock, tone: 'amber' },
   ]
   const activeCenters = centers.filter((center) => center.active !== false)
   const selectedCenterIds = scheduleForm.selectedCenterIds || []
@@ -660,13 +639,26 @@ const AdmitCards = () => {
 
   const runAction = (type) => {
     if (!activeScheduleId) return toast.error('Select an exam schedule first')
+    if (type === 'publish' && !canPublishCards) {
+      setAdminActionError(publishCardsReason || 'Complete admit-card setup before publishing')
+      toast.error(publishCardsReason || 'Complete admit-card setup before publishing')
+      return
+    }
     if (type === 'publish' && selectedSchedule?.status === 'published') {
       toast('Already published')
       return
     }
-    if (type === 'unpublish' && !window.confirm('Unpublish released admit cards for this schedule?')) return
-    if (type === 'regenerate' && !window.confirm('Regenerate admit cards for this schedule? Published cards will be unpublished first.')) return
+    if (['unpublish', 'regenerate'].includes(type)) {
+      setScheduleActionModal({ isOpen: true, type })
+      return
+    }
     actionMutation.mutate({ type, id: activeScheduleId })
+  }
+
+  const confirmScheduleAction = () => {
+    if (!activeScheduleId || !scheduleActionModal.type) return
+    actionMutation.mutate({ type: scheduleActionModal.type, id: activeScheduleId })
+    setScheduleActionModal({ isOpen: false, type: '' })
   }
 
   const printAttendanceCenter = () => {
@@ -744,6 +736,24 @@ const AdmitCards = () => {
     }))
   }
 
+  const admitWorkflowChecks = admitWorkflowProject?.workflowReadiness?.checks || []
+  const admitMissingRequired = admitWorkflowChecks.filter((check) => !check.complete && !check.optional)
+  const publishCardsReason = !selectedJob?._id
+    ? 'Select a job before publishing admit cards.'
+    : !activeScheduleId
+      ? 'Create or select an exam schedule first.'
+      : selectedSchedule?.status === 'published'
+        ? 'This admit-card window is already published.'
+        : admitMissingRequired.length
+          ? `Complete before publishing: ${admitMissingRequired.map((check) => check.label).join(', ')}.`
+          : ''
+  const canPublishCards = Boolean(
+    activeScheduleId &&
+      selectedJob?._id &&
+      selectedSchedule?.status !== 'published' &&
+      admitMissingRequired.length === 0,
+  )
+
   return (
     <AdminLayout title="Admit Cards">
       <div className="min-h-full p-5 pt-6 md:p-6 md:pt-7 space-y-5">
@@ -765,24 +775,31 @@ const AdmitCards = () => {
           </div>
           <Button
             onClick={() => runAction('publish')}
-            disabled={!activeScheduleId || actionMutation.isPending}
+            disabled={!canPublishCards || actionMutation.isPending}
+            title={publishCardsReason}
             className="bg-orange-600 hover:bg-orange-700 text-white"
           >
             {actionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Publish Cards
           </Button>
         </div>
+        {publishCardsReason && (
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">
+            {publishCardsReason}
+          </div>
+        )}
+        {adminActionError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {adminActionError}
+          </div>
+        )}
 
         {projectId && (
           <ProjectFlowNav
             project={admitWorkflowProject}
             current={focus === 'centers' ? 'centers' : 'admit-format'}
             workflowScope="job"
-            publishComplete={Boolean(
-              selectedJob?._id &&
-                String(selectedJob.status || '').toLowerCase() === 'active' &&
-                project?.isPublished,
-            )}
+            publishComplete={Boolean(admitWorkflowProject?.isPublished)}
             jobId={selectedJob?._id}
             contextLabel="Current Job"
             contextValue={selectedJob
@@ -841,14 +858,8 @@ const AdmitCards = () => {
                   </p>
                 </div>
               </div>
-              {opsCards.map(({ label, value, icon: Icon }) => (
-                <div key={label} className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">{label}</p>
-                    <Icon className="h-4 w-4 text-orange-600" />
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
-                </div>
+              {opsCards.map(({ label, value, icon, tone }) => (
+                <Stat key={label} icon={icon} label={label} value={value} tone={tone} />
               ))}
             </div>
           </CardContent>
@@ -884,20 +895,19 @@ const AdmitCards = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Active</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900">{activeCenters.length}</p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Capacity</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900">
-                      {activeCenters.reduce((sum, center) => sum + Number(center.totalCapacity || 0), 0)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Selected</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900">{selectedScheduleCenterCount || selectedCenterIds.length}</p>
-                  </div>
+                  <Stat icon={CheckCircle2} label="Active" value={activeCenters.length} tone="green" />
+                  <Stat
+                    icon={Users}
+                    label="Capacity"
+                    value={activeCenters.reduce((sum, center) => sum + Number(center.totalCapacity || 0), 0)}
+                    tone="blue"
+                  />
+                  <Stat
+                    icon={Building2}
+                    label="Selected"
+                    value={selectedScheduleCenterCount || selectedCenterIds.length}
+                    tone="orange"
+                  />
                 </div>
                 <div className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-xs leading-5 text-orange-900">
                   Use Exam Centers for center codes, addresses, rooms, and usable seats. This screen only selects centers for the selected exam schedule.
@@ -1396,7 +1406,13 @@ const AdmitCards = () => {
                       <button
                         key={step.type}
                         type="button"
-                        disabled={!activeScheduleId || actionMutation.isPending || (step.type === 'publish' && selectedSchedule?.status === 'published')}
+                        disabled={
+                          actionMutation.isPending ||
+                          (step.type === 'publish'
+                            ? !canPublishCards
+                            : !activeScheduleId)
+                        }
+                        title={step.type === 'publish' ? publishCardsReason : ''}
                         onClick={() => runAction(step.type)}
                         className={`group flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition ${
                           step.primary
@@ -1729,6 +1745,28 @@ const AdmitCards = () => {
           </div>
         </div>
       )}
+
+      <ConfirmActionModal
+        isOpen={scheduleActionModal.isOpen}
+        onClose={() => setScheduleActionModal({ isOpen: false, type: '' })}
+        onConfirm={confirmScheduleAction}
+        title={
+          scheduleActionModal.type === 'regenerate'
+            ? 'Regenerate Admit Cards'
+            : 'Unpublish Admit Cards'
+        }
+        message={
+          scheduleActionModal.type === 'regenerate'
+            ? 'Regenerate admit cards for this schedule? Published cards will be unpublished first, then generated again.'
+            : 'Unpublish released admit cards for this schedule? Candidates will no longer be able to download them until republished.'
+        }
+        confirmLabel={
+          scheduleActionModal.type === 'regenerate'
+            ? 'Regenerate'
+            : 'Unpublish'
+        }
+        tone={scheduleActionModal.type === 'regenerate' ? 'orange' : 'red'}
+      />
     </AdminLayout>
   )
 }

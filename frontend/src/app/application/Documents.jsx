@@ -22,6 +22,7 @@ import {
 } from "../../utils/applicationFlow";
 import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
 import { API_BASE_URL } from "../../api/config";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -209,7 +210,7 @@ const Documents = () => {
   const handleNext = () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     // Check required docs

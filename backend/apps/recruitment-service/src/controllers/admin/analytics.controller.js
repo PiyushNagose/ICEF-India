@@ -6,6 +6,36 @@ const Project = require("../../shared/models/Project");
 const User = require("../../shared/models/User");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
+const { getRedis } = require("../../shared/config/redis");
+
+const CACHE_TTL = 300; // 5 minutes cache for expensive queries
+
+const fetchWithCache = async (cacheKey, fetcher, reqQuery) => {
+  // If there are specific date filters, maybe don't cache or cache separately,
+  // but for dashboard mostly it's today or all-time. We'll cache based on the query string.
+  const redisClient = getRedis();
+  const fullKey = `analytics:${cacheKey}:${JSON.stringify(reqQuery)}`;
+
+  if (redisClient) {
+    try {
+      const cached = await redisClient.get(fullKey);
+      if (cached) return JSON.parse(cached);
+    } catch (err) {
+      console.warn("Redis get error:", err.message);
+    }
+  }
+
+  const data = await fetcher();
+
+  if (redisClient) {
+    try {
+      await redisClient.set(fullKey, JSON.stringify(data), "EX", CACHE_TTL);
+    } catch (err) {
+      console.warn("Redis set error:", err.message);
+    }
+  }
+  return data;
+};
 
 const buildDateFilter = ({ startDate, endDate }) => {
   if (!startDate || !endDate) return {};
@@ -41,44 +71,97 @@ const buildDateFilter = ({ startDate, endDate }) => {
  */
 const getOverview = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
-
   const dateFilter = buildDateFilter({ startDate, endDate });
 
-  const [
-    totalJobs,
+  const data = await fetchWithCache('overview', async () => {
+    const [
+      jobStatusCounts,
+      projectStatusCounts,
+      totalApplications,
+      totalCandidates,
+      applicationsByStatus,
+      paymentStats,
+    ] = await Promise.all([
+      // Job counts by status (excludes soft-deleted by default)
+      Job.aggregate([
+        { $match: { isDeleted: { $ne: true } } },
+        { $group: { _id: { $toLower: "$status" }, count: { $sum: 1 } } },
+      ]),
+      // Project counts by status
+      Project.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Application.countDocuments(dateFilter),
+      User.countDocuments(dateFilter),
+      Application.aggregate([
+        { $match: dateFilter },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Application.aggregate([
+        { $match: { ...dateFilter, paymentStatus: "paid" } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$totalFee" },
+            totalPaidApplications: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    // Also count soft-deleted jobs separately for admin visibility
+    const inactiveJobs = await Job.countDocuments({ isDeleted: true });
+
+    return {
+      jobStatusCounts,
+      projectStatusCounts,
+      totalApplications,
+      totalCandidates,
+      applicationsByStatus,
+      paymentStats,
+      inactiveJobs
+    };
+  }, req.query);
+
+  const {
+    jobStatusCounts,
+    projectStatusCounts,
     totalApplications,
     totalCandidates,
-    totalProjects,
     applicationsByStatus,
     paymentStats,
-  ] = await Promise.all([
-    Job.countDocuments({ status: "active" }),
-    Application.countDocuments(dateFilter),
-    User.countDocuments(dateFilter),
-    Project.countDocuments({ status: "Active" }),
-    Application.aggregate([
-      { $match: dateFilter },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ]),
-    Application.aggregate([
-      { $match: { ...dateFilter, paymentStatus: "paid" } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: "$totalFee" },
-          totalPaidApplications: { $sum: 1 },
-        },
-      },
-    ]),
-  ]);
+    inactiveJobs
+  } = data;
+
+  const jobCount = (status) =>
+    jobStatusCounts.find((s) => s._id === status)?.count || 0;
+  const projectCount = (status) =>
+    projectStatusCounts.find((s) => s._id === status)?.count || 0;
+
+  const activeJobs = jobCount("active") + jobCount("published");
+  const draftJobs = jobCount("draft");
+  const closedJobs = jobCount("closed");
+  const totalJobs = activeJobs + draftJobs + closedJobs;
+
+  const activeProjects = projectCount("Active") + projectCount("Published");
+  const draftProjects = projectCount("Draft");
+  const closedProjects = projectCount("Closed") + projectCount("Archived");
+  const totalProjects = activeProjects + draftProjects + closedProjects;
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Overview fetched", {
       overview: {
         totalJobs,
+        activeJobs,
+        draftJobs,
+        closedJobs,
+        inactiveJobs,
         totalApplications,
         totalCandidates,
         totalProjects,
+        activeProjects,
+        draftProjects,
+        closedProjects,
         totalRevenue: paymentStats[0]?.totalRevenue || 0,
         totalPaidApplications: paymentStats[0]?.totalPaidApplications || 0,
       },
@@ -117,30 +200,32 @@ const getFunnel = asyncHandler(async (req, res) => {
     matchFilter.jobId = new mongoose.Types.ObjectId(jobId);
   }
 
-  const funnel = await Application.aggregate([
-    { $match: matchFilter },
-    {
-      $group: {
-        _id: null,
-        started: { $sum: 1 },
-        personalDetailsCompleted: {
-          $sum: { $cond: [{ $gte: ["$currentStep", 2] }, 1, 0] },
-        },
-        educationCompleted: {
-          $sum: { $cond: [{ $gte: ["$currentStep", 3] }, 1, 0] },
-        },
-        documentsUploaded: {
-          $sum: { $cond: [{ $gte: ["$currentStep", 6] }, 1, 0] },
-        },
-        paymentCompleted: {
-          $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
-        },
-        submitted: {
-          $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
+  const funnel = await fetchWithCache('funnel', async () => {
+    return Application.aggregate([
+      { $match: matchFilter },
+      {
+        $group: {
+          _id: null,
+          started: { $sum: 1 },
+          personalDetailsCompleted: {
+            $sum: { $cond: [{ $gte: ["$currentStep", 2] }, 1, 0] },
+          },
+          educationCompleted: {
+            $sum: { $cond: [{ $gte: ["$currentStep", 3] }, 1, 0] },
+          },
+          documentsUploaded: {
+            $sum: { $cond: [{ $gte: ["$currentStep", 6] }, 1, 0] },
+          },
+          paymentCompleted: {
+            $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
+          },
+          submitted: {
+            $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
+          },
         },
       },
-    },
-  ]);
+    ]);
+  }, req.query);
 
   const f = funnel[0] || {
     started: 0,
@@ -191,54 +276,56 @@ const getTopJobs = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const dateFilter = buildDateFilter(req.query);
 
-  const topJobs = await Application.aggregate([
-    { $match: { ...dateFilter, status: { $ne: "draft" } } },
-    {
-      $group: {
-        _id: "$jobId",
-        totalApplications: { $sum: 1 },
-        paidApplications: {
-          $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
-        },
-        submittedApplications: {
-          $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
-        },
-      },
-    },
-    { $sort: { totalApplications: -1 } },
-    { $limit: limit },
-    {
-      $lookup: {
-        from: "jobs",
-        localField: "_id",
-        foreignField: "_id",
-        as: "job",
-      },
-    },
-    { $unwind: "$job" },
-    {
-      $project: {
-        jobTitle: "$job.title",
-        department: "$job.department",
-        postCode: "$job.postCode",
-        totalApplications: 1,
-        paidApplications: 1,
-        submittedApplications: 1,
-        conversionRate: {
-          $cond: [
-            { $gt: ["$totalApplications", 0] },
-            {
-              $multiply: [
-                { $divide: ["$submittedApplications", "$totalApplications"] },
-                100,
-              ],
-            },
-            0,
-          ],
+  const topJobs = await fetchWithCache('topJobs', async () => {
+    return Application.aggregate([
+      { $match: { ...dateFilter, status: { $ne: "draft" } } },
+      {
+        $group: {
+          _id: "$jobId",
+          totalApplications: { $sum: 1 },
+          paidApplications: {
+            $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
+          },
+          submittedApplications: {
+            $sum: { $cond: [{ $eq: ["$status", "submitted"] }, 1, 0] },
+          },
         },
       },
-    },
-  ]);
+      { $sort: { totalApplications: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "jobs",
+          localField: "_id",
+          foreignField: "_id",
+          as: "job",
+        },
+      },
+      { $unwind: "$job" },
+      {
+        $project: {
+          jobTitle: "$job.title",
+          department: "$job.department",
+          postCode: "$job.postCode",
+          totalApplications: 1,
+          paidApplications: 1,
+          submittedApplications: 1,
+          conversionRate: {
+            $cond: [
+              { $gt: ["$totalApplications", 0] },
+              {
+                $multiply: [
+                  { $divide: ["$submittedApplications", "$totalApplications"] },
+                  100,
+                ],
+              },
+              0,
+            ],
+          },
+        },
+      },
+    ]);
+  }, req.query);
 
   res
     .status(StatusCodes.OK)

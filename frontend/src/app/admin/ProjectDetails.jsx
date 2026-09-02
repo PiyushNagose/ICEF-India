@@ -30,12 +30,23 @@ import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
 import CustomSelect from "../../components/ui/CustomSelect";
+import AdminKpiCard from "../../components/ui/AdminKpiCard";
 import { adminService } from "../../services/admin.service";
 import ProjectFlowNav from "../../components/admin/ProjectFlowNav";
 import {
   getProjectLifecycleStatus,
   getProjectStatusBadgeClass,
 } from "../../utils/projectLifecycle";
+import {
+  formatJobStatus,
+  getEffectiveJobStatus,
+} from "../../utils/jobAvailability";
+import {
+  buildAdminJobWorkflow,
+  getEntityId,
+  isJobAdvertisementConfigured,
+  pickDefaultAdminJob,
+} from "../../utils/adminWorkflow";
 import {
   JOB_DRAFT_STORAGE_KEY,
   getJobWizardPath,
@@ -44,69 +55,13 @@ import {
 } from "../../utils/jobDraft";
 import { openProjectPreview } from "../../utils/cmsPreview";
 
-const isJobAdvertisementConfigured = (job) => {
-  if (!job?._id) return false;
-  const posts = Array.isArray(job.posts) ? job.posts : [];
-  const hasVacancies =
-    Number(job.totalPosts || 0) > 0 ||
-    posts.some((post) => Number(post.vacancies || 0) > 0);
-
-  return Boolean(
-    job.title &&
-      job.postCode &&
-      job.department &&
-      hasVacancies &&
-      job.applicationStartDate &&
-      job.applicationDeadline,
-  );
-};
-
-const getJobTime = (job) =>
-  new Date(job?.createdAt || job?.updatedAt || 0).getTime() || 0;
-
-const getEntityId = (value) =>
-  String(value?._id || value?.id || value || "");
-
-const isAdmitFormatConfigured = (schedule) => {
-  if (!schedule) return false;
-  const hasTemplate = Boolean(
-    schedule.admitCardTemplate ||
-      schedule.admitCardTemplateConfig?.templateId ||
-      schedule.admitCardTemplateConfig?.baseLayout,
-  );
-
-  return Boolean(
-    schedule.examName &&
-      schedule.examDate &&
-      schedule.reportingTime &&
-      schedule.examStartTime &&
-      hasTemplate,
-  );
-};
-
-const getMostRecentJob = (jobs = []) =>
-  [...jobs].sort((a, b) => getJobTime(b) - getJobTime(a))[0] || null;
-
 const getJobWorkflowSummary = (project, job) => {
-  const workflows =
-    project?.workflowReadiness?.jobWorkflowReadiness ||
-    project?.jobWorkflowReadiness ||
-    {};
-  const workflow = workflows[String(job?._id || "")];
-  if (!workflow) {
-    return {
-      completedCount: String(job?.status || "").toLowerCase() === "active" ? 6 : 0,
-      totalCount: 6,
-      nextLabel: String(job?.status || "").toLowerCase() === "active" ? "Live" : "Start",
-      complete: String(job?.status || "").toLowerCase() === "active",
-    };
-  }
-  const nextCheck = workflow.checks?.find((check) => !check.complete);
+  const workflow = buildAdminJobWorkflow({ project, job });
   return {
-    completedCount: workflow.completedCount ?? workflow.checks?.filter((check) => check.complete).length ?? 0,
-    totalCount: workflow.totalCount ?? workflow.checks?.length ?? 6,
-    nextLabel: nextCheck?.label || "Live",
-    complete: Boolean(workflow.complete || workflow.readyToPublish),
+    completedCount: workflow.completedRequiredCount,
+    totalCount: workflow.totalRequiredCount,
+    nextLabel: workflow.nextLabel,
+    complete: workflow.readyToPublish,
   };
 };
 
@@ -120,6 +75,7 @@ const ProjectDetails = () => {
   const [selectedJobId, setSelectedJobId] = useState(searchParams.get("job") || "");
   const [publishedJobIds, setPublishedJobIds] = useState(() => new Set());
   const [projectPublishedLocally, setProjectPublishedLocally] = useState(false);
+  const [adminActionError, setAdminActionError] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-project", id],
@@ -138,7 +94,7 @@ const ProjectDetails = () => {
       jobs.find((job) => String(job._id) === String(selectedJobId)) || null;
     if (explicitJob) return explicitJob;
 
-    return getMostRecentJob(jobs);
+    return pickDefaultAdminJob(jobs);
   }, [jobs, selectedJobId]);
   const { data: selectedJobData } = useQuery({
     queryKey: ["admin-project-selected-job", selectedJobSummary?._id],
@@ -161,7 +117,11 @@ const ProjectDetails = () => {
     }
     return selectedJobSummary;
   }, [selectedJobData, selectedJobSummary]);
-  const selectedJobStatus = String(selectedJob?.status || "").toLowerCase();
+  const selectedJobStatus = getEffectiveJobStatus(selectedJob || {});
+  const selectedJobStoredStatus = String(selectedJob?.status || "").toLowerCase();
+  const selectedJobWasPublished =
+    Boolean(selectedJob?._id) &&
+    ["active", "closed", "published"].includes(selectedJobStoredStatus);
   const selectedJobIsActive =
     selectedJobStatus === "active" ||
     (selectedJob?._id && publishedJobIds.has(String(selectedJob._id)));
@@ -194,7 +154,7 @@ const ProjectDetails = () => {
       : false;
     const selectedJobIdIsValid =
       selectedJobId && jobs.some((job) => String(job._id) === String(selectedJobId));
-    const fallbackJob = getMostRecentJob(jobs);
+    const fallbackJob = pickDefaultAdminJob(jobs);
     const syncJobParam = (jobId) => {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("job", jobId);
@@ -246,9 +206,13 @@ const ProjectDetails = () => {
   }, [jobs, location.hash, location.pathname, location.search, navigate, searchParams, selectedJobId]);
 
   const isPublished = Boolean(rawProject?.isPublished || projectPublishedLocally);
+  const projectForWorkflow = project
+    ? { ...project, isPublished }
+    : project;
 
   const publishMutation = useMutation({
     mutationFn: async () => {
+      setAdminActionError("");
       if (!projectPublishReady) {
         throw new Error("Publish at least one job before releasing the project URL");
       }
@@ -271,12 +235,14 @@ const ProjectDetails = () => {
       navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}#publish`, { replace: true });
     },
     onError: (error) => {
+      setAdminActionError(error?.message || "Unable to publish project");
       toast.error(error?.message || "Unable to publish project");
     },
   });
 
   const publishSelectedJobMutation = useMutation({
     mutationFn: async () => {
+      setAdminActionError("");
       if (!selectedJob?._id) {
         throw new Error("Select a job before publishing");
       }
@@ -286,7 +252,16 @@ const ProjectDetails = () => {
 
       let publishedJob = selectedJob;
       if (!selectedJobIsActive) {
-        const jobResponse = await adminService.publishJob(selectedJob._id);
+        const jobResponse = selectedJobWasPublished
+          ? await adminService.updateJob(
+              selectedJob._id,
+              {
+                status: "active",
+                amendmentReason: "Verified after official amendment extension.",
+              },
+              { suppressGlobalErrorToast: true },
+            )
+          : await adminService.publishJob(selectedJob._id);
         publishedJob = jobResponse?.job || jobResponse || selectedJob;
       }
 
@@ -337,7 +312,13 @@ const ProjectDetails = () => {
         };
         return current.job ? { ...current, job: nextJob } : nextJob;
       });
-      toast.success(isPublished ? "Job published on public URL" : "Project and job published");
+      toast.success(
+        selectedJobWasPublished
+          ? "Amendment verified on public URL"
+          : isPublished
+            ? "Job published on public URL"
+            : "Project and job published",
+      );
       queryClient.invalidateQueries({ queryKey: ["admin-project", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-projects"] });
       queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
@@ -346,6 +327,7 @@ const ProjectDetails = () => {
       navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}#publish`, { replace: true });
     },
     onError: (error) => {
+      setAdminActionError(error?.message || "Unable to publish job");
       toast.error(error?.message || "Unable to publish job");
     },
   });
@@ -437,29 +419,25 @@ const ProjectDetails = () => {
       title: "TOTAL JOBS",
       value: project.totalJobs || jobs.length,
       icon: Briefcase,
-      bg: "bg-orange-50",
-      color: "text-orange-600",
+      tone: "orange",
     },
     {
       title: "TOTAL APPLICANTS",
       value: (project.totalApplicants || 0).toLocaleString("en-IN"),
       icon: Users,
-      bg: "bg-green-50",
-      color: "text-green-600",
+      tone: "green",
     },
     {
       title: "PAID APPLICANTS",
       value: (project.paidApplicants || 0).toLocaleString("en-IN"),
       icon: CheckCircle2,
-      bg: "bg-blue-50",
-      color: "text-blue-600",
+      tone: "blue",
     },
     {
       title: "REVENUE",
       value: `INR ${(project.totalRevenue || 0).toLocaleString("en-IN")}`,
       icon: IndianRupee,
-      bg: "bg-purple-50",
-      color: "text-purple-600",
+      tone: "purple",
     },
   ];
 
@@ -497,81 +475,34 @@ const ProjectDetails = () => {
   const workflowScope = selectedJob ? "job" : "project";
   const landingComplete = Boolean(
     workflowReadiness.checks?.find((check) => check.key === "landing")?.complete ||
-      rawProject?.isPublished,
+      isPublished,
   );
   const configuredJobCount = jobs.filter((job) => isJobAdvertisementConfigured(job)).length;
   const activeJobCount = jobs.filter(
-    (job) => String(job.status || "").toLowerCase() === "active",
+    (job) => getEffectiveJobStatus(job) === "active",
   ).length;
-  const jobComplete = isJobAdvertisementConfigured(selectedJob);
-  const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured);
-  const centersComplete = selectedJobSchedules.some(
-    (schedule) => Array.isArray(schedule?.selectedCenterIds) && schedule.selectedCenterIds.length > 0,
-  );
+  const selectedWorkflowJob =
+    selectedJob?._id && publishedJobIds.has(String(selectedJob._id))
+      ? { ...selectedJob, status: "active" }
+      : selectedJob;
+  const selectedJobWorkflowReadiness = buildAdminJobWorkflow({
+    project: projectForWorkflow,
+    job: selectedWorkflowJob,
+    schedules: selectedJobSchedules,
+    admitPhaseActive: false,
+  });
+  const jobComplete = selectedJobWorkflowReadiness.checks.find((check) => check.key === "job")?.complete;
+  const admitFormatComplete =
+    selectedJobWorkflowReadiness.checks.find((check) => check.key === "admit-format")?.complete;
+  const centersComplete =
+    selectedJobWorkflowReadiness.checks.find((check) => check.key === "centers")?.complete;
   const reviewReady = landingComplete && jobComplete;
-  const jobPublishComplete = Boolean(
-    selectedJob?._id &&
-      selectedJobIsActive &&
-      isPublished,
-  );
-  const publishComplete = selectedJob ? jobPublishComplete : isPublished;
+  const publishComplete = selectedJob
+    ? selectedJobWorkflowReadiness.publishComplete
+    : isPublished;
+  const amendmentMode = Boolean(selectedJobWorkflowReadiness.amendmentMode);
   const projectPublishComplete = Boolean(isPublished && activeJobCount > 0);
   const projectPublishReady = Boolean(landingComplete && activeJobCount > 0);
-  const selectedJobWorkflowReadiness = {
-    complete: reviewReady && publishComplete,
-    checks: [
-      {
-        key: "landing",
-        label: "Landing CMS",
-        complete: landingComplete,
-        message: landingComplete
-          ? "Project landing page is published."
-          : "Publish the project landing CMS.",
-      },
-      {
-        key: "job",
-        label: "Job Advertisement",
-        complete: jobComplete,
-        message: jobComplete
-          ? "Selected job advertisement is configured."
-          : "Complete this job advertisement.",
-      },
-      {
-        key: "admit-format",
-        label: "Admit Format",
-        complete: admitFormatComplete,
-        optional: true,
-        message: admitFormatComplete
-          ? "Admit-card format and exam details are configured."
-          : "Can be configured later before admit-card release.",
-      },
-      {
-        key: "centers",
-        label: "Centers",
-        complete: centersComplete,
-        optional: true,
-        message: centersComplete
-          ? "Centers are selected for the selected job."
-          : "Can be selected later before seat allocation.",
-      },
-      {
-        key: "review",
-        label: "Final Review",
-        complete: Boolean(reviewReady || publishComplete),
-        message: reviewReady
-          ? "Selected job is ready for publish."
-          : "Verify the selected job before publishing.",
-      },
-      {
-        key: "publish",
-        label: "Publish Job",
-        complete: publishComplete,
-        message: publishComplete
-          ? "This job is live on the project public URL."
-          : "Publish this job after final review.",
-      },
-    ],
-  };
   const projectWorkflowReadiness = {
     complete: false,
     checks: [
@@ -621,6 +552,36 @@ const ProjectDetails = () => {
   };
   const projectMissingWorkflowSteps =
     projectWorkflowReadiness.checks?.filter((check) => !check.complete && !check.optional) || [];
+  const publishBlockReason = selectedJob
+    ? publishComplete
+      ? "This job is already live on the public URL."
+      : !landingComplete
+        ? "Publish the landing CMS before this job can go live."
+        : !jobComplete
+          ? "Complete the job advertisement before publishing."
+          : amendmentMode
+            ? "Verify the extended deadline and amendment notice before releasing the job again."
+            : ""
+    : projectPublishComplete
+      ? "The project public URL is already live."
+      : !landingComplete
+        ? "Publish the landing CMS before releasing the project URL."
+        : activeJobCount < 1
+          ? "Publish at least one active job before releasing the project URL."
+          : "";
+  const productionChecks = selectedJob
+    ? [
+        { label: "Landing CMS is published", complete: landingComplete },
+        { label: "Job advertisement has posts, vacancies, and dates", complete: Boolean(jobComplete) },
+        { label: "Application deadline is valid for publish/amendment", complete: selectedJobStatus === "active" || amendmentMode || !selectedJobWasPublished },
+        { label: "Admit card setup is available before release", complete: Boolean(admitFormatComplete), optional: true },
+        { label: "Centers with usable capacity are available before allocation", complete: Boolean(centersComplete), optional: true },
+      ]
+    : [
+        { label: "Landing CMS is published", complete: landingComplete },
+        { label: "At least one job is active", complete: activeJobCount > 0 },
+        { label: "Public URL is available", complete: Boolean(project.publicSlug) },
+      ];
 
   const workflowNavProject = selectedJob
     ? {
@@ -826,8 +787,8 @@ const ProjectDetails = () => {
                       Open Live
                     </a>
                   ) : (
-                    <span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-white px-2.5 text-xs font-bold text-gray-400">
-                      Locked until publish
+                    <span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-white px-2.5 text-xs font-bold text-gray-500">
+                      Draft preview only
                     </span>
                   )}
                 </div>
@@ -932,7 +893,7 @@ const ProjectDetails = () => {
                 }}
                 options={jobs.map((job) => ({
                   value: job._id,
-                  label: `${job.title}${job.postCode ? ` (${job.postCode})` : ""}${job.status ? ` - ${job.status}` : ""}`,
+                  label: `${job.title}${job.postCode ? ` (${job.postCode})` : ""} - ${formatJobStatus(job)}`,
                 }))}
                 placeholder={jobs.length ? "Select a job" : "No jobs available"}
                 disabled={jobs.length === 0}
@@ -957,11 +918,11 @@ const ProjectDetails = () => {
                   Check the core sections, then continue to Publish / Verify.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-start lg:justify-end">
                 <Button
                   type="button"
                   onClick={() => navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}#publish`)}
-                  className="h-10 rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700"
+                  className="h-10 w-full rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700 sm:w-auto"
                 >
                   Next: Publish / Verify
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -1008,9 +969,11 @@ const ProjectDetails = () => {
                   {selectedJob
                     ? publishComplete
                       ? "Job is live on the public URL"
-                      : isPublished
-                        ? "Publish this job on the public URL"
-                        : "Publish the project and this job"
+                      : amendmentMode
+                        ? "Verify this amendment on the public URL"
+                        : isPublished
+                          ? "Publish this job on the public URL"
+                          : "Publish the project and this job"
                     : projectPublishComplete
                       ? "Project published and public URL is live"
                       : "Release the public application URL"}
@@ -1019,7 +982,9 @@ const ProjectDetails = () => {
                   {selectedJob
                     ? publishComplete
                       ? "Candidates can apply for this job from the project landing page."
-                      : "This is the final action after landing CMS, job advertisement, and review. Admit cards and centers can be configured later."
+                      : amendmentMode
+                        ? "Confirm the amended dates and public notice are live for candidates."
+                        : "This is the final action after landing CMS, job advertisement, and review. Admit cards and centers can be configured later."
                     : projectPublishComplete
                       ? "Candidates can now open the public URL and start applications."
                       : "Publish a reviewed job first, then release the project public URL."}
@@ -1033,7 +998,9 @@ const ProjectDetails = () => {
                     className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-50"
                   >
                     <Eye className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Preview Public Page</span>
+                    <span className="truncate">
+                      {isPublished ? "Preview Live Page" : "Preview Draft Page"}
+                    </span>
                   </button>
                   {isPublished && project.publicSlug && (
                     <a
@@ -1050,6 +1017,7 @@ const ProjectDetails = () => {
 
                 <Button
                   type="button"
+                  title={publishBlockReason}
                   disabled={
                     selectedJob
                       ? publishComplete || !reviewReady || publishSelectedJobMutation.isPending
@@ -1081,9 +1049,11 @@ const ProjectDetails = () => {
                   {selectedJob
                     ? publishComplete
                       ? "Published"
-                      : isPublished
-                        ? "Publish Job"
-                        : "Publish Project & Job"
+                      : amendmentMode
+                        ? "Verify Amendment"
+                        : isPublished
+                          ? "Publish Job"
+                          : "Publish Project & Job"
                     : projectPublishComplete
                       ? "Published"
                       : "Publish Project URL"}
@@ -1120,12 +1090,50 @@ const ProjectDetails = () => {
               ))}
             </div>
 
+            <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
+              <p className="text-sm font-bold text-gray-900">
+                Production flow checks
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {productionChecks.map((check) => (
+                  <div
+                    key={check.label}
+                    className="flex items-start gap-2 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                  >
+                    <CheckCircle2
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${
+                        check.complete
+                          ? "text-green-600"
+                          : check.optional
+                            ? "text-gray-400"
+                            : "text-orange-500"
+                      }`}
+                    />
+                    <span>
+                      {check.label}
+                      {check.optional && !check.complete ? " (do later)" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {!(selectedJob ? reviewReady : projectPublishReady) && (
               <p className="mt-4 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-700">
                 Complete missing steps before publishing: {(selectedJob
                   ? selectedJobWorkflowReadiness.checks.filter((step) => !step.complete && !step.optional)
                   : projectMissingWorkflowSteps
                 ).map((step) => step.label).join(", ")}
+              </p>
+            )}
+            {publishBlockReason && (
+              <p className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600">
+                {publishBlockReason}
+              </p>
+            )}
+            {adminActionError && (
+              <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {adminActionError}
               </p>
             )}
           </div>
@@ -1141,59 +1149,7 @@ const ProjectDetails = () => {
         "
         >
           {statCards.map((s) => (
-            <div
-              key={s.title}
-              className="
-                rounded-[22px]
-                bg-white
-                border border-gray-200
-                shadow-sm
-                p-5
-              "
-            >
-              <div
-                className="
-                flex items-center
-                justify-between
-              "
-              >
-                <div>
-                  <p
-                    className="
-                    text-xs
-                    font-bold
-                    tracking-normal
-                    text-gray-400 mb-2
-                  "
-                  >
-                    {s.title}
-                  </p>
-
-                  <h2
-                    className="
-                    text-2xl font-bold
-                    text-gray-900
-                  "
-                  >
-                    {s.value}
-                  </h2>
-                </div>
-
-                <div
-                  className={`
-                  w-12 h-12 rounded-2xl
-                  flex items-center justify-center
-                  ${s.bg}
-                `}
-                >
-                  <s.icon
-                    className={`
-                      w-5 h-5 ${s.color}
-                    `}
-                  />
-                </div>
-              </div>
-            </div>
+            <AdminKpiCard key={s.title} {...s} valueClassName="text-2xl" />
           ))}
         </div>
 
@@ -1403,12 +1359,14 @@ const ProjectDetails = () => {
 
                           <Badge
                             className={`flex h-8 items-center justify-center whitespace-nowrap rounded-full px-3 text-xs font-semibold capitalize ${
-                              job.status === "active"
+                              getEffectiveJobStatus(job) === "active"
                                 ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-700"
+                                : getEffectiveJobStatus(job) === "closed"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-700"
                             }`}
                           >
-                            {job.status}
+                            {formatJobStatus(job)}
                           </Badge>
 
                           <button

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 /**
@@ -14,6 +14,8 @@ import { cn } from '../../lib/utils'
  *   className    — extra wrapper classes
  *   error        — boolean
  *   disabled     — boolean
+ *   readOnly     — boolean — renders a static lock card instead of a picker
+ *   readOnlyReason — string — explanatory text shown below a readOnly field
  *   minDate      — Date object (optional)
  *   maxDate      — Date object (optional)
  *   initialViewDate — Date object used when no value is selected
@@ -80,6 +82,23 @@ const isSameDay = (a, b) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate()
 
+const normalizeDay = (value) => {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+const clampDate = (value, minDay, maxDay) => {
+  if (!value) return value
+  const date = normalizeDay(value)
+  if (!date) return value
+  if (minDay && date < minDay) return minDay
+  if (maxDay && date > maxDay) return maxDay
+  return value
+}
+
 const AppDatePicker = ({
   value,
   onChange,
@@ -87,6 +106,8 @@ const AppDatePicker = ({
   className = '',
   error = false,
   disabled = false,
+  readOnly = false,
+  readOnlyReason = '',
   minDate,
   maxDate,
   initialViewDate,
@@ -107,10 +128,30 @@ const AppDatePicker = ({
 
   const triggerRef = useRef(null)
   const pickerRef = useRef(null)
+  const minDay = normalizeDay(minDate)
+  const maxDay = normalizeDay(maxDate)
 
   // Year range for year picker (±10 from view year)
   const yearStart = viewYear - 6
   const years = Array.from({ length: 13 }, (_, i) => yearStart + i)
+  const canGoPrevMonth =
+    !minDay || new Date(viewYear, viewMonth, 0) >= minDay
+  const canGoNextMonth =
+    !maxDay || new Date(viewYear, viewMonth + 1, 1) <= maxDay
+  const canGoPrevYearBlock =
+    !minDay || new Date(yearStart - 13, 11, 31) >= minDay
+  const canGoNextYearBlock =
+    !maxDay || new Date(yearStart + 13, 0, 1) <= maxDay
+  const isMonthDisabled = (monthIndex) => {
+    const monthStart = new Date(viewYear, monthIndex, 1)
+    const monthEnd = new Date(viewYear, monthIndex + 1, 0)
+    return Boolean((minDay && monthEnd < minDay) || (maxDay && monthStart > maxDay))
+  }
+  const isYearDisabled = (year) => {
+    const yearStartDate = new Date(year, 0, 1)
+    const yearEndDate = new Date(year, 11, 31)
+    return Boolean((minDay && yearEndDate < minDay) || (maxDay && yearStartDate > maxDay))
+  }
 
   const calcPosition = useCallback(() => {
     if (!triggerRef.current) return
@@ -133,7 +174,7 @@ const AppDatePicker = ({
   const handleOpen = () => {
     if (disabled) return
     // Sync view to selected date, or a caller-provided sensible default.
-    const openDate = selected || fallbackViewDate
+    const openDate = clampDate(selected || fallbackViewDate, minDay, maxDay)
     setViewYear(openDate.getFullYear())
     setViewMonth(openDate.getMonth())
     setMode('day')
@@ -174,10 +215,12 @@ const AppDatePicker = ({
   }
 
   const prevMonth = () => {
+    if (!canGoPrevMonth) return
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
     else setViewMonth(m => m - 1)
   }
   const nextMonth = () => {
+    if (!canGoNextMonth) return
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
     else setViewMonth(m => m + 1)
   }
@@ -215,7 +258,8 @@ const AppDatePicker = ({
         <button
           type="button"
           onClick={prevMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-orange-500 text-white transition-colors"
+          disabled={!canGoPrevMonth}
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-orange-500 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -242,7 +286,8 @@ const AppDatePicker = ({
         <button
           type="button"
           onClick={nextMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-orange-500 text-white transition-colors"
+          disabled={!canGoNextMonth}
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-orange-500 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -251,21 +296,29 @@ const AppDatePicker = ({
       {/* Month picker overlay */}
       {mode === 'month' && (
         <div className="p-3 grid grid-cols-3 gap-2">
-          {MONTHS.map((m, i) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setViewMonth(i); setMode('day') }}
-              className={cn(
-                'py-2 rounded-lg text-sm font-medium transition-colors',
-                i === viewMonth
-                  ? 'bg-orange-600 text-white'
-                  : 'hover:bg-orange-50 text-gray-700',
-              )}
-            >
-              {m.slice(0, 3)}
-            </button>
-          ))}
+          {MONTHS.map((m, i) => {
+            const monthDisabled = isMonthDisabled(i)
+            return (
+              <button
+                key={m}
+                type="button"
+                disabled={monthDisabled}
+                onClick={() => {
+                  if (monthDisabled) return
+                  setViewMonth(i)
+                  setMode('day')
+                }}
+                className={cn(
+                  'py-2 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                  i === viewMonth
+                    ? 'bg-orange-600 text-white'
+                    : 'hover:bg-orange-50 text-gray-700',
+                )}
+              >
+                {m.slice(0, 3)}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -275,8 +328,9 @@ const AppDatePicker = ({
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
-              onClick={() => setViewYear(y => y - 13)}
-              className="text-gray-500 hover:text-orange-600 p-1"
+              disabled={!canGoPrevYearBlock}
+              onClick={() => canGoPrevYearBlock && setViewYear(y => y - 13)}
+              className="text-gray-500 hover:text-orange-600 p-1 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -285,28 +339,37 @@ const AppDatePicker = ({
             </span>
             <button
               type="button"
-              onClick={() => setViewYear(y => y + 13)}
-              className="text-gray-500 hover:text-orange-600 p-1"
+              disabled={!canGoNextYearBlock}
+              onClick={() => canGoNextYearBlock && setViewYear(y => y + 13)}
+              className="text-gray-500 hover:text-orange-600 p-1 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-4 gap-1.5">
-            {years.map((y) => (
-              <button
-                key={y}
-                type="button"
-                onClick={() => { setViewYear(y); setMode('day') }}
-                className={cn(
-                  'py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  y === viewYear
-                    ? 'bg-orange-600 text-white'
-                    : 'hover:bg-orange-50 text-gray-700',
-                )}
-              >
-                {y}
-              </button>
-            ))}
+            {years.map((y) => {
+              const yearDisabled = isYearDisabled(y)
+              return (
+                <button
+                  key={y}
+                  type="button"
+                  disabled={yearDisabled}
+                  onClick={() => {
+                    if (yearDisabled) return
+                    setViewYear(y)
+                    setMode('day')
+                  }}
+                  className={cn(
+                    'py-1.5 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                    y === viewYear
+                      ? 'bg-orange-600 text-white'
+                      : 'hover:bg-orange-50 text-gray-700',
+                  )}
+                >
+                  {y}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -375,6 +438,33 @@ const AppDatePicker = ({
       )}
     </div>
   ) : null
+
+  // ── Read-only lock card ─────────────────────────────────────────────────────
+  if (readOnly) {
+    return (
+      <div className="w-full">
+        <div
+          className={cn(
+            'w-full flex items-center justify-between gap-2',
+            'px-4 py-3 rounded-xl border text-sm text-left',
+            'bg-gray-50 border-gray-200 cursor-default select-none',
+            className,
+          )}
+        >
+          <span className={cn('truncate font-medium', selected ? 'text-gray-700' : 'text-gray-400')}>
+            {selected ? formatDisplay(selected) : placeholder}
+          </span>
+          <Lock className="w-4 h-4 flex-shrink-0 text-gray-400" />
+        </div>
+        {readOnlyReason && (
+          <p className="mt-1 flex items-start gap-1.5 text-xs font-medium text-gray-500">
+            <Lock className="mt-0.5 h-3 w-3 flex-shrink-0 text-gray-400" />
+            {readOnlyReason}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <>

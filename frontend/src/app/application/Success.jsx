@@ -13,13 +13,16 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import { publicService } from "../../services/public.service";
 import { candidateService } from "../../services/candidate.service";
 import ApplicationAcknowledgement from "../../components/application/ApplicationAcknowledgement";
+import PublicBrandMark from "../../components/ui/PublicBrandMark";
 import {
   readApplicationDraft,
   isCorrectionMode,
   persistApplicationDraft,
 } from "../../utils/applicationFlow";
+import { getProjectAwarePublicPath } from "../../utils/publicNavigation";
 import logo from "../../assets/logo.png";
 
 const Success = () => {
@@ -44,6 +47,42 @@ const Success = () => {
   });
 
   const app = appData?.application || appData;
+
+  const publicApplyContext = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("publicApplyContext") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const projectSlug =
+    app?.jobId?.projectId?.publicSlug ||
+    publicApplyContext?.projectSlug ||
+    (typeof window !== "undefined"
+      ? window.sessionStorage.getItem("lastPublicProjectSlug")
+      : "") ||
+    "";
+
+  const { data: projectBrandingData } = useQuery({
+    queryKey: ["public-project-branding", projectSlug],
+    queryFn: () => publicService.getProjectBySlug(projectSlug),
+    enabled: Boolean(projectSlug),
+    staleTime: 60000,
+  });
+
+  const brandingCmsPage = projectBrandingData?.cmsPage;
+  const brandingProject = projectBrandingData?.project || app?.jobId?.projectId;
+  const appLogo = brandingCmsPage?.projectLogo || logo;
+  const hasUploadedProjectLogo = Boolean(brandingCmsPage?.projectLogo);
+  const appBrandTitle =
+    brandingCmsPage?.heroTitle || brandingProject?.name || "Recruitment Portal";
+  const appBrandMeta =
+    brandingProject?.department ||
+    brandingProject?.state ||
+    "GOVERNMENT OF INDIA";
+  const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
+  const statusPath = getProjectAwarePublicPath("/check-status", projectSlug);
   const transactionId = app?.transactionId || stateTransactionId || "-";
   const correctionMode =
     isCorrectionMode(app) ||
@@ -222,17 +261,22 @@ const Success = () => {
           <div className="flex w-full items-center justify-between">
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => navigate(projectHomePath)}
               className="flex items-center space-x-3 text-left"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1f1d1b] overflow-hidden">
-                <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
-              </div>
-              <div>
-                <div className="font-bold text-gray-800">
-                  Recruitment Portal
+              <PublicBrandMark
+                src={appLogo}
+                alt={appBrandTitle}
+                uploaded={hasUploadedProjectLogo}
+                variant="app"
+              />
+              <div className="min-w-0">
+                <div className="font-bold text-gray-800 line-clamp-1">
+                  {appBrandTitle}
                 </div>
-                <div className="text-sm text-gray-600">GOVERNMENT OF INDIA</div>
+                <div className="text-xs text-gray-600 uppercase tracking-wide truncate">
+                  {appBrandMeta}
+                </div>
               </div>
             </button>
           </div>
@@ -304,7 +348,7 @@ const Success = () => {
                 </Button>
                 <Button
                   className="w-full bg-orange-600 hover:bg-orange-700"
-                  onClick={() => navigate("/check-status")}
+                  onClick={() => navigate(statusPath)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Application
@@ -333,15 +377,22 @@ const Success = () => {
         <div className="flex w-full items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => navigate(projectHomePath)}
             className="flex items-center space-x-3 text-left"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1f1d1b] overflow-hidden">
-              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
-            </div>
-            <div>
-              <div className="font-bold text-gray-800">Recruitment Portal</div>
-              <div className="text-sm text-gray-600">GOVERNMENT OF INDIA</div>
+            <PublicBrandMark
+              src={appLogo}
+              alt={appBrandTitle}
+              uploaded={hasUploadedProjectLogo}
+              variant="app"
+            />
+            <div className="min-w-0">
+              <div className="font-bold text-gray-800 line-clamp-1">
+                {appBrandTitle}
+              </div>
+              <div className="text-xs text-gray-600 uppercase tracking-wide truncate">
+                {appBrandMeta}
+              </div>
             </div>
           </button>
         </div>
@@ -556,7 +607,7 @@ const Success = () => {
                 description="Check your submitted application status"
                 buttonLabel="View Application"
                 buttonClass="border-green-200 text-green-600 hover:bg-green-50"
-                onClick={() => navigate("/check-status")}
+                onClick={() => navigate(statusPath)}
               />
               <ActionCard
                 icon={Calendar}
@@ -565,7 +616,7 @@ const Success = () => {
                 description="Check application status, admit card, and result updates"
                 buttonLabel="Check Status"
                 buttonClass="border-orange-200 text-orange-600 hover:bg-orange-50"
-                onClick={() => navigate("/check-status")}
+                onClick={() => navigate(statusPath)}
               />
             </div>
 

@@ -14,14 +14,19 @@ const {
   SOCKET_EVENTS,
 } = require("../socket/index");
 const { publishToQueue, QUEUES } = require("../config/rabbitmq");
+const {
+  assertApplicationWindowOpen,
+  getEffectiveJobStatus,
+} = require("../utils/timeline");
 
 // ── Candidate: Start / get draft ─────────────────────────────
 
 const startApplication = async (candidateId, jobId) => {
   const job = await Job.findById(jobId);
   if (!job) throw new ApiError(404, "Job not found");
-  if (job.status !== "active")
+  if (getEffectiveJobStatus(job) !== "active")
     throw new ApiError(400, "This job is not accepting applications");
+  assertApplicationWindowOpen(job);
 
   // Check if already applied
   const existing = await Application.findOne({

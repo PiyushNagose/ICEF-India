@@ -102,6 +102,8 @@ const buildDefaultProjectPage = (project) => ({
   projectId: project._id,
   heroTitle: project.name || "",
   heroSubtitle: project.description || "",
+  projectLogo: "",
+  projectLogoSize: 0,
   bannerImage: "",
   featuredJobs: [],
   announcements: [],
@@ -164,7 +166,7 @@ const getOne = asyncHandler(async (req, res) => {
 // POST /api/admin/cms  — create state page
 const create = asyncHandler(async (req, res) => {
   const {
-    state, heroTitle, heroSubtitle, bannerImage,
+    state, heroTitle, heroSubtitle, projectLogo, projectLogoSize, bannerImage, bannerImageSize,
     featuredJobs, announcements, quickLinks, status, projectId,
     downloads, faqs, instructions, helpdesk, sectionVisibility,
   } = req.body;
@@ -189,7 +191,10 @@ const create = asyncHandler(async (req, res) => {
     projectId: scope.isProjectPage ? projectId : null,
     heroTitle:    heroTitle    || "",
     heroSubtitle: heroSubtitle || "",
+    projectLogo:  projectLogo  || "",
+    projectLogoSize: projectLogoSize || 0,
     bannerImage:  bannerImage  || "",
+    bannerImageSize: bannerImageSize || 0,
     featuredJobs: featuredJobs || [],
     announcements: announcements || [],
     quickLinks:   quickLinks   || {},
@@ -224,6 +229,8 @@ const update = asyncHandler(async (req, res) => {
       projectId: scope.project._id,
       heroTitle: scope.project.name || "",
       heroSubtitle: scope.project.description || "",
+      projectLogo: "",
+      projectLogoSize: 0,
       quickLinks: defaultQuickLinks,
       downloads: [],
       faqs: [],
@@ -236,7 +243,7 @@ const update = asyncHandler(async (req, res) => {
   }
 
   const allowed = [
-    "heroTitle","heroSubtitle","bannerImage",
+    "heroTitle","heroSubtitle","projectLogo","projectLogoSize","bannerImage","bannerImageSize",
     "featuredJobs","announcements","quickLinks","status",
     "downloads","faqs","instructions","helpdesk","sectionVisibility",
   ];

@@ -2,8 +2,12 @@ const { startOfDay, endOfDay } = require("./timeline");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-// Jobs that the public landing page is allowed to render.
-const PUBLIC_JOB_FILTER = { status: "active", isSoftDeleted: { $ne: true } };
+// Jobs that the public landing page is allowed to render. Closed jobs remain
+// visible for details, status, admit card, and result flows after applications end.
+const PUBLIC_JOB_FILTER = {
+  status: { $in: ["active", "closed"] },
+  isSoftDeleted: { $ne: true },
+};
 
 // Job fields the public landing page (and its admin preview) needs
 const PUBLIC_JOB_FIELDS =
@@ -17,6 +21,16 @@ const buildAvailability = (job, now = new Date()) => {
   const start = startOfDay(job.applicationStartDate);
   const deadline = endOfDay(job.applicationDeadline);
   const deadlineDay = startOfDay(job.applicationDeadline);
+
+  if (job.status === "closed") {
+    return {
+      status: "closed",
+      label: "Closed",
+      canApply: false,
+      reason: "The application window for this post has ended.",
+      daysLeft: 0,
+    };
+  }
 
   if (job.status !== "active") {
     return {

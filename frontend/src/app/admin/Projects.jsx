@@ -20,6 +20,7 @@ import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import {
@@ -88,40 +89,28 @@ const Projects = () => {
       value:
         data?.pagination?.totalItems || projects.length,
       icon: FolderOpen,
-      color:
-        'from-blue-500 to-blue-600',
-      bg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
+      tone: 'blue',
     },
     {
       title: 'ACTIVE',
       value:
         projects.filter((p) => p.status === 'Active').length,
       icon: Rocket,
-      color:
-        'from-green-500 to-green-600',
-      bg: 'bg-green-50',
-      iconColor: 'text-green-600',
+      tone: 'green',
     },
     {
       title: 'COMPLETED',
       value:
         projects.filter((p) => p.status === 'Completed').length,
       icon: CheckCircle,
-      color:
-        'from-purple-500 to-purple-600',
-      bg: 'bg-purple-50',
-      iconColor: 'text-purple-600',
+      tone: 'purple',
     },
     {
       title: 'UPCOMING',
       value:
         projects.filter((p) => p.status === 'Upcoming').length,
       icon: Calendar,
-      color:
-        'from-orange-500 to-orange-600',
-      bg: 'bg-orange-50',
-      iconColor: 'text-orange-600',
+      tone: 'orange',
     },
   ]
 
@@ -164,48 +153,7 @@ const Projects = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
           {stats.map((stat) => (
-            <div
-              key={stat.title}
-              className="
-                relative overflow-hidden
-                rounded-[22px]
-                bg-white
-                border border-gray-200
-                shadow-sm
-                hover:-translate-y-0.5
-                transition-all duration-200 ease-out
-                p-4
-              "
-            >
-
-              <div className={`
-                absolute top-0 left-0 w-full h-1
-                bg-gradient-to-r ${stat.color}
-              `} />
-
-              <div className="flex items-center justify-between">
-
-                <div>
-                  <p className="text-xs tracking-normal font-bold text-gray-400 mb-2">
-                    {stat.title}
-                  </p>
-
-                  <h2 className="text-3xl font-bold text-gray-900">
-                    {Number(stat.value || 0).toLocaleString('en-IN')}
-                  </h2>
-                </div>
-
-                <div className={`
-                  w-12 h-12 rounded-2xl
-                  flex items-center justify-center
-                  ${stat.bg}
-                `}>
-                  <stat.icon
-                    className={`w-5 h-5 ${stat.iconColor}`}
-                  />
-                </div>
-              </div>
-            </div>
+            <AdminKpiCard key={stat.title} {...stat} />
           ))}
         </div>
 

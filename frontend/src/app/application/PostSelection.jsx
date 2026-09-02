@@ -14,6 +14,7 @@ import {
   isCorrectionMode,
   readApplicationDraft,
 } from "../../utils/applicationFlow";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -224,7 +225,7 @@ const PostSelection = () => {
   const handleNext = () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     if (selectedPosts.length === 0) {

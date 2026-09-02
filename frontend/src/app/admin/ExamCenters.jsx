@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 
@@ -176,45 +177,9 @@ export default function ExamCenters() {
         </Card>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          <Card className="rounded-2xl border-gray-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-gray-400">Total Centers</p>
-                  <p className="mt-2 text-3xl font-extrabold text-gray-950">{meta?.total || centers.length}</p>
-                </div>
-                <span className="h-12 w-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                  <Building2 className="w-5 h-5" />
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="rounded-2xl border-gray-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-gray-400">Active Centers</p>
-                  <p className="mt-2 text-3xl font-extrabold text-gray-950">{activeCenters}</p>
-                </div>
-                <span className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="rounded-2xl border-gray-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-gray-400">Usable Capacity</p>
-                  <p className="mt-2 text-3xl font-extrabold text-gray-950">{totalCapacity}</p>
-                </div>
-                <span className="h-12 w-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                  <MapPin className="w-5 h-5" />
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <AdminKpiCard title="Total Centers" value={meta?.total || centers.length} icon={Building2} tone="orange" />
+          <AdminKpiCard title="Active Centers" value={activeCenters} icon={CheckCircle2} tone="green" />
+          <AdminKpiCard title="Usable Capacity" value={totalCapacity} icon={MapPin} tone="blue" />
         </div>
 
         <Card className="overflow-hidden rounded-2xl border-gray-200 shadow-sm">

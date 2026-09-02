@@ -66,6 +66,18 @@ const getProjectLifecycleStatus = (projectLike, now = new Date()) => {
 const getPaymentDeadline = (job) =>
   parseDate(job?.paymentConfig?.paymentDeadline || job?.applicationDeadline);
 
+const startOfToday = (now = new Date()) =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+const getEffectiveJobStatus = (jobLike, now = new Date()) => {
+  const status = String(jobLike?.status || "").toLowerCase();
+  const deadline = startOfDay(jobLike?.applicationDeadline);
+  if (status === "active" && deadline && deadline < startOfToday(now)) {
+    return "closed";
+  }
+  return status || "draft";
+};
+
 const assertOrder = (left, right, message) => {
   const a = startOfDay(left);
   const b = startOfDay(right);
@@ -217,6 +229,8 @@ module.exports = {
   getProjectLifecycleStatus,
   getProjectClosureDate,
   getPaymentDeadline,
+  startOfToday,
+  getEffectiveJobStatus,
   assertProjectTimeline,
   assertJobTimeline,
   assertApplicationWindowOpen,

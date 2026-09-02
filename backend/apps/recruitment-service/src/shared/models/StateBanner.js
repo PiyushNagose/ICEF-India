@@ -74,6 +74,8 @@ const statsBannerSchema = new mongoose.Schema(
     // Hero section
     heroTitle:    { type: String, trim: true, default: "" },
     heroSubtitle: { type: String, trim: true, default: "" },
+    projectLogo:  { type: String, default: "" }, // Project/department logo shown in public header/footer
+    projectLogoSize: { type: Number, default: 0 },
     bannerImage:  { type: String, default: "" }, // Cloudinary URL or external URL
     bannerImageSize: { type: Number, default: 0 }, // Size in bytes
 

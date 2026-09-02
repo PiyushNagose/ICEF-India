@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import { adminService } from '../../services/admin.service'
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
@@ -141,40 +142,15 @@ const Roles = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Total Active Roles */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-orange-500 p-5 shadow-sm">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Shield className="w-5 h-5 text-orange-500" />
-              </div>
-              <span className="whitespace-nowrap text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
-            </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Active Roles</p>
-            <p className="text-3xl font-bold text-gray-900">{String(totalRoles).padStart(2, '0')}</p>
-          </div>
-
-          {/* Users Assigned */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-blue-500 p-5 shadow-sm">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-500" />
-              </div>
-            </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Users Assigned</p>
-            <p className="text-3xl font-bold text-gray-900">{Number(totalAssigned).toLocaleString('en-IN')}</p>
-          </div>
-
-          {/* System Load */}
-          <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-amber-400 p-5 shadow-sm">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Activity className="w-5 h-5 text-amber-500" />
-              </div>
-              <div className="w-8 h-1 bg-amber-400 rounded-full mt-3" />
-            </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Permission Modules</p>
-            <p className="text-3xl font-bold text-gray-900">9</p>
-          </div>
+          <AdminKpiCard
+            title="Total Active Roles"
+            value={String(totalRoles).padStart(2, '0')}
+            icon={Shield}
+            tone="orange"
+            badge={{ label: 'Active', className: 'bg-emerald-50 text-emerald-600' }}
+          />
+          <AdminKpiCard title="Users Assigned" value={totalAssigned} icon={Users} tone="blue" />
+          <AdminKpiCard title="Permission Modules" value={9} icon={Activity} tone="amber" />
         </div>
 
         {/* Access Control List */}

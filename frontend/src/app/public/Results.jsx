@@ -1,8 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
-import { jobService } from "../../services/job.service";
+import { publicService } from "../../services/public.service";
+import {
+  getProjectAwarePublicPath,
+  getPublicProjectSlug,
+  readProjectSlugFromSearch,
+} from "../../utils/publicNavigation";
 import {
   EmptyState,
   ErrorState,
@@ -17,14 +22,13 @@ import {
 } from "./PublicPageShell";
 
 const Results = () => {
+  const location = useLocation();
+  const projectSlug =
+    readProjectSlugFromSearch(location.search) || getPublicProjectSlug();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["public-results"],
-    queryFn: () =>
-      jobService.getPublicJobs({
-        limit: 20,
-        sortBy: "resultDate",
-        sortOrder: "desc",
-      }),
+    queryKey: ["public-results", projectSlug],
+    queryFn: () => publicService.getProjectBySlug(projectSlug),
+    enabled: Boolean(projectSlug),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -47,7 +51,11 @@ const Results = () => {
       <PageHero
         eyebrow="Results"
         title="Recruitment Result Updates"
-        description="Result tracking is connected to active recruitment data. Candidate-specific results and selection updates are available after login."
+        description={
+          projectSlug
+            ? "Result tracking is connected to this recruitment. Candidate-specific results and selection updates are available after verification."
+            : "Open the official recruitment link first, or check your application status using registration number and mobile OTP."
+        }
       >
         <div className="grid grid-cols-2 gap-3">
           <StatTile label="Tracked Jobs" value={jobs.length || "-"} />
@@ -56,14 +64,22 @@ const Results = () => {
       </PageHero>
 
       <section className={`${publicContainer} py-8 lg:py-10 space-y-5`}>
-        {isLoading && <LoadingState label="Loading result updates..." />}
+        {projectSlug && isLoading && <LoadingState label="Loading result updates..." />}
         {error && <ErrorState message={error.message} />}
 
         {!isLoading && !error && jobs.length === 0 && (
           <EmptyState
             icon={Award}
-            title="No public result updates available"
-            description="No recruitment has an official result publish date available for public display yet."
+            title={
+              projectSlug
+                ? "No result updates available"
+                : "Open a recruitment page first"
+            }
+            description={
+              projectSlug
+                ? "No result publish date is available for this recruitment yet."
+                : "Result updates are shown only for the selected recruitment. You can still use status lookup with your registration number."
+            }
           />
         )}
 
@@ -85,6 +101,11 @@ const Results = () => {
                     : `Scheduled: ${formatDate(job.resultDate)}. Candidate-specific status opens after the official publish date.`
                 }
                 actionLabel="Open Recruitment"
+                actionTo={
+                  projectSlug
+                    ? `/apply/${projectSlug}/jobs/${job._id}`
+                    : undefined
+                }
               />
             </motion.div>
           ))}
@@ -103,7 +124,7 @@ const Results = () => {
             </div>
           </div>
           <Link
-            to="/check-status"
+            to={getProjectAwarePublicPath("/check-status", projectSlug)}
             className="inline-flex h-11 items-center justify-center rounded bg-[#e46a1d] px-5 text-white text-xs uppercase tracking-[0.12em] font-black hover:bg-[#cb5d16]"
           >
             View My Results

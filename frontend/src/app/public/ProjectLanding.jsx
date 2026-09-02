@@ -38,6 +38,7 @@ import {
   getJobAvailability,
 } from "../../utils/jobAvailability";
 import { readCmsPreviewDraft } from "../../utils/cmsPreview";
+import { getProjectAwarePublicPath } from "../../utils/publicNavigation";
 import { PublicHero3D } from "./PublicPageShell";
 import heroBg from "../../assets/herobg.jpg";
 
@@ -117,6 +118,12 @@ const normalizeNoticeText = (text = "") =>
 
 const isGenericDeadlineNotice = (text = "") =>
   /last date to apply|application deadline|check each post/i.test(text);
+
+const stripProjectTimelineText = (text = "") =>
+  String(text)
+    .replace(/\bApplication window:\s*[^.]+\.?\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
 const uniqueNotices = (notices) => {
   const seen = new Set();
@@ -382,6 +389,7 @@ export default function ProjectLanding({ preview = false }) {
 
   const project = data?.project;
   const slug = preview ? project?.publicSlug || previewId : params.slug;
+  const scopedPath = (path) => getProjectAwarePublicPath(path, slug);
   const previewMeta = preview ? data?.preview : null;
   const savedCmsPage = data?.cmsPage;
   // In draft mode the admin's unsaved CMS edits (stashed by CmsEdit) win over
@@ -391,6 +399,9 @@ export default function ProjectLanding({ preview = false }) {
     [useDraft, previewId],
   );
   const cmsPage = draftCms ? { ...savedCmsPage, ...draftCms } : savedCmsPage;
+  const heroDescription = stripProjectTimelineText(
+    cmsPage?.heroSubtitle || project?.description || "",
+  );
   const jobs = data?.jobs || [];
   const featuredJobIds = new Set(
     (cmsPage?.featuredJobs || []).map((job) => String(job._id || job)),
@@ -401,24 +412,31 @@ export default function ProjectLanding({ preview = false }) {
         ...jobs.filter((job) => !featuredJobIds.has(String(job._id))),
       ]
     : jobs;
+  const jobAvailabilityCounts = visibleJobs.reduce(
+    (counts, job) => {
+      const availability = getJobAvailability(job);
+      if (availability.canApply) counts.open += 1;
+      else if (availability.status === "closed") counts.closed += 1;
+      else if (availability.status === "not_open") counts.notOpen += 1;
+      else counts.unavailable += 1;
+      return counts;
+    },
+    { open: 0, closed: 0, notOpen: 0, unavailable: 0 },
+  );
   const openJobs = visibleJobs.filter((j) => getJobAvailability(j).canApply);
+  const postCountSummary = [
+    `${jobAvailabilityCounts.open} open`,
+    `${jobAvailabilityCounts.closed} closed`,
+    jobAvailabilityCounts.notOpen
+      ? `${jobAvailabilityCounts.notOpen} not open`
+      : "",
+    jobAvailabilityCounts.unavailable
+      ? `${jobAvailabilityCounts.unavailable} unavailable`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" - ");
   const jobsWithDeadlines = visibleJobs.filter((job) => job.applicationDeadline);
-  const candidateDeadlineLabel =
-    openJobs.length === 1
-      ? `Apply by ${fmt(openJobs[0].applicationDeadline)}`
-      : openJobs.length > 1
-        ? "Job-wise deadlines"
-        : jobsWithDeadlines.length === 1
-          ? `Closed on ${fmt(jobsWithDeadlines[0].applicationDeadline)}`
-          : "See post deadlines";
-  const deadlineStatValue =
-    openJobs.length === 1
-      ? `${new Date(openJobs[0].applicationDeadline).getDate()} ${new Date(
-          openJobs[0].applicationDeadline,
-        ).toLocaleDateString("en-IN", { month: "short" })}`
-      : openJobs.length > 1
-        ? "By Post"
-        : "Closed";
   const activeDeadlineJobs = openJobs.filter((job) => job.applicationDeadline);
   const uniqueActiveDeadlines = [
     ...new Set(
@@ -542,9 +560,9 @@ export default function ProjectLanding({ preview = false }) {
     sessionStorage.setItem(
       "publicApplyContext",
       JSON.stringify({
-        projectId: project._id,
+        projectId: project?._id,
         projectSlug: slug,
-        projectName: project.name,
+        projectName: project?.name,
         jobId: job._id,
         jobTitle: job.title,
       }),
@@ -572,9 +590,9 @@ export default function ProjectLanding({ preview = false }) {
       sessionStorage.setItem(
         "publicApplyContext",
         JSON.stringify({
-          projectId: project._id,
+          projectId: project?._id,
           projectSlug: slug,
-          projectName: project.name,
+          projectName: project?.name,
           jobId,
           jobTitle: selectedJob?.title || application.jobTitle || "",
           applicationId: application._id,
@@ -669,7 +687,9 @@ export default function ProjectLanding({ preview = false }) {
               <span className="text-xs font-semibold text-white/90">
                 {useDraft
                   ? "Showing unsaved CMS draft"
-                  : "Showing saved content — not yet public"}
+                  : previewMeta?.projectPublished
+                    ? "Showing currently live public content"
+                    : "Showing saved draft content — not live"}
               </span>
               {previewMeta && (
                 <span className="hidden items-center gap-3 text-[11px] font-bold uppercase tracking-[0.1em] text-white/80 sm:inline-flex">
@@ -725,11 +745,11 @@ export default function ProjectLanding({ preview = false }) {
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 backdrop-blur-sm">
                 <MapPin className="h-3.5 w-3.5" />
-                {project.state}
+                {project?.state}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 backdrop-blur-sm">
                 <Briefcase className="h-3.5 w-3.5" />
-                {project.department}
+                {project?.department}
               </span>
             </motion.div>
 
@@ -742,7 +762,7 @@ export default function ProjectLanding({ preview = false }) {
                   transition={{ duration: 0.45, delay: 0.06 }}
                   className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-400"
                 >
-                  {project.status === "active"
+                  {project?.status === "active"
                     ? "Applications Open"
                     : "Recruitment Notice"}
                 </motion.p>
@@ -753,17 +773,17 @@ export default function ProjectLanding({ preview = false }) {
                   transition={{ duration: 0.45, delay: 0.12 }}
                   className="mt-4 max-w-5xl text-[34px] font-black leading-[1.1] text-white [text-wrap:balance] sm:text-[44px] lg:text-[54px] 2xl:text-[56px]"
                 >
-                  {cmsPage?.heroTitle || project.name}
+                  {cmsPage?.heroTitle || project?.name}
                 </motion.h1>
 
-                {(cmsPage?.heroSubtitle || project.description) && (
+                {heroDescription && (
                   <motion.p
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.45, delay: 0.18 }}
                     className="mt-5 max-w-2xl text-[14px] leading-[26px] text-white/80 font-medium"
                   >
-                    {cmsPage?.heroSubtitle || project.description}
+                    {heroDescription}
                   </motion.p>
                 )}
 
@@ -787,12 +807,6 @@ export default function ProjectLanding({ preview = false }) {
                         .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
                         .toLocaleString("en-IN")}{" "}
                       Vacancies
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-2 text-white/70">
-                    <Calendar className="h-4 w-4 text-orange-400" />
-                    <span className="font-semibold">
-                      {candidateDeadlineLabel}
                     </span>
                   </span>
                 </motion.div>
@@ -846,8 +860,8 @@ export default function ProjectLanding({ preview = false }) {
                         .reduce((sum, j) => sum + (j.totalPosts || 0), 0)
                         .toLocaleString("en-IN"),
                     },
-                    { label: "Open Posts", value: openJobs.length },
-                    { label: "Deadline", value: deadlineStatValue },
+                    { label: "Open Posts", value: jobAvailabilityCounts.open },
+                    { label: "Closed", value: jobAvailabilityCounts.closed },
                   ]}
                 />
               </motion.div>
@@ -915,16 +929,17 @@ export default function ProjectLanding({ preview = false }) {
           >
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-600">
-                {openJobs.length > 0
+                {jobAvailabilityCounts.open > 0
                   ? "Applications Open"
-                  : "Recruitment Posts"}
+                  : jobAvailabilityCounts.notOpen > 0
+                    ? "Upcoming Posts"
+                    : "Recruitment Posts"}
               </p>
               <h2 className="mt-2 text-[24px] font-black leading-tight text-[#1f1d1b]">
-                Available Posts
+                Recruitment Posts
               </h2>
               <p className="mt-1.5 text-[13px] font-semibold text-[#7a716a]">
-                {openJobs.length} open · {visibleJobs.length - openJobs.length}{" "}
-                closed
+                {postCountSummary}
               </p>
             </div>
             {openJobs.length > 0 && (
@@ -960,7 +975,7 @@ export default function ProjectLanding({ preview = false }) {
                     <FileText className="h-10 w-10 text-[#c7bdb3]" />
                   </div>
                   <h3 className="mt-6 text-[24px] font-black leading-tight text-[#1f1d1b]">
-                    No Posts Available
+                    No Published Posts
                   </h3>
                   <p className="mt-2 text-[14px] leading-[26px] text-[#5f5752] font-medium">
                     Job posts will be published soon. Check back later.
@@ -1129,25 +1144,25 @@ export default function ProjectLanding({ preview = false }) {
                     {[
                       {
                         label: "Check Application Status",
-                        to: "/check-status",
+                        to: scopedPath("/check-status"),
                         icon: SearchCheck,
                         show: true,
                       },
                       {
                         label: "Download Admit Card",
-                        to: "/admit-cards",
+                        to: scopedPath("/admit-cards"),
                         icon: Download,
                         show: quickLinks.admitCards,
                       },
                       {
                         label: "View Results",
-                        to: "/results",
+                        to: scopedPath("/results"),
                         icon: CheckCircle2,
                         show: quickLinks.results,
                       },
                       {
                         label: "Request Correction",
-                        to: "/correction-request",
+                        to: scopedPath("/correction-request"),
                         icon: AlertCircle,
                         show: quickLinks.latestNotifications,
                       },

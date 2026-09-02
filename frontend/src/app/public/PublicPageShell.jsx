@@ -169,7 +169,14 @@ export const StatTile = ({ label, value }) => (
   </div>
 );
 
-export const JobListCard = ({ job, meta, actionLabel = "View Details" }) => (
+export const JobListCard = ({
+  job,
+  meta,
+  actionLabel = "View Details",
+  dateLabel = "Apply by",
+  dateValue,
+  actionTo,
+}) => (
   <article className="h-full rounded-[8px] border border-[#e0d7cd] bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0 flex-1">
@@ -185,7 +192,7 @@ export const JobListCard = ({ job, meta, actionLabel = "View Details" }) => (
           </span>
           <span className="inline-flex items-center gap-2">
             <Calendar className="w-4 h-4 text-orange-500" />
-            Apply by {formatDate(job.applicationDeadline)}
+            {dateLabel} {formatDate(dateValue || job.applicationDeadline)}
           </span>
           {(job.workLocation || job.projectId?.state) && (
             <span className="inline-flex items-center gap-2">
@@ -197,7 +204,7 @@ export const JobListCard = ({ job, meta, actionLabel = "View Details" }) => (
         {meta && <p className="mt-3 text-[14px] leading-[26px] text-[#5f5752] font-medium line-clamp-3">{meta}</p>}
       </div>
       <Link
-        to={job?.projectId?.publicSlug ? `/apply/${job.projectId.publicSlug}/jobs/${job._id}` : "/check-status"}
+        to={actionTo || (job?.projectId?.publicSlug ? `/apply/${job.projectId.publicSlug}/jobs/${job._id}` : "/check-status")}
         className="shrink-0 inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-4 text-xs font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-[#cb5d16]"
       >
         {actionLabel}

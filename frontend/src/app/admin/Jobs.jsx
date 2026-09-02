@@ -10,7 +10,9 @@ import {
   Briefcase,
   Users,
   Clock,
+  CreditCard,
   FolderOpen,
+  IndianRupee,
   Trash2,
   Send,
   XCircle,
@@ -21,8 +23,10 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfirmDeleteModal from '../../components/ui/ConfirmDeleteModal'
+import ConfirmActionModal from '../../components/ui/ConfirmActionModal'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 
 import { hasPermission, useAuth, isSuperAdminUser } from '../../hooks/useAuth'
 import { jobService } from '../../services/job.service'
@@ -31,6 +35,7 @@ import {
   getProjectLifecycleStatus,
   getProjectStatusBadgeClass,
 } from '../../utils/projectLifecycle'
+import { getEffectiveJobStatus } from '../../utils/jobAvailability'
 
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-700',
@@ -54,6 +59,9 @@ const isDeadlinePassed = (value) => {
   deadline.setHours(23, 59, 59, 999)
   return new Date() > deadline
 }
+
+const getDisplayStatus = (job) =>
+  getEffectiveJobStatus(job)
 
 const toDraftPayload = (job) => {
   const projectId = job.projectId?._id || job.projectId || ''
@@ -105,6 +113,11 @@ const Jobs = () => {
   const canPublish = hasPermission(user, 'jobs', 'publish')
   const [page, setPage] = useState(1)
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, job: null })
+  const [jobActionModal, setJobActionModal] = useState({
+    isOpen: false,
+    type: '',
+    job: null,
+  })
 
   const { data: jobsData, isLoading } = useQuery({
     queryKey: ['admin-jobs', page],
@@ -203,23 +216,18 @@ const Jobs = () => {
       return
     }
 
-    if (
-      window.confirm(
-        `Publish "${job.title}"?`
-      )
-    ) {
-      publishJob(job._id)
-    }
+    setJobActionModal({ isOpen: true, type: 'publish', job })
   }
 
   const handleClose = (job) => {
-    if (
-      window.confirm(
-        `Close "${job.title}"?`
-      )
-    ) {
-      closeJob(job._id)
-    }
+    setJobActionModal({ isOpen: true, type: 'close', job })
+  }
+
+  const confirmJobAction = () => {
+    if (!jobActionModal.job) return
+    if (jobActionModal.type === 'publish') publishJob(jobActionModal.job._id)
+    if (jobActionModal.type === 'close') closeJob(jobActionModal.job._id)
+    setJobActionModal({ isOpen: false, type: '', job: null })
   }
 
   const openDraftJob = async (job, step = 'review') => {
@@ -254,11 +262,10 @@ const Jobs = () => {
       (item) => item._id === status
     )?.count || 0
 
-  const totalApplicants = jobs.reduce(
-    (sum, job) =>
-      sum + (job.totalApplicants || 0),
-    0
-  )
+  const applicationTotals = statsData?.applicationTotals || {}
+  const totalApplicants = Number(applicationTotals.totalApplicants || 0)
+  const paidApplicants = Number(applicationTotals.paidApplicants || 0)
+  const revenue = Number(applicationTotals.revenue || 0)
 
   const stats = [
     {
@@ -267,37 +274,37 @@ const Jobs = () => {
         countByStatus('active') ||
         countByStatus('published'),
       icon: Briefcase,
-      bg: 'bg-green-50',
-      color: 'text-green-600',
-      border:
-        'from-green-500 to-green-400',
+      tone: 'green',
     },
     {
       title: 'DRAFTS',
       value: countByStatus('draft'),
       icon: Edit,
-      bg: 'bg-blue-50',
-      color: 'text-blue-600',
-      border:
-        'from-blue-500 to-blue-400',
+      tone: 'blue',
     },
     {
       title: 'CLOSED',
       value: countByStatus('closed'),
       icon: XCircle,
-      bg: 'bg-red-50',
-      color: 'text-red-600',
-      border:
-        'from-red-500 to-red-400',
+      tone: 'red',
     },
     {
       title: 'APPLICANTS',
       value: totalApplicants,
       icon: Users,
-      bg: 'bg-orange-50',
-      color: 'text-orange-600',
-      border:
-        'from-orange-500 to-orange-400',
+      tone: 'orange',
+    },
+    {
+      title: 'PAID',
+      value: paidApplicants,
+      icon: CreditCard,
+      tone: 'green',
+    },
+    {
+      title: 'REVENUE',
+      value: `INR ${revenue.toLocaleString('en-IN')}`,
+      icon: IndianRupee,
+      tone: 'purple',
     },
   ]
 
@@ -377,65 +384,7 @@ const Jobs = () => {
         ">
 
           {stats.map((stat) => (
-            <div
-              key={stat.title}
-              className="
-                relative overflow-hidden
-                rounded-[24px]
-                bg-white
-                border border-gray-200
-                shadow-sm
-                p-5
-                hover:-translate-y-0.5
-                transition-all duration-200 ease-out
-              "
-            >
-
-              <div className={`
-                absolute top-0 left-0
-                w-full h-1
-                bg-gradient-to-r ${stat.border}
-              `} />
-
-              <div className="
-                flex items-center
-                justify-between
-              ">
-
-                <div>
-
-                  <p className="
-                    text-xs
-                    font-bold
-                    tracking-normal
-                    text-gray-400 mb-2
-                  ">
-                    {stat.title}
-                  </p>
-
-                  <h2 className="
-                    text-3xl font-bold
-                    text-gray-900
-                  ">
-                    {Number(
-                      stat.value || 0
-                    ).toLocaleString('en-IN')}
-                  </h2>
-
-                </div>
-
-                <div className={`
-                  w-12 h-12 rounded-2xl
-                  flex items-center justify-center
-                  ${stat.bg}
-                `}>
-                  <stat.icon className={`
-                    w-5 h-5 ${stat.color}
-                  `} />
-                </div>
-
-              </div>
-            </div>
+            <AdminKpiCard key={stat.title} {...stat} />
           ))}
         </div>
 
@@ -617,12 +566,12 @@ const Jobs = () => {
                       <Badge
                         className={
                           STATUS_COLORS[
-                            job.status
+                            getDisplayStatus(job)
                           ] ||
                           'bg-gray-100 text-gray-700'
                         }
                       >
-                        {job.status?.toUpperCase()}
+                        {getDisplayStatus(job).toUpperCase()}
                       </Badge>
                     </td>
 
@@ -971,6 +920,19 @@ const Jobs = () => {
             : `Remove "${deleteModal.job?.title}" from the employee portal? Admin/superadmin will still see it and receive a notification.`
         }
         requireType={isPrivilegedDelete}
+      />
+      <ConfirmActionModal
+        isOpen={jobActionModal.isOpen}
+        onClose={() => setJobActionModal({ isOpen: false, type: '', job: null })}
+        onConfirm={confirmJobAction}
+        title={jobActionModal.type === 'close' ? 'Close Job' : 'Publish Job'}
+        message={
+          jobActionModal.type === 'close'
+            ? `Close "${jobActionModal.job?.title}"? Candidates will no longer be able to start a new application.`
+            : `Publish "${jobActionModal.job?.title}" on the public recruitment page?`
+        }
+        confirmLabel={jobActionModal.type === 'close' ? 'Close Job' : 'Publish Job'}
+        tone={jobActionModal.type === 'close' ? 'red' : 'orange'}
       />
     </AdminLayout>
   )

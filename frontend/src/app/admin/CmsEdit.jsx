@@ -58,7 +58,10 @@ const normalizeCmsPayload = (payload = {}) => ({
   projectId: payload.projectId || "",
   heroTitle: (payload.heroTitle || "").trim(),
   heroSubtitle: (payload.heroSubtitle || "").trim(),
+  projectLogo: payload.projectLogo || "",
+  projectLogoSize: payload.projectLogoSize || 0,
   bannerImage: payload.bannerImage || "",
+  bannerImageSize: payload.bannerImageSize || 0,
   featuredJobs: (payload.featuredJobs || []).map((job) =>
     String(job?._id || job || ""),
   ),
@@ -91,6 +94,43 @@ const normalizeCmsPayload = (payload = {}) => ({
 
 const getCmsSnapshot = (payload) => JSON.stringify(normalizeCmsPayload(payload));
 
+const getEntityId = (value) =>
+  String(value?._id || value?.id || value || "");
+
+const isJobAdvertisementConfigured = (job) => {
+  if (!job?._id) return false;
+  const posts = Array.isArray(job.posts) ? job.posts : [];
+  const hasVacancies =
+    Number(job.totalPosts || 0) > 0 ||
+    posts.some((post) => Number(post.vacancies || 0) > 0);
+
+  return Boolean(
+    job.title &&
+      job.postCode &&
+      job.department &&
+      hasVacancies &&
+      job.applicationStartDate &&
+      job.applicationDeadline,
+  );
+};
+
+const isAdmitFormatConfigured = (schedule) => {
+  if (!schedule) return false;
+  const hasTemplate = Boolean(
+    schedule.admitCardTemplate ||
+      schedule.admitCardTemplateConfig?.templateId ||
+      schedule.admitCardTemplateConfig?.baseLayout,
+  );
+
+  return Boolean(
+    schedule.examName &&
+      schedule.examDate &&
+      schedule.reportingTime &&
+      schedule.examStartTime &&
+      hasTemplate,
+  );
+};
+
 const formatProjectDate = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -106,16 +146,14 @@ const getProjectDefaults = (project, stateName) => {
   const projectName = project?.name || "";
   const state = project?.state || stateName;
   const department = project?.department || "";
-  const start = formatProjectDate(project?.startDate);
-  const end = formatProjectDate(project?.endDate || project?.closureDate);
-  const duration =
-    start && end ? `${start} to ${end}` : end ? `Open until ${end}` : "";
   const departmentLine = [department, state].filter(Boolean).join(", ");
 
   if (!projectName) {
     return {
       heroTitle: "",
       heroSubtitle: "",
+      projectLogo: "",
+      projectLogoSize: 0,
       announcements: [],
       instructions: [],
       faqs: [],
@@ -129,7 +167,6 @@ const getProjectDefaults = (project, stateName) => {
       departmentLine
         ? `${departmentLine} recruitment application portal.`
         : "Official recruitment application portal.",
-      duration ? `Application window: ${duration}.` : "",
       "Review the notification, choose an available post, and complete the application from this page.",
     ]
       .filter(Boolean)
@@ -212,6 +249,17 @@ const CmsEdit = () => {
         ...(projectId ? { projectId } : {}),
       }),
   });
+  const { data: scheduleData } = useQuery({
+    queryKey: ["admin-cms-job-schedules", projectId, amendmentJobId],
+    queryFn: () =>
+      adminService.getExamSchedules({
+        projectId,
+        jobId: amendmentJobId,
+        limit: 100,
+      }),
+    enabled: Boolean(projectId && amendmentJobId),
+    staleTime: 30000,
+  });
   const project = projectData?.project || projectData;
   const rawJobs = jobsData?.jobs || [];
   const allJobs = projectId
@@ -224,6 +272,64 @@ const CmsEdit = () => {
   const amendmentJob = amendmentJobId
     ? allJobs.find((job) => String(job._id) === String(amendmentJobId))
     : null;
+  const selectedJobSchedulesRaw = Array.isArray(scheduleData)
+    ? scheduleData
+    : scheduleData?.schedules || [];
+  const selectedJobSchedules = amendmentJobId
+    ? selectedJobSchedulesRaw.filter(
+        (schedule) => getEntityId(schedule.jobId) === getEntityId(amendmentJobId),
+      )
+    : selectedJobSchedulesRaw;
+  const landingComplete = Boolean(
+    project?.workflowReadiness?.checks?.find((check) => check.key === "landing")?.complete ||
+      project?.isPublished,
+  );
+  const jobComplete = isJobAdvertisementConfigured(amendmentJob);
+  const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured);
+  const centersComplete = selectedJobSchedules.some(
+    (schedule) =>
+      Array.isArray(schedule?.selectedCenterIds) &&
+      schedule.selectedCenterIds.length > 0,
+  );
+  const publishComplete =
+    ["active", "closed", "published"].includes(String(amendmentJob?.status || "").toLowerCase()) &&
+    Boolean(project?.isPublished);
+  const workflowNavProject =
+    project && amendmentJobId
+      ? {
+          ...project,
+          isPublished: publishComplete,
+          workflowReadiness: {
+            complete: landingComplete && jobComplete && publishComplete,
+            checks: [
+              { key: "landing", label: "Landing CMS", complete: landingComplete },
+              { key: "job", label: "Job Advertisement", complete: jobComplete },
+              {
+                key: "admit-format",
+                label: "Admit Format",
+                complete: admitFormatComplete,
+                optional: true,
+              },
+              {
+                key: "centers",
+                label: "Centers",
+                complete: centersComplete,
+                optional: true,
+              },
+              {
+                key: "review",
+                label: "Final Review",
+                complete: Boolean(landingComplete && jobComplete),
+              },
+              {
+                key: "publish",
+                label: "Publish Job",
+                complete: publishComplete,
+              },
+            ],
+          },
+        }
+      : project;
   const amendmentJobLabel = amendmentJob
     ? `${amendmentJob.title || "Selected job"}${amendmentJob.postCode ? ` (${amendmentJob.postCode})` : ""}`
     : "the selected job";
@@ -259,6 +365,8 @@ const CmsEdit = () => {
     const nextForm = {
       heroTitle: p.heroTitle || defaults.heroTitle,
       heroSubtitle: p.heroSubtitle || defaults.heroSubtitle,
+      projectLogo: p.projectLogo || "",
+      projectLogoSize: p.projectLogoSize || 0,
       bannerImage: p.bannerImage || "",
       bannerImageSize: p.bannerImageSize || 0,
       featuredJobs: p.featuredJobs || [],
@@ -461,6 +569,9 @@ const CmsEdit = () => {
     heroTitle: form.heroTitle,
     heroSubtitle: form.heroSubtitle,
     bannerImage: form.bannerImage,
+    bannerImageSize: form.bannerImageSize,
+    projectLogo: form.projectLogo,
+    projectLogoSize: form.projectLogoSize,
     featuredJobs: form.featuredJobs.map((j) => j._id || j),
     announcements: form.announcements,
     quickLinks: form.quickLinks,
@@ -483,6 +594,9 @@ const CmsEdit = () => {
       heroTitle: form.heroTitle,
       heroSubtitle: form.heroSubtitle,
       bannerImage: form.bannerImage,
+      bannerImageSize: form.bannerImageSize,
+      projectLogo: form.projectLogo,
+      projectLogoSize: form.projectLogoSize,
       featuredJobs: form.featuredJobs,
       announcements: form.announcements,
       instructions: form.instructions,
@@ -515,8 +629,12 @@ const CmsEdit = () => {
         queryClient.invalidateQueries({
           queryKey: ["public-project", project.publicSlug || project.slug],
         });
+        queryClient.invalidateQueries({
+          queryKey: ["public-project-branding", project.publicSlug || project.slug],
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["public-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["public-project-branding"] });
       if (projectId) navigate(nextPath);
     },
     onError: (err) => toast.error(err.message || "Failed to save"),
@@ -546,8 +664,12 @@ const CmsEdit = () => {
         queryClient.invalidateQueries({
           queryKey: ["public-project", project.publicSlug || project.slug],
         });
+        queryClient.invalidateQueries({
+          queryKey: ["public-project-branding", project.publicSlug || project.slug],
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["public-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["public-project-branding"] });
       navigate(nextPath);
     },
     onError: (err) => toast.error(err.message || "Failed to publish"),
@@ -566,6 +688,7 @@ const CmsEdit = () => {
   const page = pageData?.page;
   const liveSummary = [
     { label: "State", value: stateName },
+    { label: "Project Logo", value: form.projectLogo ? "Uploaded" : "-" },
     { label: "Banner Image", value: form.bannerImage ? "Uploaded" : "-" },
     { label: "Featured Jobs", value: form.featuredJobs.length },
     {
@@ -613,9 +736,14 @@ const CmsEdit = () => {
 
           {projectId && (
             <ProjectFlowNav
-              project={project}
+              project={workflowNavProject}
               current="landing"
               className="mb-6"
+              workflowScope={amendmentJobId ? "job" : "project"}
+              publishComplete={Boolean(workflowNavProject?.isPublished)}
+              jobId={amendmentJobId || ""}
+              contextLabel={amendmentJobId ? "Current Job" : ""}
+              contextValue={amendmentJobId ? amendmentJobLabel : ""}
             />
           )}
 
@@ -643,6 +771,18 @@ const CmsEdit = () => {
                       value={form.heroSubtitle}
                       onChange={(e) => set("heroSubtitle", e.target.value)}
                       className={`${inputCls} resize-none`}
+                    />
+                  </div>
+                  <div>
+                    <Label>Project Logo</Label>
+                    <BannerImageUpload
+                      value={form.projectLogo}
+                      size={form.projectLogoSize}
+                      variant="logo"
+                      onChange={(url, size) => {
+                        set("projectLogo", url);
+                        set("projectLogoSize", size || 0);
+                      }}
                     />
                   </div>
                   <div>

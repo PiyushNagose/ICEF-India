@@ -23,6 +23,7 @@ import AdminLayout from "../../components/layouts/AdminLayout";
 import CustomSelect from "../../components/ui/CustomSelect";
 import AdminPagination from "../../components/ui/AdminPagination";
 import { AdminTableShell, AdminTableStatusRow } from "../../components/ui/AdminTable";
+import AdminKpiCard from "../../components/ui/AdminKpiCard";
 import { adminService } from "../../services/admin.service";
 
 const STATUS_CONFIG = {
@@ -196,10 +197,7 @@ const Applications = () => {
       title: "Total Applications",
       value: total,
       icon: FileText,
-      gradient: "from-orange-500 to-orange-600",
-      bg: "bg-orange-50",
-      iconColor: "text-orange-600",
-      change: null,
+      tone: "orange",
     },
     {
       title: "Auto Approved",
@@ -208,28 +206,19 @@ const Applications = () => {
         countByStatus("verified") +
         countByStatus("approved"),
       icon: CheckCircle,
-      gradient: "from-emerald-500 to-emerald-600",
-      bg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
-      change: null,
+      tone: "green",
     },
     {
       title: "Clarification",
       value: countByStatus("clarification_required"),
       icon: AlertCircle,
-      gradient: "from-orange-500 to-orange-600",
-      bg: "bg-orange-50",
-      iconColor: "text-orange-600",
-      change: null,
+      tone: "amber",
     },
     {
       title: "Drafts",
       value: countByStatus("draft"),
       icon: Clock,
-      gradient: "from-slate-500 to-slate-600",
-      bg: "bg-slate-50",
-      iconColor: "text-slate-600",
-      change: null,
+      tone: "slate",
     },
   ];
 
@@ -436,31 +425,9 @@ const Applications = () => {
 
         {/* ── Stats Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.title}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-2">
-                      {stat.title}
-                    </p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {Number(stat.value || 0).toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  <div
-                    className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}
-                  >
-                    <Icon className={`w-5 h-5 ${stat.iconColor}`} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {stats.map((stat) => (
+            <AdminKpiCard key={stat.title} {...stat} />
+          ))}
         </div>
 
         {/* ── Main Card ── */}

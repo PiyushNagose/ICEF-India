@@ -32,6 +32,7 @@ const {
   assertApplicationWindowOpen,
   assertCorrectionWindowOpen,
   assertPaymentWindowOpen,
+  getEffectiveJobStatus,
 } = require("../../shared/utils/timeline");
 const {
   applyFileStorageMetadata,
@@ -226,7 +227,6 @@ const assertApplicationCompleteForJob = (app) => {
     );
   }
 };
-
 // ── Controllers ───────────────────────────────────────────────
 
 /**
@@ -257,7 +257,7 @@ const createApplication = asyncHandler(async (req, res) => {
 
   const job = await Job.findById(jobId);
   if (!job) throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
-  if (job.status !== "active")
+  if (getEffectiveJobStatus(job) !== "active")
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Job is not accepting applications",
@@ -395,10 +395,12 @@ const getMyApplications = asyncHandler(async (req, res) => {
 
   const [applications, total] = await Promise.all([
     Application.find(filter)
-      .populate(
-        "jobId",
-        "title department postCode applicationDeadline examDate formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
-      )
+      .populate({
+        path: "jobId",
+        select:
+          "title department postCode applicationDeadline examDate formSections documentRequirements posts postSelectionMode applicationFee paymentConfig projectId",
+        populate: { path: "projectId", select: "name publicSlug department state" },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),
@@ -440,7 +442,10 @@ const getApplication = asyncHandler(async (req, res) => {
     _id: req.params.id,
     candidateId: req.user.id,
   })
-    .populate("jobId")
+    .populate({
+      path: "jobId",
+      populate: { path: "projectId", select: "name publicSlug department state" },
+    })
     .populate(
       "candidateId",
       "fullName email registeredMobile dateOfBirth gender category fatherName motherName",
@@ -458,9 +463,10 @@ const getApplication = asyncHandler(async (req, res) => {
 
 // ── Step update helper ────────────────────────────────────────
 const getOwnDraftApplication = async (id, candidateId) => {
-  const app = await Application.findOne({ _id: id, candidateId }).populate(
-    "jobId",
-  );
+  const app = await Application.findOne({ _id: id, candidateId }).populate({
+    path: "jobId",
+    populate: { path: "projectId", select: "name publicSlug department state" },
+  });
   if (!app) throw new ApiError(StatusCodes.NOT_FOUND, "Application not found");
   const correctionOpen = ["requested", "in_progress"].includes(
     app.correction?.status,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
@@ -22,6 +22,10 @@ import DocumentPreviewFrame from "../../components/common/DocumentPreviewFrame";
 import { jobService } from "../../services/job.service";
 import { publicService } from "../../services/public.service";
 import { showOtpToast } from "../../utils/otpToast";
+import {
+  getPublicProjectSlug,
+  readProjectSlugFromSearch,
+} from "../../utils/publicNavigation";
 import {
   EmptyState,
   ErrorState,
@@ -60,6 +64,7 @@ const isDateReleased = (value) => {
 
 const AdmitCards = () => {
   const { token } = useParams();
+  const location = useLocation();
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [mobile, setMobile] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -68,15 +73,13 @@ const AdmitCards = () => {
   const [sendLoading, setSendLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [previewId, setPreviewId] = useState(null);
+  const projectSlug =
+    readProjectSlugFromSearch(location.search) || getPublicProjectSlug();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["public-admit-cards"],
-    queryFn: () =>
-      jobService.getPublicJobs({
-        limit: 20,
-        sortBy: "examDate",
-        sortOrder: "asc",
-      }),
+    queryKey: ["public-admit-cards", projectSlug],
+    queryFn: () => publicService.getProjectBySlug(projectSlug),
+    enabled: Boolean(projectSlug),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -478,8 +481,16 @@ const AdmitCards = () => {
             {!isLoading && !error && jobs.length === 0 && (
               <EmptyState
                 icon={Ticket}
-                title="No admit card releases scheduled"
-                description="When an admit-card release date or exam schedule is published, it will appear here."
+                title={
+                  projectSlug
+                    ? "No admit card releases scheduled"
+                    : "Open a recruitment page first"
+                }
+                description={
+                  projectSlug
+                    ? "When an admit-card release date or exam schedule is published for this recruitment, it will appear here."
+                    : "Admit card schedules are shown only for the selected recruitment. You can still use the lookup form above with your registration number."
+                }
               />
             )}
 
@@ -503,6 +514,8 @@ const AdmitCards = () => {
                     >
                       <JobListCard
                         job={job}
+                        dateLabel="Release"
+                        dateValue={job.admitCardReleaseDate || job.examDate}
                         meta={
                           job.admitCardReleaseDate
                             ? isDateReleased(job.admitCardReleaseDate)
@@ -511,6 +524,11 @@ const AdmitCards = () => {
                             : `Exam date: ${formatDate(job.examDate)}. Admit-card release date is not published yet.`
                         }
                         actionLabel="View Job"
+                        actionTo={
+                          projectSlug
+                            ? `/apply/${projectSlug}/jobs/${job._id}`
+                            : undefined
+                        }
                       />
                     </motion.div>
                   ))}

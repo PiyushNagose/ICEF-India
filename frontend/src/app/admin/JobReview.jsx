@@ -10,6 +10,7 @@ import JobStepProgress from "./JobStepProgress";
 import {
   ArrowLeft,
   CheckCircle,
+  X,
   FileText,
   GraduationCap,
   CreditCard,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { adminService } from "../../services/admin.service";
 import { getJobWizardPath, readJobDraft, toJobDraftPayload } from "../../utils/jobDraft";
+import { getEffectiveJobStatus } from "../../utils/jobAvailability";
 
 const STORAGE_KEY = "job_draft";
 
@@ -32,6 +34,93 @@ const InfoRow = ({ label, value }) => (
     <span className="text-sm text-gray-900">{value || "—"}</span>
   </div>
 );
+
+const AmendmentReasonModal = ({
+  isOpen,
+  isSaving,
+  value,
+  onChange,
+  onClose,
+  onConfirm,
+}) => {
+  if (!isOpen) return null;
+  const canSubmit = value.trim().length >= 12;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="amendment-reason-title"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
+              Official amendment
+            </p>
+            <h2 id="amendment-reason-title" className="mt-1 text-xl font-bold text-gray-900">
+              Add amendment reason
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-500">
+              This reason will be stored in audit logs and published with the candidate notice.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            aria-label="Close amendment reason"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          <label className="block text-sm font-semibold text-gray-700">
+            Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={5}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="Example: Application deadline extended due to official administrative order."
+            className="mt-2 w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            Minimum 12 characters. Keep it concise and official.
+          </p>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-xl border-gray-200 text-gray-700 hover:bg-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={!canSubmit || isSaving}
+            className={`rounded-xl px-5 font-bold ${
+              canSubmit && !isSaving
+                ? "bg-orange-600 text-white hover:bg-orange-700"
+                : "bg-gray-100 text-gray-400 hover:bg-gray-100"
+            }`}
+          >
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save Amendment
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Build the update payload — only sends fields the backend updateJobSchema accepts
 const buildUpdatePayload = (draft) => {
@@ -258,6 +347,46 @@ const valuesEqual = (a, b) =>
   JSON.stringify(normalizeForCompare(a)) ===
   JSON.stringify(normalizeForCompare(b));
 
+const DATE_FIELDS = new Set([
+  "applicationStartDate",
+  "applicationDeadline",
+  "correctionStartDate",
+  "correctionDeadline",
+  "admitCardReleaseDate",
+  "examDate",
+  "resultDate",
+]);
+
+const toDateOnly = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).split("T")[0];
+};
+
+const fieldValuesEqual = (key, left, right) => {
+  if (DATE_FIELDS.has(key)) return toDateOnly(left) === toDateOnly(right);
+  if (key === "paymentConfig") {
+    const leftPayment = left || {};
+    const rightPayment = right || {};
+    const keys = new Set([
+      ...Object.keys(leftPayment),
+      ...Object.keys(rightPayment),
+    ]);
+    return [...keys].every((paymentKey) =>
+      paymentKey === "paymentDeadline"
+        ? toDateOnly(leftPayment[paymentKey]) === toDateOnly(rightPayment[paymentKey])
+        : valuesEqual(leftPayment[paymentKey], rightPayment[paymentKey]),
+    );
+  }
+  return valuesEqual(left, right);
+};
+
 const CHANGE_LABELS = {
   title: "job title",
   description: "job description",
@@ -292,7 +421,7 @@ const buildChangedUpdatePayload = (draft, serverJob) => {
 
   const serverPayload = buildUpdatePayload(toJobDraftPayload(serverJob));
   return Object.entries(nextPayload).reduce((acc, [key, value]) => {
-    if (!valuesEqual(value, serverPayload[key])) acc[key] = value;
+    if (!fieldValuesEqual(key, value, serverPayload[key])) acc[key] = value;
     return acc;
   }, {});
 };
@@ -312,11 +441,17 @@ const JobReview = () => {
   const [isHydrating, setIsHydrating] = useState(false);
   const [hydratedJob, setHydratedJob] = useState(null);
   const [amendmentPrompt, setAmendmentPrompt] = useState(null);
+  const [amendmentReasonRequest, setAmendmentReasonRequest] = useState(null);
+  const [amendmentReason, setAmendmentReason] = useState("");
 
   const effectiveProjectId = projectId || draft.projectId || "";
   const isProjectWizard = Boolean(effectiveProjectId);
   const draftJobId = routeJobId || draft._jobId || "";
-  const isPublishedJob = String(hydratedJob?.status || draft.status || "").toLowerCase() === "active";
+  const storedJobStatus = String(hydratedJob?.status || draft.status || "").toLowerCase();
+  const effectiveJobStatus = getEffectiveJobStatus(hydratedJob || draft || {});
+  const hasPublishedHistory = ["active", "closed", "published"].includes(storedJobStatus);
+  const isPublishedJob = effectiveJobStatus === "active";
+  const isAmendmentMode = hasPublishedHistory && !isPublishedJob;
   const validProjectId = /^[a-f\d]{24}$/i.test(effectiveProjectId || "");
   const { data: projectData } = useQuery({
     queryKey: ["admin-project", effectiveProjectId],
@@ -649,27 +784,16 @@ const JobReview = () => {
         amendmentError.isAmendmentRequired = true;
         throw amendmentError;
       }
-      if (
-        err?.message?.toLowerCase?.().includes("amendment reason") &&
-        typeof window !== "undefined"
-      ) {
-        const amendmentReason = window.prompt(
-          "Enter the official amendment reason for this published job change:",
-        );
-        if (!amendmentReason?.trim()) throw err;
-        await updateJob({
-          id: jobId,
-          data: {
-            ...updatePayload,
-            amendmentReason: amendmentReason.trim(),
-          },
-        });
-        await publishJobAmendmentNotice({
-          reason: amendmentReason.trim(),
+      if (err?.message?.toLowerCase?.().includes("amendment reason")) {
+        setAmendmentReason("");
+        setAmendmentReasonRequest({
+          jobId,
           updatePayload,
           job: hydratedJob || draft,
         });
-        return jobId;
+        const amendmentError = new Error("Amendment reason required");
+        amendmentError.isAmendmentRequired = true;
+        throw amendmentError;
       }
       if (err?.status !== 404) throw err;
       clearStoredJobId();
@@ -677,6 +801,38 @@ const JobReview = () => {
       if (!recoveredJobId) throw err;
       await updateJob({ id: recoveredJobId, data: updatePayload });
       return recoveredJobId;
+    }
+  };
+
+  const handleConfirmAmendmentReason = async () => {
+    const reason = amendmentReason.trim();
+    if (!amendmentReasonRequest || reason.length < 12) return;
+    const targetJobId = amendmentReasonRequest.jobId;
+
+    try {
+      setIsPublishing(true);
+      await updateJob({
+        id: targetJobId,
+        data: {
+          ...amendmentReasonRequest.updatePayload,
+          amendmentReason: reason,
+        },
+      });
+      await publishJobAmendmentNotice({
+        reason,
+        updatePayload: amendmentReasonRequest.updatePayload,
+        job: amendmentReasonRequest.job,
+      });
+      toast.success("Amendment saved.");
+      setAmendmentReasonRequest(null);
+      setAmendmentReason("");
+      sessionStorage.removeItem(STORAGE_KEY);
+      invalidateJobAndPublicViews();
+      navigate(getNextProjectStepPath(targetJobId));
+    } catch (err) {
+      toast.error(err.message || "Failed to save amendment");
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -733,7 +889,7 @@ const JobReview = () => {
       const jobId = await getOrCreateJobId();
       if (!jobId) return;
       const currentJob = await adminService.getAdminJob(jobId).catch(() => null);
-      const currentStatus = String(currentJob?.job?.status || currentJob?.status || "").toLowerCase();
+      const currentStatus = getEffectiveJobStatus(currentJob?.job || currentJob || {});
       if (currentStatus === "active" && !isProjectWizard) {
         const activeDraft = {
           ...readStoredDraft(),
@@ -805,31 +961,42 @@ const JobReview = () => {
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Create Job
+                {hasPublishedHistory ? "Review Job Amendment" : "Create Job"}
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">
-                Step 6 of 6: Review
+                {hasPublishedHistory
+                  ? "Verify changed job details before releasing them."
+                  : "Step 6 of 6: Review"}
               </p>
             </div>
             <Badge className={isPublishedJob ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"}>
               {isProjectWizard
                 ? isPublishedJob
                   ? "Live Job"
+                  : isAmendmentMode
+                    ? "Amendment Review"
                   : "Ready to Continue"
                 : isPublishedJob
                   ? "Published"
+                  : isAmendmentMode
+                    ? "Amendment Review"
                   : "Ready to Publish"}
             </Badge>
           </div>
 
           <JobStepProgress currentStep={6} projectId={effectiveProjectId} clickable />
 
-          {isPublishedJob && (
+          {hasPublishedHistory && (
             <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
-              <p className="font-semibold">Published job edit controls are active.</p>
+              <p className="font-semibold">
+                {isAmendmentMode
+                  ? "Official amendment verification is active."
+                  : "Published job edit controls are active."}
+              </p>
               <p className="mt-1 leading-5">
-                Deadlines can be extended and notices can be updated. Fees, eligibility,
-                required fields, documents, and vacancy rules are locked once candidates apply.
+                {isAmendmentMode
+                  ? "Extend the allowed dates, save with an amendment reason, then verify the public notice from the project workflow."
+                  : "Deadlines can be extended and notices can be updated. Fees, eligibility, required fields, documents, and vacancy rules are locked once candidates apply."}
               </p>
             </div>
           )}
@@ -1382,6 +1549,18 @@ const JobReview = () => {
         </div>
         )}
       </div>
+      <AmendmentReasonModal
+        isOpen={Boolean(amendmentReasonRequest)}
+        isSaving={isPublishing}
+        value={amendmentReason}
+        onChange={setAmendmentReason}
+        onClose={() => {
+          if (isPublishing) return;
+          setAmendmentReasonRequest(null);
+          setAmendmentReason("");
+        }}
+        onConfirm={handleConfirmAmendmentReason}
+      />
     </AdminLayout>
   );
 };

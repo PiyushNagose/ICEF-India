@@ -22,6 +22,8 @@ const {
   parseDate,
   startOfDay,
   endOfDay,
+  startOfToday,
+  getEffectiveJobStatus,
 } = require("../../shared/utils/timeline");
 
 const JOB_SORT_FIELDS = new Set([
@@ -171,8 +173,8 @@ const isTodayOrAfter = (value) => {
 };
 
 const enforcePublishedJobEditPolicy = async ({ job, body }) => {
-  if (job.status !== "active") return;
-
+  const jobStatus = String(job.status || "").toLowerCase();
+  const protectedStatus = ["active", "published", "closed"].includes(jobStatus);
   const applicationCount = await Application.countDocuments({ jobId: job._id });
   const paths = getBodyPaths(body);
   const hasApplications = applicationCount > 0;
@@ -184,15 +186,17 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
   });
 
   if (
-    applicationStarted &&
+    (protectedStatus || hasApplications || applicationStarted) &&
     pathTouched(paths, "applicationStartDate") &&
     bodyFieldChanged(body, job, "applicationStartDate")
   ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Application start date cannot be changed after the application window has opened.",
+      "Application start date cannot be changed after a job is published or the application window has opened.",
     );
   }
+
+  if (!protectedStatus) return;
 
   if (!hasApplications) return;
 
@@ -322,9 +326,13 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
 
 const withComputedProjectStatus = (jobLike) => {
   const job = typeof jobLike.toObject === "function" ? jobLike.toObject() : jobLike;
-  if (!job.projectId) return job;
-  return {
+  const base = {
     ...job,
+    effectiveStatus: getEffectiveJobStatus(job),
+  };
+  if (!job.projectId) return base;
+  return {
+    ...base,
     projectId: {
       ...job.projectId,
       status: getProjectLifecycleStatus(job.projectId),
@@ -385,21 +393,39 @@ const getJobs = asyncHandler(async (req, res) => {
 
   // Build filter
   const filter = {};
+  const andConditions = [];
   
   const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
   // Employees must never see soft-deleted jobs; admins see all
   if (!isAdminOrSuperAdmin) {
     filter.isSoftDeleted = { $ne: true };
   }
-  if (status) filter.status = status;
+  if (status === "active") {
+    filter.status = "active";
+    andConditions.push({ $or: [
+      { applicationDeadline: { $exists: false } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $gte: startOfToday() } },
+    ] });
+  } else if (status === "closed") {
+    andConditions.push({ $or: [
+      { status: "closed" },
+      { status: "active", applicationDeadline: { $lt: startOfToday() } },
+    ] });
+  } else if (status) {
+    filter.status = status;
+  }
   if (department) filter.department = new RegExp(department, "i");
   if (projectId) filter.projectId = projectId;
   if (search) {
-    filter.$or = [
+    andConditions.push({ $or: [
       { title: new RegExp(search, "i") },
       { postCode: new RegExp(search, "i") },
       { description: new RegExp(search, "i") },
-    ];
+    ] });
+  }
+  if (andConditions.length) {
+    filter.$and = andConditions;
   }
 
   // Build sort
@@ -707,12 +733,39 @@ const updateJob = asyncHandler(async (req, res) => {
       nextJob[key] = req.body[key];
     }
   });
+  if (
+    req.body.status === "active" &&
+    bodyFieldChanged(req.body, job, "status") &&
+    !["active", "closed"].includes(String(job.status || "").toLowerCase())
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Only closed published jobs can be reactivated through an amendment.",
+    );
+  }
+  if (
+    req.body.status === "active" &&
+    bodyFieldChanged(req.body, job, "status") &&
+    endOfDay(nextJob.applicationDeadline) < new Date()
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Cannot reactivate job. Application deadline has already passed. Extend the deadline first.",
+    );
+  }
   if (job.status !== "draft") {
     assertJobTimeline(nextJob, project);
   }
+  const shouldReopenClosedJob =
+    String(job.status || "").toLowerCase() === "closed" &&
+    bodyFieldChanged(req.body, job, "applicationDeadline") &&
+    endOfDay(nextJob.applicationDeadline) >= new Date();
 
   Object.keys(req.body).forEach((key) => {
-    if (req.body[key] !== undefined && key !== "amendmentReason") {
+    if (["_id", "projectId", "createdBy", "createdAt", "updatedAt", "__v", "amendmentReason"].includes(key)) {
+      return;
+    }
+    if (req.body[key] !== undefined) {
       // For nested objects (applicationFee, paymentConfig, etc.), merge instead of replace
       if (
         key !== "posts" &&
@@ -730,6 +783,10 @@ const updateJob = asyncHandler(async (req, res) => {
       }
     }
   });
+  if (shouldReopenClosedJob) {
+    job.status = "active";
+    job.publishedAt = job.publishedAt || new Date();
+  }
 
   await job.save();
   await saveAuditLog(
@@ -1006,11 +1063,26 @@ const deleteJob = asyncHandler(async (req, res) => {
 const getJobStats = asyncHandler(async (req, res) => {
   const isAdminOrSuperAdmin = req.user.role === "admin" || req.user.isSuperAdmin;
   const filter = isAdminOrSuperAdmin ? {} : { isSoftDeleted: { $ne: true } };
+  const todayStart = startOfToday();
+  const visibleJobs = await Job.find(filter).select("_id");
+  const visibleJobIds = visibleJobs.map((job) => job._id);
   const statusStats = await Job.aggregate([
     { $match: filter },
     {
       $group: {
-        _id: "$status",
+        _id: {
+          $cond: [
+            {
+              $and: [
+                { $eq: ["$status", "active"] },
+                { $ne: ["$applicationDeadline", null] },
+                { $lt: ["$applicationDeadline", todayStart] },
+              ],
+            },
+            "closed",
+            "$status",
+          ],
+        },
         count: { $sum: 1 },
       },
     },
@@ -1029,17 +1101,42 @@ const getJobStats = asyncHandler(async (req, res) => {
     { $limit: 10 },
   ]);
 
+  const [applicationTotals] = visibleJobIds.length
+    ? await Application.aggregate([
+        { $match: { jobId: { $in: visibleJobIds } } },
+        {
+          $group: {
+            _id: null,
+            totalApplicants: { $sum: 1 },
+            paidApplicants: {
+              $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
+            },
+            revenue: { $sum: "$totalFee" },
+          },
+        },
+      ])
+    : [];
+
   const recentJobs = await Job.find(filter)
     .populate("projectId", "name")
     .sort({ createdAt: -1 })
     .limit(5)
-    .select("title department status createdAt");
+    .select("title department status applicationDeadline createdAt");
+  const recentJobsWithEffectiveStatus = recentJobs.map((job) => ({
+    ...job.toObject(),
+    effectiveStatus: getEffectiveJobStatus(job),
+  }));
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Job statistics fetched successfully", {
       statusStats,
+      applicationTotals: {
+        totalApplicants: applicationTotals?.totalApplicants || 0,
+        paidApplicants: applicationTotals?.paidApplicants || 0,
+        revenue: applicationTotals?.revenue || 0,
+      },
       departmentStats,
-      recentJobs,
+      recentJobs: recentJobsWithEffectiveStatus,
     }),
   );
 });

@@ -21,6 +21,7 @@ import AdminLayout from '../../components/layouts/AdminLayout'
 import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import KpiDateRangeFilter from '../../components/common/KpiDateRangeFilter'
 import {
   DEFAULT_KPI_DATE_RANGE,
@@ -52,7 +53,7 @@ const Dashboard = () => {
   })
 
   const overview = data?.overview?.overview || data?.overview || {}
-  const applicationsByStatus = data?.overview?.applicationsByStatus || []
+
   const funnel = data?.funnel?.funnel || data?.funnel || {}
   const topJobs = data?.topJobs || []
   const adminNotifications = data?.notifications?.notifications || []
@@ -70,35 +71,7 @@ const Dashboard = () => {
     resolved: countSupportByStatus('Resolved'),
   }
 
-  const submitted =
-    applicationsByStatus.find((item) => item._id === 'submitted')?.count || 0
 
-  const stats = [
-    {
-      title: 'ACTIVE JOBS',
-      value: overview.totalJobs || 0,
-      icon: Briefcase,
-      color: 'from-orange-500 to-orange-600',
-    },
-    {
-      title: 'APPLICATIONS',
-      value: overview.totalApplications || 0,
-      icon: FileText,
-      color: 'from-blue-500 to-blue-600',
-    },
-    {
-      title: 'CANDIDATES',
-      value: overview.totalCandidates || 0,
-      icon: Users,
-      color: 'from-emerald-500 to-emerald-600',
-    },
-    {
-      title: 'SUBMITTED',
-      value: submitted,
-      icon: CheckCircle,
-      color: 'from-violet-500 to-violet-600',
-    },
-  ]
 
   const funnelItems = [
     ['STARTED', funnel.started],
@@ -107,6 +80,37 @@ const Dashboard = () => {
     ['DOCUMENTS', funnel.documentsUploaded],
     ['PAID', funnel.paymentCompleted],
     ['SUBMITTED', funnel.submitted],
+  ]
+
+  const stats = [
+    {
+      title: 'ACTIVE JOBS',
+      value: overview.activeJobs || overview.totalJobs || 0,
+      icon: Briefcase,
+      tone: 'orange',
+      helper: 'Live updated',
+    },
+    {
+      title: 'DRAFT JOBS',
+      value: overview.draftJobs || 0,
+      icon: FileText,
+      tone: 'blue',
+      helper: 'Live updated',
+    },
+    {
+      title: 'PROJECTS',
+      value: overview.totalProjects || 0,
+      icon: FolderOpen,
+      tone: 'green',
+      helper: 'Live updated',
+    },
+    {
+      title: 'APPLICATIONS',
+      value: overview.totalApplications || 0,
+      icon: Users,
+      tone: 'purple',
+      helper: 'Live updated',
+    },
   ]
 
   const projects = (projectsData?.projects || []).map((project) => ({
@@ -220,55 +224,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
 
           {stats.map((stat) => (
-            <div
-              key={stat.title}
-              className="
-                relative overflow-hidden
-                rounded-[22px]
-                bg-white
-                border border-gray-200
-                shadow-sm
-                hover:shadow-sm
-                transition-all duration-200 ease-out
-                hover:-translate-y-0.5
-                p-4
-              "
-            >
-
-              <div className={`
-                absolute top-0 left-0 h-1 w-full
-                bg-gradient-to-r ${stat.color}
-              `} />
-
-              <div className="flex items-start justify-between">
-
-                <div>
-                  <p className="text-xs font-bold tracking-normal text-gray-400 mb-2">
-                    {stat.title}
-                  </p>
-
-                  <h2 className="text-3xl font-bold text-gray-900 tracking-normal">
-                    {stat.value.toLocaleString('en-IN')}
-                  </h2>
-
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-
-                    <p className="text-xs font-medium text-gray-500">
-                      Live updated
-                    </p>
-                  </div>
-                </div>
-
-                <div className="
-                  w-11 h-11 rounded-2xl
-                  bg-gradient-to-br from-orange-50 to-orange-100
-                  flex items-center justify-center
-                ">
-                  <stat.icon className="w-5 h-5 text-orange-600" />
-                </div>
-              </div>
-            </div>
+            <AdminKpiCard key={stat.title} {...stat} />
           ))}
         </div>
 

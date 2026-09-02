@@ -28,6 +28,10 @@ import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
 import { showOtpToast } from "../../utils/otpToast";
 import CustomSelect from "../../components/ui/CustomSelect";
+import {
+  getLastPublicProjectPath,
+  getProjectAwarePublicPath,
+} from "../../utils/publicNavigation";
 
 const CORRECTABLE_FIELDS = [
   { value: "personalDetails.fullName", label: "Full Name" },
@@ -357,13 +361,13 @@ export default function CorrectionRequest() {
 
             <div className="mt-5 flex flex-col gap-3">
               <button
-                onClick={() => navigate("/check-status")}
+                onClick={() => navigate(getProjectAwarePublicPath("/check-status"))}
                 className="h-11 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-lg font-black uppercase tracking-widest text-xs transition"
               >
                 Check Application Status
               </button>
               <button
-                onClick={() => navigate("/")}
+                onClick={() => navigate(getLastPublicProjectPath())}
                 className="h-11 border border-[#e0d7cd] hover:bg-[#faf7f2] text-[#1f1d1b] rounded-lg font-black uppercase tracking-widest text-xs transition"
               >
                 Back to Recruitment

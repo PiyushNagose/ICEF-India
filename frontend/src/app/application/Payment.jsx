@@ -16,6 +16,10 @@ import {
   getNextPendingApplicationStep,
   getPaymentTiming,
 } from "../../utils/applicationFlow";
+import {
+  getLastPublicProjectPath,
+  getProjectAwarePublicPath,
+} from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -105,7 +109,7 @@ const Payment = () => {
   useEffect(() => {
     if (!applicationId) {
       toast.error("No application found");
-      navigate("/check-status");
+      navigate(getLastPublicProjectPath());
     }
   }, [applicationId, navigate]);
 
@@ -545,7 +549,7 @@ const Payment = () => {
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">Application not found</p>
-            <Button onClick={() => navigate("/check-status")}>View Application</Button>
+            <Button onClick={() => navigate(getProjectAwarePublicPath("/check-status"))}>View Application</Button>
           </CardContent>
         </Card>
       </ApplicationLayout>

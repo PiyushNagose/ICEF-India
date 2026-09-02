@@ -1,29 +1,28 @@
 import { useRef, useState } from 'react'
 import { Upload, X, ImageIcon, Loader2, CheckCircle2 } from 'lucide-react'
-import { adminService } from '../../services/admin.service'
 import toast from 'react-hot-toast'
+import { adminService } from '../../services/admin.service'
 
-/**
- * BannerImageUpload
- *
- * Props:
- *   size       — current image size in bytes
- *   onChange   — (url: string, size: number) => void   called after successful upload or on clear
- *   className  — extra wrapper classes
- */
-const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
+const BannerImageUpload = ({
+  value,
+  size = 0,
+  onChange,
+  className = '',
+  variant = 'banner',
+}) => {
   const inputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const isLogo = variant === 'logo'
 
   const handleFile = async (file) => {
     if (!file) return
 
-    // Validate
     if (!file.type.startsWith('image/')) {
       toast.error('Only image files are allowed (JPG, PNG, WebP)')
       return
     }
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image must be under 5 MB')
       return
@@ -33,7 +32,7 @@ const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
     try {
       const result = await adminService.uploadCmsBannerImage(file)
       onChange(result.url || result.secure_url || '', result.size || file.size || 0)
-      toast.success('Banner image uploaded')
+      toast.success(isLogo ? 'Project logo uploaded' : 'Banner image uploaded')
     } catch (err) {
       toast.error(err?.message || 'Upload failed')
     } finally {
@@ -44,7 +43,6 @@ const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
   const handleInputChange = (e) => {
     const file = e.target.files?.[0]
     if (file) handleFile(file)
-    // reset so same file can be re-selected
     e.target.value = ''
   }
 
@@ -62,7 +60,6 @@ const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
 
   return (
     <div className={className}>
-      {/* Hidden file input */}
       <input
         ref={inputRef}
         type="file"
@@ -72,85 +69,113 @@ const BannerImageUpload = ({ value, size = 0, onChange, className = '' }) => {
       />
 
       {value ? (
-        /* ── Preview ── */
-        <div className="relative rounded-xl overflow-hidden border border-gray-200 group">
-          <img
-            src={value}
-            alt="Banner preview"
-            className="w-full h-44 object-cover"
-          />
-          {/* Overlay on hover */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+        <div
+          className={`group relative overflow-hidden rounded-xl border border-gray-200 ${
+            isLogo
+              ? 'flex min-h-36 items-center justify-center bg-gradient-to-br from-white to-orange-50/50 p-5'
+              : ''
+          }`}
+        >
+          <div
+            className={
+              isLogo
+                ? 'flex h-24 w-24 items-center justify-center rounded-3xl border border-orange-200 bg-white p-3 shadow-sm ring-1 ring-black/5'
+                : ''
+            }
+          >
+            <img
+              src={value}
+              alt={isLogo ? 'Project logo preview' : 'Banner preview'}
+              className={
+                isLogo
+                  ? 'h-full w-full object-contain'
+                  : 'h-44 w-full object-cover'
+              }
+            />
+          </div>
+
+          <div className="absolute inset-0 flex items-center justify-center gap-3 bg-black/0 opacity-0 transition-all duration-200 group-hover:bg-black/40 group-hover:opacity-100">
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex items-center gap-1.5 bg-white text-gray-800 text-xs font-semibold px-3 py-2 rounded-lg shadow-lg hover:bg-orange-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-lg transition-colors hover:bg-orange-50"
             >
-              <Upload className="w-3.5 h-3.5" />
+              <Upload className="h-3.5 w-3.5" />
               Change
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="flex items-center gap-1.5 bg-white text-red-600 text-xs font-semibold px-3 py-2 rounded-lg shadow-lg hover:bg-red-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-lg transition-colors hover:bg-red-50"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="h-3.5 w-3.5" />
               Remove
             </button>
           </div>
-          {/* Uploaded badge */}
-          <div className="absolute top-2 right-2 flex items-center gap-1">
+
+          <div className="absolute right-2 top-2 flex items-center gap-1">
             {size > 0 && (
-              <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
+              <div className="rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
                 {(size / 1024).toFixed(1)} KB
               </div>
             )}
-            <div className="flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-              <CheckCircle2 className="w-3 h-3" />
+            <div className="flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white">
+              <CheckCircle2 className="h-3 w-3" />
               Uploaded
             </div>
           </div>
         </div>
       ) : (
-        /* ── Drop zone ── */
         <button
           type="button"
           disabled={uploading}
           onClick={() => !uploading && inputRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          className={`w-full h-44 rounded-xl border-2 border-dashed transition-all duration-200 ease-out flex flex-col items-center justify-center gap-3
-            ${dragOver
-              ? 'border-orange-400 bg-orange-50 scale-[1.01]'
+          className={`flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ease-out ${
+            isLogo ? 'h-36' : 'h-44'
+          } ${
+            dragOver
+              ? 'scale-[1.01] border-orange-400 bg-orange-50'
               : uploading
-                ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                : 'border-gray-200 bg-gray-50 hover:border-orange-400 hover:bg-orange-50 cursor-pointer'
-            }`}
+                ? 'cursor-not-allowed border-gray-200 bg-gray-50'
+                : 'cursor-pointer border-gray-200 bg-gray-50 hover:border-orange-400 hover:bg-orange-50'
+          }`}
         >
           {uploading ? (
             <>
-              <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
               <p className="text-sm font-medium text-gray-600">Uploading...</p>
             </>
           ) : (
             <>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${dragOver ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                {dragOver
-                  ? <Upload className="w-6 h-6 text-orange-500" />
-                  : <ImageIcon className="w-6 h-6 text-gray-400" />
-                }
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                  dragOver ? 'bg-orange-100' : 'bg-gray-100'
+                }`}
+              >
+                {dragOver ? (
+                  <Upload className="h-6 w-6 text-orange-500" />
+                ) : (
+                  <ImageIcon className="h-6 w-6 text-gray-400" />
+                )}
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700">
-                  {dragOver ? 'Drop to upload' : 'Click to upload banner image'}
+                  {dragOver
+                    ? 'Drop to upload'
+                    : `Click to upload ${isLogo ? 'project logo' : 'banner image'}`}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  or drag & drop here
-                </p>
+                <p className="mt-0.5 text-xs text-gray-400">or drag and drop here</p>
               </div>
-              <p className="text-[10px] text-gray-400">
-                Recommended 1920×480px · JPG, PNG, WebP · Max 5 MB
+              <p className="px-3 text-center text-[10px] text-gray-400">
+                {isLogo
+                  ? 'Recommended square PNG/WebP with transparent or white background'
+                  : 'Recommended 1920x480px JPG, PNG, WebP - Max 5 MB'}
               </p>
             </>
           )}

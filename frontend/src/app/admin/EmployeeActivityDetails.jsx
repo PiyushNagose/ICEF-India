@@ -14,6 +14,7 @@ import { API_BASE_URL, STORAGE_KEYS } from '../../api/config'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
 import AdminPagination from '../../components/ui/AdminPagination'
 import { AdminTableShell, AdminTableStatusRow } from '../../components/ui/AdminTable'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 
 const ACTION_CFG = {
   CREATE:   { bg: 'bg-emerald-500', text: 'text-white' },
@@ -151,20 +152,20 @@ const EmployeeActivityDetails = () => {
         {/* Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Changes Today', value: logs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length, sub: null, icon: Activity, border: 'border-t-orange-400' },
-            { label: 'Total Changes', value: totalChanges, sub: null, icon: BarChart2, border: 'border-t-blue-400' },
-            { label: 'Last Activity', value: lastActivity, sub: null, icon: Clock, border: 'border-t-amber-400' },
-            { label: 'Projects Updated', value: stats.find(s => s._id === 'CREATE')?.count || 0, sub: null, icon: Briefcase, border: 'border-t-purple-400' },
-            { label: 'Critical Changes', value: criticals, sub: 'in 7 days', subColor: 'text-red-500', icon: AlertTriangle, border: 'border-t-red-400' },
-          ].map(({ label, value, sub, subColor, icon: Icon, border }) => (
-            <div key={label} className={`bg-white rounded-2xl border border-gray-200 border-t-4 ${border} p-4 shadow-sm`}>
-              <div className="flex items-start justify-between mb-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal leading-tight">{label}</p>
-                <Icon className="w-4 h-4 text-gray-300 flex-shrink-0" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{value}</p>
-              {sub && <p className={`text-xs font-medium mt-0.5 ${subColor || 'text-gray-400'}`}>{sub}</p>}
-            </div>
+            { label: 'Changes Today', value: logs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length, helper: null, icon: Activity, tone: 'orange' },
+            { label: 'Total Changes', value: totalChanges, helper: null, icon: BarChart2, tone: 'blue' },
+            { label: 'Last Activity', value: lastActivity, helper: null, icon: Clock, tone: 'amber' },
+            { label: 'Projects Updated', value: stats.find(s => s._id === 'CREATE')?.count || 0, helper: null, icon: Briefcase, tone: 'purple' },
+            { label: 'Critical Changes', value: criticals, helper: 'in 7 days', icon: AlertTriangle, tone: 'red' },
+          ].map(({ label, value, helper, icon, tone }) => (
+            <AdminKpiCard
+              key={label}
+              title={label}
+              value={value}
+              icon={icon}
+              tone={tone}
+              helper={helper}
+            />
           ))}
         </div>
 

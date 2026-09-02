@@ -28,6 +28,10 @@ import {
 import PublicLayout from "../../components/layouts/PublicLayout";
 import { publicService } from "../../services/public.service";
 import { showOtpToast } from "../../utils/otpToast";
+import {
+  getProjectAwarePublicPath,
+  getPublicProjectSlug,
+} from "../../utils/publicNavigation";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -242,6 +246,10 @@ export default function CheckStatus() {
     result,
     correctionDisplayStatus,
   );
+  const resultProjectSlug =
+    result?.jobDetails?.projectSlug || getPublicProjectSlug();
+  const servicePath = (path) =>
+    getProjectAwarePublicPath(path, resultProjectSlug);
 
   const handleSendOTP = async () => {
     if (!/^[6-9]\d{9}$/.test(mobile)) {
@@ -757,7 +765,7 @@ export default function CheckStatus() {
                       {canSubmitCorrection && (
                         <button
                           onClick={() =>
-                            navigate("/correction-request", {
+                            navigate(servicePath("/correction-request"), {
                               state: {
                                 lookup: {
                                   registrationNumber: result.registrationNumber,
@@ -779,7 +787,7 @@ export default function CheckStatus() {
                   <div className="grid sm:grid-cols-2 gap-3">
                     {result.admitCardAvailable && (
                       <button
-                        onClick={() => navigate("/admit-cards")}
+                        onClick={() => navigate(servicePath("/admit-cards"))}
                         className="flex items-center justify-center gap-2 h-12 bg-[#e46a1d] hover:bg-[#cb5d16] text-white rounded-lg font-black uppercase tracking-widest text-xs transition"
                       >
                         <Download className="w-4 h-4" />
@@ -791,7 +799,7 @@ export default function CheckStatus() {
                       !isCorrectionResolved(result?.correction) && (
                       <button
                         onClick={() =>
-                          navigate("/correction-request", {
+                          navigate(servicePath("/correction-request"), {
                             state: {
                               lookup: {
                                 registrationNumber: result.registrationNumber,
@@ -825,9 +833,9 @@ export default function CheckStatus() {
                   Other Services
                 </h3>
                 {[
-                  { label: "Download Admit Card", to: "/admit-cards" },
-                  { label: "Request Correction", to: "/correction-request" },
-                  { label: "Contact Support", to: "/contact" },
+                  { label: "Download Admit Card", to: servicePath("/admit-cards") },
+                  { label: "Request Correction", to: servicePath("/correction-request") },
+                  { label: "Contact Support", to: servicePath("/contact") },
                 ].map((item) => (
                   <button
                     key={item.label}

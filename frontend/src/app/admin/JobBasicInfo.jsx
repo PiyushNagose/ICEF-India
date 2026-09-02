@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
@@ -19,6 +20,8 @@ import {
   X,
 } from "lucide-react";
 import { getJobWizardPath, saveJobDraftProgress } from "../../utils/jobDraft";
+import { adminService } from "../../services/admin.service";
+import { extractApiErrors } from "../../utils/formErrorUtils";
 
 const STORAGE_KEY = "job_draft";
 
@@ -38,6 +41,12 @@ const todayISO = () => {
 /** Convert YYYY-MM-DD string to a local midnight Date object */
 const toDate = (s) => s ? new Date(s + 'T00:00:00') : undefined
 const toDateOnly = (value) => value ? String(value).split("T")[0] : ""
+const isTodayOrEarlier = (value) => Boolean(value && value <= todayISO())
+const maxDate = (...dates) => {
+  const validDates = dates.filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+  if (!validDates.length) return undefined
+  return new Date(Math.max(...validDates.map((date) => date.getTime())))
+}
 
 const JobBasicInfo = () => {
   const navigate = useNavigate();
@@ -55,7 +64,32 @@ const JobBasicInfo = () => {
   const projectId = urlProjectId || savedDraft.projectId || null;
   const jobId = searchParams.get("job") || savedDraft._jobId || "";
   const originalApplicationStartDate = toDateOnly(savedDraft.applicationStartDate);
+  const originalApplicationDeadline = toDateOnly(savedDraft.applicationDeadline);
+  const originalDateValues = {
+    applicationStartDate: originalApplicationStartDate,
+    applicationDeadline: originalApplicationDeadline,
+    correctionStartDate: toDateOnly(savedDraft.correctionStartDate),
+    correctionDeadline: toDateOnly(savedDraft.correctionDeadline),
+    admitCardReleaseDate: toDateOnly(savedDraft.admitCardReleaseDate),
+    examDate: toDateOnly(savedDraft.examDate),
+    resultDate: toDateOnly(savedDraft.resultDate),
+  };
   const isExistingJobDraft = !!savedDraft._jobId;
+  const applicationStartLocked =
+    isExistingJobDraft &&
+    Boolean(originalApplicationStartDate) &&
+    (["active", "published", "closed"].includes(String(savedDraft.status || "").toLowerCase()) ||
+      isTodayOrEarlier(originalApplicationStartDate));
+  const correctionStartLocked =
+    isExistingJobDraft &&
+    Boolean(originalDateValues.correctionStartDate) &&
+    isTodayOrEarlier(originalDateValues.correctionStartDate);
+  const isUnchangedLockedDate = (field) => {
+    const locked =
+      (field === "applicationStartDate" && applicationStartLocked) ||
+      (field === "correctionStartDate" && correctionStartLocked);
+    return locked && formData[field] === originalDateValues[field];
+  };
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -150,6 +184,13 @@ const JobBasicInfo = () => {
     }
   });
   const [errors, setErrors] = useState({});
+  const minAllowedDate = (field, ...dates) =>
+    isExistingJobDraft && formData[field] === originalDateValues[field]
+      ? maxDate(todayDate(), ...dates, toDate(originalDateValues[field]))
+      : maxDate(todayDate(), ...dates)
+  const applicationDeadlineMinDate = isExistingJobDraft
+    ? maxDate(todayDate(), toDate(originalApplicationDeadline))
+    : toDate(formData.applicationStartDate) || todayDate();
 
   const set = (field, value) => {
     if (field.includes(".")) {
@@ -214,6 +255,22 @@ const JobBasicInfo = () => {
     ].forEach(([field, message]) => {
       if (!formData[field]) e[field] = message;
     });
+    [
+      ["applicationDeadline", "Application deadline cannot be in the past"],
+      ["correctionStartDate", "Correction start cannot be in the past"],
+      ["correctionDeadline", "Correction deadline cannot be in the past"],
+      ["admitCardReleaseDate", "Admit card release date cannot be in the past"],
+      ["examDate", "Tentative exam date cannot be in the past"],
+      ["resultDate", "Result publish date cannot be in the past"],
+    ].forEach(([field, message]) => {
+      if (
+        formData[field] &&
+        formData[field] < todayISO() &&
+        (!isExistingJobDraft || formData[field] !== originalDateValues[field])
+      ) {
+        e[field] = message;
+      }
+    });
     // New jobs cannot be backdated. Existing jobs can keep their historical start date.
     if (
       formData.applicationStartDate &&
@@ -234,9 +291,18 @@ const JobBasicInfo = () => {
     if (
       formData.applicationDeadline &&
       formData.correctionStartDate &&
-      formData.correctionStartDate < formData.applicationDeadline
+      formData.correctionStartDate < formData.applicationDeadline &&
+      !isUnchangedLockedDate("correctionStartDate")
     ) {
       e.correctionStartDate = "Correction start must be on or after application deadline";
+    }
+    if (
+      formData.applicationDeadline &&
+      formData.correctionDeadline &&
+      formData.correctionDeadline < formData.applicationDeadline
+    ) {
+      e.correctionDeadline =
+        "Correction deadline must be on or after application deadline";
     }
     if (
       formData.correctionStartDate &&
@@ -323,6 +389,18 @@ const JobBasicInfo = () => {
     });
   };
 
+
+  const { mutateAsync: saveJob } = useMutation({
+    mutationFn: async (payload) => {
+      const currentDraft = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+      const existingJobId = jobId || currentDraft._jobId;
+      if (existingJobId) {
+        return adminService.updateJob(existingJobId, payload, { suppressGlobalErrorToast: true });
+      }
+      return adminService.createJob(payload);
+    },
+  });
+
   const buildDraftPatch = () => {
     const posts = formData.posts.map((post) => ({
       postCode: post.postCode?.trim() || "",
@@ -377,23 +455,51 @@ const JobBasicInfo = () => {
     };
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     const isComplete = validate();
-    saveJobDraftProgress(buildDraftPatch(), {
-      projectId,
-      ...(isComplete ? { completedStep: 1 } : { currentStep: 1 }),
-    });
-    toast.success("Draft saved.");
+    const patch = buildDraftPatch();
+    try {
+      const res = await saveJob(patch);
+      const newJobId = res?.job?._id || jobId || patch._jobId;
+      if (newJobId) patch._jobId = newJobId;
+      saveJobDraftProgress(patch, {
+        projectId,
+        ...(isComplete ? { completedStep: 1 } : { currentStep: 1 }),
+      });
+      toast.success("Draft saved.");
+    } catch (err) {
+      const apiErrors = extractApiErrors(err);
+      if (Object.keys(apiErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+        toast.error("Please fix the highlighted fields.");
+      } else {
+        toast.error(err.message || "Failed to save draft");
+      }
+    }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validate()) return;
-    saveJobDraftProgress(buildDraftPatch(), { projectId, completedStep: 1 });
-    navigate(
-      returnToReview
-        ? getJobWizardPath("review", projectId, jobId)
-        : getJobWizardPath("eligibility", projectId, jobId),
-    );
+    const patch = buildDraftPatch();
+    try {
+      const res = await saveJob(patch);
+      const newJobId = res?.job?._id || jobId || patch._jobId;
+      if (newJobId) patch._jobId = newJobId;
+      saveJobDraftProgress(patch, { projectId, completedStep: 1 });
+      navigate(
+        returnToReview
+          ? getJobWizardPath("review", projectId, newJobId)
+          : getJobWizardPath("eligibility", projectId, newJobId),
+      );
+    } catch (err) {
+      const apiErrors = extractApiErrors(err);
+      if (Object.keys(apiErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+        toast.error("Please fix the highlighted fields.");
+      } else {
+        toast.error(err.message || "Failed to save job");
+      }
+    }
   };
 
   const inputClass = (field) =>
@@ -887,9 +993,18 @@ const JobBasicInfo = () => {
                     </label>
                     <AppDatePicker
                       value={formData.applicationStartDate}
-                      onChange={(val) => set("applicationStartDate", val)}
+                      onChange={(val) => {
+                        if (!applicationStartLocked) set("applicationStartDate", val);
+                      }}
                       placeholder="Select application start"
-                      minDate={isExistingJobDraft ? undefined : todayDate()}
+                      minDate={todayDate()}
+                      readOnly={applicationStartLocked}
+                      readOnlyReason={
+                        applicationStartLocked
+                          ? `Application start date is locked because the application window is already active (opened on ${formData.applicationStartDate ? new Date(formData.applicationStartDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'an earlier date'}).`
+                          : ''
+                      }
+                      disabled={applicationStartLocked}
                     />
                     {errors.applicationStartDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -905,8 +1020,13 @@ const JobBasicInfo = () => {
                       value={formData.applicationDeadline}
                       onChange={(val) => set("applicationDeadline", val)}
                       placeholder="Select deadline"
-                      minDate={toDate(formData.applicationStartDate) || todayDate()}
+                      minDate={applicationDeadlineMinDate}
                     />
+                    {isExistingJobDraft && originalApplicationDeadline && (
+                      <p className="mt-1 text-xs font-medium text-amber-600">
+                        Extensions only — deadline can only move forward from {new Date(originalApplicationDeadline + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.
+                      </p>
+                    )}
                     {errors.applicationDeadline && (
                       <p className="text-red-500 text-xs mt-1">
                         {errors.applicationDeadline}
@@ -919,9 +1039,22 @@ const JobBasicInfo = () => {
                     </label>
                     <AppDatePicker
                       value={formData.correctionStartDate}
-                      onChange={(val) => set("correctionStartDate", val)}
+                      onChange={(val) => {
+                        if (!correctionStartLocked) set("correctionStartDate", val);
+                      }}
                       placeholder="Correction window start"
-                      minDate={toDate(formData.applicationDeadline) || toDate(formData.applicationStartDate) || todayDate()}
+                      minDate={minAllowedDate(
+                        "correctionStartDate",
+                        toDate(formData.applicationDeadline),
+                        toDate(formData.applicationStartDate),
+                      )}
+                      readOnly={correctionStartLocked}
+                      readOnlyReason={
+                        correctionStartLocked
+                          ? `Correction start date is locked because the correction window has already commenced (opened on ${formData.correctionStartDate ? new Date(formData.correctionStartDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'an earlier date'}).`
+                          : ''
+                      }
+                      disabled={correctionStartLocked}
                     />
                     {errors.correctionStartDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -937,7 +1070,11 @@ const JobBasicInfo = () => {
                       value={formData.correctionDeadline}
                       onChange={(val) => set("correctionDeadline", val)}
                       placeholder="Correction window end"
-                      minDate={toDate(formData.correctionStartDate) || toDate(formData.applicationDeadline) || todayDate()}
+                      minDate={minAllowedDate(
+                        "correctionDeadline",
+                        toDate(formData.correctionStartDate),
+                        toDate(formData.applicationDeadline),
+                      )}
                     />
                     {errors.correctionDeadline && (
                       <p className="text-red-500 text-xs mt-1">
@@ -953,7 +1090,11 @@ const JobBasicInfo = () => {
                       value={formData.admitCardReleaseDate}
                       onChange={(val) => set("admitCardReleaseDate", val)}
                       placeholder="Visible/download from"
-                      minDate={toDate(formData.correctionDeadline) || toDate(formData.applicationDeadline) || todayDate()}
+                      minDate={minAllowedDate(
+                        "admitCardReleaseDate",
+                        toDate(formData.correctionDeadline),
+                        toDate(formData.applicationDeadline),
+                      )}
                     />
                     {errors.admitCardReleaseDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -969,7 +1110,11 @@ const JobBasicInfo = () => {
                       value={formData.examDate}
                       onChange={(val) => set("examDate", val)}
                       placeholder="Select exam date"
-                      minDate={toDate(formData.admitCardReleaseDate) || toDate(formData.applicationDeadline) || todayDate()}
+                      minDate={minAllowedDate(
+                        "examDate",
+                        toDate(formData.admitCardReleaseDate),
+                        toDate(formData.applicationDeadline),
+                      )}
                     />
                     {errors.examDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -985,7 +1130,7 @@ const JobBasicInfo = () => {
                       value={formData.resultDate}
                       onChange={(val) => set("resultDate", val)}
                       placeholder="Select expected result date"
-                      minDate={toDate(formData.examDate) || todayDate()}
+                      minDate={minAllowedDate("resultDate", toDate(formData.examDate))}
                     />
                     {errors.resultDate && (
                       <p className="text-red-500 text-xs mt-1">

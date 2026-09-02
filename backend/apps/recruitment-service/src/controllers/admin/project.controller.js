@@ -15,7 +15,9 @@ const { getPaginationParams } = require("../../shared/utils/helpers");
 const { saveAuditLog } = require("../../shared/middlewares/auditLog");
 const {
   assertProjectTimeline,
+  getEffectiveJobStatus,
   getProjectLifecycleStatus,
+  startOfToday,
 } = require("../../shared/utils/timeline");
 const {
   invalidatePublicRecruitmentCache,
@@ -214,7 +216,7 @@ const getProject = asyncHandler(async (req, res) => {
     .lean();
   const landingComplete = cmsPage?.status === "published";
   const configuredJobCount = jobs.filter(isJobAdvertisementConfigured).length;
-  const activeJobCount = jobs.filter((job) => job.status === "active").length;
+  const activeJobCount = jobs.filter((job) => getEffectiveJobStatus(job) === "active").length;
 
   const totalApplications = await Application.countDocuments({
     jobId: { $in: jobs.map((job) => job._id) },
@@ -257,6 +259,7 @@ const getProject = asyncHandler(async (req, res) => {
     };
     return {
       ...job.toObject(),
+      effectiveStatus: getEffectiveJobStatus(job),
       ...stats,
     };
   });
@@ -481,6 +484,11 @@ const publishProject = asyncHandler(async (req, res) => {
   const activeJobCount = await Job.countDocuments({
     projectId: project._id,
     status: "active",
+    $or: [
+      { applicationDeadline: { $exists: false } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $gte: startOfToday() } },
+    ],
   });
 
   if (activeJobCount === 0) {

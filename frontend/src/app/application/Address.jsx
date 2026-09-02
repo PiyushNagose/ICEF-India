@@ -11,6 +11,7 @@ import { candidateService } from "../../services/candidate.service";
 import { INDIA_STATE_CITIES, INDIA_STATES } from "../../constants/indiaLocations";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
 import JobConfiguredSection from "./JobConfiguredSection";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -316,7 +317,7 @@ const Address = () => {
   const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     if (!validate()) return;

@@ -80,12 +80,18 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
 
   const enrichedJobs = enrichPublicJobs(jobs);
 
-  const cmsPage = await StateBanner.findOne({
-    projectId: project._id,
-    status: "published",
-  })
-    .populate("featuredJobs", "title postCode department totalPosts applicationDeadline applicationFee status")
-    .lean();
+  const cmsPage =
+    (await StateBanner.findOne({
+      projectId: project._id,
+      status: "published",
+    })
+      .populate("featuredJobs", "title postCode department totalPosts applicationDeadline applicationFee status")
+      .lean()) ||
+    (await StateBanner.findOne({
+      projectId: project._id,
+    })
+      .populate("featuredJobs", "title postCode department totalPosts applicationDeadline applicationFee status")
+      .lean());
 
   const payload = new ApiResponse(
     StatusCodes.OK,

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import AdminLayout from '../../components/layouts/AdminLayout'
 import CustomSelect from '../../components/ui/CustomSelect'
+import AdminKpiCard from '../../components/ui/AdminKpiCard'
 import KpiDateRangeFilter from '../../components/common/KpiDateRangeFilter'
 import {
   DEFAULT_KPI_DATE_RANGE,
@@ -155,7 +156,7 @@ const FunnelAnalysis = () => {
     <AdminLayout title="Funnel Analysis">
       <div className="p-5 space-y-5">
 
-        {/* ── Header Card ── */}
+        {/* â”€â”€ Header Card â”€â”€ */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -196,14 +197,14 @@ const FunnelAnalysis = () => {
           </div>
         </div>
 
-        {/* ── Two column: Horizontal Funnel + Bar Chart ── */}
+        {/* â”€â”€ Two column: Horizontal Funnel + Bar Chart â”€â”€ */}
         <div className="grid grid-cols-1 items-stretch xl:grid-cols-2 gap-5">
 
           {/* Horizontal Funnel Bars */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <span className="text-orange-500 text-lg">▼</span>
+                <span className="text-orange-500 text-lg">â–¼</span>
                 <span className="font-semibold text-gray-900">Conversion Funnel</span>
               </div>
               <span className="whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
@@ -264,30 +265,13 @@ const FunnelAnalysis = () => {
           </div>
         </div>
 
-        {/* ── Summary Stats ── */}
+        {/* â”€â”€ Summary Stats â”€â”€ */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
-            <div className="flex gap-8 flex-1 flex-wrap">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Inflow</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(maxVal)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Converted</p>
-                <p className="text-2xl font-bold text-orange-600">{fmt(submitted)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-normal mb-1">Total Leakage</p>
-                <p className="text-2xl font-bold text-red-500">{fmt(totalLeakage)}</p>
-              </div>
-            </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 text-center min-w-[160px]">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Target className="w-4 h-4 text-blue-600" />
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-normal">Final Conversion</p>
-              </div>
-              <p className="text-2xl font-bold text-blue-800">{conversionRate}%</p>
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <AdminKpiCard title="Total Inflow" value={fmt(maxVal)} icon={Target} tone="orange" valueClassName="text-2xl" />
+            <AdminKpiCard title="Total Converted" value={fmt(submitted)} icon={CheckCircle} tone="green" valueClassName="text-2xl" />
+            <AdminKpiCard title="Total Leakage" value={fmt(totalLeakage)} icon={TrendingDown} tone="red" valueClassName="text-2xl" />
+            <AdminKpiCard title="Final Conversion" value={`${conversionRate}%`} icon={Target} tone="blue" valueClassName="text-2xl" />
           </div>
           <div className="mt-4">
             <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -300,7 +284,7 @@ const FunnelAnalysis = () => {
           </div>
         </div>
 
-        {/* ── Insight Cards ── */}
+        {/* â”€â”€ Insight Cards â”€â”€ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl border-t-4 border-t-red-400 border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">

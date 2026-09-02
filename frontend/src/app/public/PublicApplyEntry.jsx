@@ -340,7 +340,7 @@ export default function PublicApplyEntry() {
           transition={{ duration: 0.4 }}
           className="grid gap-7 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] lg:items-start"
         >
-          <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:self-start">
+          <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:sticky lg:top-24">
             <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-orange-50 text-[#e46a1d]">
               <ShieldCheck className="h-6 w-6" />
             </div>

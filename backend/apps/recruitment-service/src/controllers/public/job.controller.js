@@ -9,15 +9,22 @@ const { startOfDay, endOfDay } = require("../../shared/utils/timeline");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const getPublicListingFilter = (now = new Date()) => ({
-  status: "active",
-  isSoftDeleted: { $ne: true },
-  $or: [
-    { applicationDeadline: { $exists: false } },
-    { applicationDeadline: null },
-    { applicationDeadline: { $gte: startOfDay(now) } },
-  ],
-});
+const getPublicListingFilter = (now = new Date(), { includeClosed = false } = {}) => {
+  const filter = {
+    status: includeClosed ? { $in: ["active", "closed"] } : "active",
+    isSoftDeleted: { $ne: true },
+  };
+
+  if (!includeClosed) {
+    filter.$or = [
+      { applicationDeadline: { $exists: false } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $gte: startOfDay(now) } },
+    ];
+  }
+
+  return filter;
+};
 
 const JOB_SORT_FIELDS = new Set([
   "publishedAt",
@@ -105,7 +112,7 @@ const buildAvailability = (jobLike, now = new Date()) => {
 };
 
 /**
- * @desc    Get all active jobs (public)
+ * @desc    Get published public jobs
  * @route   GET /api/jobs
  * @access  Public
  */
@@ -119,11 +126,14 @@ const getJobs = asyncHandler(async (req, res) => {
     search,
     sortBy = "publishedAt",
     sortOrder = "desc",
+    includeClosed,
   } = req.query;
 
   const now = new Date();
 
-  const filter = getPublicListingFilter(now);
+  const filter = getPublicListingFilter(now, {
+    includeClosed: String(includeClosed).toLowerCase() === "true",
+  });
 
   if (department) filter.department = new RegExp(department, "i");
   if (category) filter.category = category;

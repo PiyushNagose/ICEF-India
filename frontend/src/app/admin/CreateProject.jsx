@@ -26,6 +26,7 @@ import Button from '../../components/ui/Button'
 import CustomSelect from '../../components/ui/CustomSelect'
 import AppDatePicker from '../../components/ui/AppDatePicker'
 import { adminService } from '../../services/admin.service'
+import { extractApiErrors } from '../../utils/formErrorUtils'
 
 const STATES = [
   'Andhra Pradesh',
@@ -167,6 +168,13 @@ const CreateProject = () => {
       },
 
       onError: (err) => {
+        const apiErrors = extractApiErrors(err)
+        if (Object.keys(apiErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...apiErrors }))
+          toast.error('Please fix the highlighted fields.')
+          return
+        }
+
         const message =
           /publicslug|slug already exists|project with this name already exists/i.test(
             err.message || "",
@@ -202,6 +210,13 @@ const CreateProject = () => {
       },
 
       onError: (err) => {
+        const apiErrors = extractApiErrors(err)
+        if (Object.keys(apiErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...apiErrors }))
+          toast.error('Please fix the highlighted fields.')
+          return
+        }
+
         toast.error(
           err.message || 'Failed to update project'
         )

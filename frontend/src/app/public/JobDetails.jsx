@@ -325,7 +325,7 @@ const ApplySidebar = ({ job, isLoggedIn, isCandidate, existingApp }) => {
           {!availability.canApply && (
             <p className="rounded-xl border border-[#e0d7cd] bg-white p-3 text-xs leading-5 text-[#6d6761]">
               {availability.reason} You can view the notification details or
-              return to the recruitment page for other active posts.
+              return to the recruitment page for other posts.
             </p>
           )}
           {fee > 0 && (
@@ -416,7 +416,7 @@ const ApplySidebar = ({ job, isLoggedIn, isCandidate, existingApp }) => {
         {!availability.canApply && (
           <p className="rounded-xl border border-[#e0d7cd] bg-white p-3 text-xs leading-5 text-[#6d6761]">
             {availability.reason} You can view the notification details or
-            return to the recruitment page for other active posts.
+            return to the recruitment page for other posts.
           </p>
         )}
         {fee > 0 && (
@@ -1234,7 +1234,7 @@ const JobDetails = () => {
             {/* ─── RIGHT SIDEBAR ───────────────────────────── */}
             <aside
               id="apply-sidebar"
-              className="space-y-5 lg:self-start"
+              className="space-y-5 lg:sticky lg:top-24"
             >
               {/* Apply box */}
               <ApplySidebar

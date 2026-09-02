@@ -19,6 +19,7 @@ import {
   INDIA_STATE_CITIES,
   INDIA_STATES,
 } from "../../constants/indiaLocations";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 export const fieldKey = (field) => String(field._id || field.id);
 
@@ -220,7 +221,7 @@ const DynamicFormFields = () => {
   const handleNext = () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     if (!validateSection()) return;
@@ -236,7 +237,7 @@ const DynamicFormFields = () => {
 
   const handleBack = () => {
     if (previousStep) navigate(previousStep.path, { state: { applicationId } });
-    else navigate("/jobs");
+    else navigate(getLastPublicProjectPath());
   };
 
   if (isLoading || !app) {

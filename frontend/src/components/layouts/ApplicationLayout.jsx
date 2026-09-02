@@ -14,7 +14,9 @@ import {
   ListChecks,
   CheckCheck,
 } from "lucide-react";
+import { publicService } from "../../services/public.service";
 import { candidateService } from "../../services/candidate.service";
+import PublicBrandMark from "../ui/PublicBrandMark";
 import {
   buildApplicationSteps,
   getApplicationUnlockedStep,
@@ -96,6 +98,41 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
     : Math.max(Number(app?.currentStep || 1), 1);
   const visualProgressStep = Math.max(activeStep, currentProgressStep);
 
+  const publicApplyContext = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("publicApplyContext") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const projectSlug =
+    app?.jobId?.projectId?.publicSlug ||
+    publicApplyContext?.projectSlug ||
+    (typeof window !== "undefined"
+      ? window.sessionStorage.getItem("lastPublicProjectSlug")
+      : "") ||
+    "";
+
+  const { data: projectBrandingData } = useQuery({
+    queryKey: ["public-project-branding", projectSlug],
+    queryFn: () => publicService.getProjectBySlug(projectSlug),
+    enabled: Boolean(projectSlug),
+    staleTime: 60000,
+  });
+
+  const brandingCmsPage = projectBrandingData?.cmsPage;
+  const brandingProject = projectBrandingData?.project || app?.jobId?.projectId;
+  const appLogo = brandingCmsPage?.projectLogo || logo;
+  const hasUploadedProjectLogo = Boolean(brandingCmsPage?.projectLogo);
+  const appBrandTitle =
+    brandingCmsPage?.heroTitle || brandingProject?.name || "Recruitment Portal";
+  const appBrandMeta =
+    brandingProject?.department ||
+    brandingProject?.state ||
+    "GOVERNMENT OF INDIA";
+  const projectHomePath = projectSlug ? `/apply/${projectSlug}` : "/";
+
   // Enforce step sequencing
   useEffect(() => {
     if (!appData || correctionMode) return;
@@ -136,18 +173,26 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
       <header className="bg-white border-b border-orange-200 px-6 py-4 flex-shrink-0">
         <div className="w-full flex items-center justify-between">
           <button
-            onClick={() => navigate("/")}
-            className="flex items-center space-x-3"
+            type="button"
+            onClick={() => navigate(projectHomePath)}
+            className="flex items-center space-x-3 text-left"
           >
-            <div className="w-10 h-10 rounded-lg bg-[#1f1d1b] flex items-center justify-center overflow-hidden">
-              <img src={logo} alt="ICEF India" className="h-full w-full object-contain p-1" />
-            </div>
-            <div>
-              <div className="font-bold text-gray-800">Recruitment Portal</div>
-              <div className="text-sm text-gray-600">GOVERNMENT OF INDIA</div>
+            <PublicBrandMark
+              src={appLogo}
+              alt={appBrandTitle}
+              uploaded={hasUploadedProjectLogo}
+              variant="app"
+            />
+            <div className="min-w-0">
+              <div className="font-bold text-gray-800 line-clamp-1">
+                {appBrandTitle}
+              </div>
+              <div className="text-xs text-gray-600 uppercase tracking-wide truncate">
+                {appBrandMeta}
+              </div>
             </div>
           </button>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 flex-shrink-0">
             Step{" "}
             <span className="font-semibold text-orange-600">{activeStep}</span>{" "}
             of {steps.length}

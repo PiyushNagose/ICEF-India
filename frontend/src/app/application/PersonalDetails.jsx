@@ -11,6 +11,7 @@ import { candidateService } from "../../services/candidate.service";
 import JobConfiguredSection from "./JobConfiguredSection";
 import { buildApplicationSteps } from "../../utils/applicationFlow";
 import AppDatePicker from "../../components/ui/AppDatePicker";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 
@@ -163,7 +164,7 @@ const PersonalDetails = () => {
   const handleNext = async () => {
     if (!applicationId) {
       toast.error("Application not found. Please start from a job listing.");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     if (!validate()) return;
@@ -473,7 +474,7 @@ const PersonalDetails = () => {
         </div>
 
         <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => navigate("/jobs")}>
+          <Button variant="outline" onClick={() => navigate(getLastPublicProjectPath())}>
             Cancel
           </Button>
           <Button

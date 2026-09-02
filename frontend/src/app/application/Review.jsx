@@ -11,6 +11,7 @@ import {
   buildApplicationSteps,
   isCorrectionMode,
 } from "../../utils/applicationFlow";
+import { getLastPublicProjectPath } from "../../utils/publicNavigation";
 
 const APP_KEY = "app_draft";
 const getAppId = () => {
@@ -135,7 +136,7 @@ const Review = () => {
   const handleNext = () => {
     if (!applicationId) {
       toast.error("Application not found");
-      navigate("/jobs");
+      navigate(getLastPublicProjectPath());
       return;
     }
     if (!accepted) {
@@ -164,10 +165,10 @@ const Review = () => {
         <div className="p-6 text-center text-gray-500">
           No application found.{" "}
           <button
-            onClick={() => navigate("/jobs")}
+            onClick={() => navigate(getLastPublicProjectPath())}
             className="text-orange-600 underline"
           >
-            Browse jobs
+            Return to recruitment
           </button>
         </div>
       </ApplicationLayout>
