@@ -31,6 +31,7 @@ const updateProjectSchema = z.object({
   endDate: z.string().optional(),
   closureDate: z.string().optional(),
   isPublished: z.boolean().optional(),
+  updatedAt: z.string().optional(),
 });
 
 module.exports = { createProjectSchema, updateProjectSchema };

@@ -319,7 +319,7 @@ const CmsEdit = () => {
               {
                 key: "review",
                 label: "Final Review",
-                complete: Boolean(landingComplete && jobComplete),
+                complete: publishComplete,
               },
               {
                 key: "publish",
@@ -451,8 +451,33 @@ const CmsEdit = () => {
   const setHelpdesk = (key, value) =>
     setForm((p) => ({ ...p, helpdesk: { ...p.helpdesk, [key]: value } }));
   const projectDefaults = getProjectDefaults(project, stateName);
+  const normalizeText = (value) => String(value || "").trim();
+  const sameStringList = (a = [], b = []) =>
+    a.length === b.length &&
+    a.every((item, index) => normalizeText(item) === normalizeText(b[index]));
+
+  const projectTextApplied =
+    normalizeText(form.heroTitle) === normalizeText(projectDefaults.heroTitle) &&
+    normalizeText(form.heroSubtitle) === normalizeText(projectDefaults.heroSubtitle) &&
+    normalizeText(form.helpdesk.address) ===
+      normalizeText(projectDefaults.helpdeskAddress);
+  const projectNoticeTexts = projectDefaults.announcements.map((item) =>
+    normalizeText(item.text),
+  );
+  const projectNoticesApplied =
+    projectNoticeTexts.length > 0 &&
+    projectNoticeTexts.every((text) =>
+      form.announcements.some((item) => normalizeText(item.text) === text),
+    );
+  const defaultInstructionsApplied = sameStringList(
+    form.instructions,
+    projectDefaults.instructions,
+  );
+  const prefillButtonClass =
+    "rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700";
 
   const applyProjectText = () => {
+    if (projectTextApplied) return;
     setForm((p) => ({
       ...p,
       heroTitle: projectDefaults.heroTitle || p.heroTitle,
@@ -466,6 +491,7 @@ const CmsEdit = () => {
   };
 
   const addProjectNotices = () => {
+    if (projectNoticesApplied) return;
     const existing = new Set(form.announcements.map((item) => item.text));
     const nextItems = projectDefaults.announcements.filter(
       (item) => !existing.has(item.text),
@@ -478,6 +504,7 @@ const CmsEdit = () => {
   };
 
   const useDefaultInstructions = () => {
+    if (defaultInstructionsApplied) return;
     set("instructions", projectDefaults.instructions);
     toast.success("Default instructions added.");
   };
@@ -1190,23 +1217,47 @@ const CmsEdit = () => {
                       <button
                         type="button"
                         onClick={applyProjectText}
-                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                        disabled={projectTextApplied}
+                        className={prefillButtonClass}
                       >
-                        Use title, subtitle, and helpdesk address
+                        {projectTextApplied ? (
+                          <span className="inline-flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Title, subtitle, and helpdesk applied
+                          </span>
+                        ) : (
+                          "Use title, subtitle, and helpdesk address"
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={addProjectNotices}
-                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                        disabled={projectNoticesApplied}
+                        className={prefillButtonClass}
                       >
-                        Add project date notices
+                        {projectNoticesApplied ? (
+                          <span className="inline-flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Project date notices applied
+                          </span>
+                        ) : (
+                          "Add project date notices"
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={useDefaultInstructions}
-                        className="rounded-xl border border-orange-200 px-3 py-2.5 text-left text-xs font-bold text-orange-700 hover:bg-orange-50"
+                        disabled={defaultInstructionsApplied}
+                        className={prefillButtonClass}
                       >
-                        Use standard application instructions
+                        {defaultInstructionsApplied ? (
+                          <span className="inline-flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Standard instructions applied
+                          </span>
+                        ) : (
+                          "Use standard application instructions"
+                        )}
                       </button>
                     </div>
                   </div>

@@ -26,9 +26,10 @@ const daysBetweenInclusive = (from, to) => {
 };
 
 export const getEffectiveJobStatus = (job = {}) => {
-  if (job.effectiveStatus) return String(job.effectiveStatus).toLowerCase();
-  const status = String(job.status || "draft").toLowerCase();
-  const deadline = endOfDay(job.applicationDeadline);
+  const safeJob = job || {};
+  if (safeJob.effectiveStatus) return String(safeJob.effectiveStatus).toLowerCase();
+  const status = String(safeJob.status || "draft").toLowerCase();
+  const deadline = endOfDay(safeJob.applicationDeadline);
   if (status === "active" && deadline && new Date() > deadline) return "closed";
   return status;
 };
@@ -39,15 +40,16 @@ export const formatJobStatus = (job = {}) => {
 };
 
 export const getJobAvailability = (job = {}) => {
-  if (job.availability) return job.availability;
+  const safeJob = job || {};
+  if (safeJob.availability) return safeJob.availability;
 
   const now = new Date();
   const today = startOfDay(now);
-  const start = startOfDay(job.applicationStartDate);
-  const deadline = endOfDay(job.applicationDeadline);
-  const deadlineDay = startOfDay(job.applicationDeadline);
+  const start = startOfDay(safeJob.applicationStartDate);
+  const deadline = endOfDay(safeJob.applicationDeadline);
+  const deadlineDay = startOfDay(safeJob.applicationDeadline);
 
-  const effectiveStatus = getEffectiveJobStatus(job);
+  const effectiveStatus = getEffectiveJobStatus(safeJob);
 
   if (effectiveStatus === "closed") {
     return {

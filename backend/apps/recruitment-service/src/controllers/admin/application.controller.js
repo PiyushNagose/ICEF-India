@@ -30,11 +30,15 @@ const {
   correctionHeaders,
   documentHeaders,
   flattenDocumentRows,
-  csvEscape
+  withExportContextHeaders,
+  csvEscape,
 } = require("../../shared/services/applicationExport.service");
 const {
   applyFileStorageMetadata,
 } = require("../../shared/services/fileStorage.service");
+const {
+  getSignedCloudinaryUrl,
+} = require("../../shared/services/upload.service");
 
 const getApplicationCandidateName = (application) =>
   application?.personalDetails?.fullName ||
@@ -51,7 +55,12 @@ const parseObjectIdParam = (value, label) => {
 };
 
 const REVIEW_STATUSES = new Set([
+  "under_review",
+  "verified",
+  "approved",
   "clarification_required",
+  "rejected",
+  "shortlisted",
 ]);
 
 const APPLICATION_SORT_FIELDS = new Set([
@@ -204,7 +213,8 @@ const normalizeExportType = (type) => {
     "bundle",
     "print",
   ]);
-  return allowed.has(type) ? type : "register";
+  if (allowed.has(type)) return type;
+  throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid export type");
 };
 
 const sendExportFile = (res, file) => {
@@ -218,6 +228,13 @@ const sendExportFile = (res, file) => {
 
 const exportApplications = asyncHandler(async (req, res) => {
   const type = normalizeExportType(req.params.type);
+  const exportId = `EXP-${Date.now()}-${String(req.user.id || "").slice(-6).toUpperCase()}`;
+  const exportContext = {
+    exportId,
+    requestedBy: req.user.fullName || req.user.email || req.user.id,
+    generatedAt: new Date(),
+  };
+  res.setHeader("X-Export-ID", exportId);
 
   // Non-streaming paths (bundle and print HTML)
   if (type === "bundle" || type === "print") {
@@ -225,19 +242,19 @@ const exportApplications = asyncHandler(async (req, res) => {
     const applications = await loadExportApplications(req.query);
 
     if (type === "bundle") {
-      const bundle = await buildGovernmentBundle(applications);
-      await saveAuditLog(req, `Exported government handover bundle for ${applications.length} applications`);
+      const bundle = await buildGovernmentBundle(applications, exportContext);
+      await saveAuditLog(req, `Exported government handover bundle ${exportId} for ${applications.length} applications`);
       return sendExportFile(res, bundle);
     }
 
-    const content = buildExportContent(type, applications);
+    const content = buildExportContent(type, applications, exportContext);
     const file = await writeExportFile({
       filename: `application-print-${Date.now()}.html`,
       content,
       contentType: "text/html; charset=utf-8",
     });
 
-    await saveAuditLog(req, `Exported application print register for ${applications.length} applications`);
+    await saveAuditLog(req, `Exported application print register ${exportId} for ${applications.length} applications`);
     return sendExportFile(res, file);
   }
 
@@ -255,6 +272,7 @@ const exportApplications = asyncHandler(async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="application-${type}-${Date.now()}.csv"`);
 
   // Write headers
+  headers = withExportContextHeaders(headers, exportContext);
   res.write(headers.map(h => csvEscape(h.label)).join(",") + "\n");
 
   const cursor = Application.find(filter)
@@ -283,7 +301,7 @@ const exportApplications = asyncHandler(async (req, res) => {
   });
 
   cursor.on("end", async () => {
-    await saveAuditLog(req, `Exported application ${type} register as stream for ${count} applications`);
+    await saveAuditLog(req, `Exported application ${type} register ${exportId} as stream for ${count} applications`);
     res.end();
   });
 
@@ -348,6 +366,29 @@ const assertReviewTransitionAllowed = (application, status, reason, issues = [])
       StatusCodes.BAD_REQUEST,
       "Select at least one field or document issue for correction",
     );
+  }
+
+  if (status === "rejected" && !reason?.trim()) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Rejection reason is required",
+    );
+  }
+
+  if (["verified", "approved", "shortlisted"].includes(status)) {
+    const documentIssues = getRequiredDocumentIssues(application);
+    if (documentIssues.length > 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Required documents must be verified first: ${documentIssues.join("; ")}`,
+      );
+    }
+    if (Number(application.totalFee || 0) > 0 && application.paymentStatus !== "paid") {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Paid application fee is required before approval",
+      );
+    }
   }
 };
 
@@ -819,6 +860,24 @@ const reviewCorrection = asyncHandler(async (req, res) => {
       SOCKET_EVENTS.CORRECTION_REVIEWED,
       correctionReviewPayload,
     );
+    await notify({
+      recipientId: application.candidateId._id,
+      type: "application_correction",
+      title:
+        action === "approve"
+          ? "Correction Accepted"
+          : "Correction Needs Update",
+      message:
+        action === "approve"
+          ? `Your correction for application ${application.applicationId} has been accepted.`
+          : `Your correction for application ${application.applicationId} needs more information.${notes ? ` ${notes}` : ""}`,
+      link: "/check-status",
+      metadata: {
+        applicationId: application.applicationId,
+        requestId: correction.requestId,
+        status: correction.status,
+      },
+    });
   }
 
   res.status(StatusCodes.OK).json(
@@ -844,9 +903,19 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Application IDs are required");
   }
+  const uniqueApplicationIds = [...new Set(applicationIds.map((id) => String(id)))];
+  const invalidApplicationIds = uniqueApplicationIds.filter(
+    (id) => !mongoose.Types.ObjectId.isValid(id),
+  );
+  if (invalidApplicationIds.length > 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Bulk action contains invalid application IDs",
+    );
+  }
 
   const applications = await Application.find({
-    _id: { $in: applicationIds },
+    _id: { $in: uniqueApplicationIds },
   })
     .populate("candidateId", "fullName email")
     .populate("jobId", "title documentRequirements");
@@ -854,51 +923,64 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
   if (applications.length === 0) {
     throw new ApiError(StatusCodes.NOT_FOUND, "No applications found");
   }
+  if (applications.length !== uniqueApplicationIds.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Bulk action contains applications that no longer exist. Refresh and try again.",
+    );
+  }
 
   if (action !== "update_status") {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid bulk action");
   }
 
-  applications.forEach((application) => {
-    assertReviewTransitionAllowed(application, status, reviewReason);
-  });
+  const succeeded = [];
+  const failed = [];
 
-  const updateData = {
-    $set: {
-      status,
-      reviewedBy: req.user.id,
-      reviewedAt: new Date(),
-    },
-  };
+  for (const application of applications) {
+    try {
+      assertReviewTransitionAllowed(application, status, reviewReason);
+      const oldStatus = application.status;
+      application.status = status;
+      application.reviewedBy = req.user.id;
+      application.reviewedAt = new Date();
 
-  if (status === "rejected") {
-    updateData.$set.rejectionReason = reviewReason;
-  } else {
-    updateData.$unset = { rejectionReason: "" };
+      if (status === "rejected") {
+        application.rejectionReason = reviewReason;
+      } else {
+        application.rejectionReason = undefined;
+      }
+
+      if (status === "clarification_required") {
+        application.correction.status = "requested";
+        application.correction.requestedBy = req.user.id;
+        application.correction.requestedAt = new Date();
+        application.correction.note = reviewReason;
+      }
+
+      if (["verified", "approved"].includes(status)) {
+        application.correction.status = "none";
+        application.correction.note = undefined;
+      }
+
+      await application.save();
+      succeeded.push({ application, oldStatus });
+    } catch (error) {
+      failed.push({
+        applicationId: application.applicationId,
+        id: application._id.toString(),
+        reason: error.message,
+      });
+    }
   }
 
-  if (status === "clarification_required") {
-    updateData.$set.correction = {
-      status: "requested",
-      requestedBy: req.user.id,
-      requestedAt: new Date(),
-      note: reviewReason,
-    };
-  }
-
-  if (["verified", "approved"].includes(status)) {
-    updateData.$set["correction.status"] = "none";
-    updateData.$unset = {
-      ...(updateData.$unset || {}),
-      "correction.note": "",
-    };
-  }
-
-  // Update all applications
-  await Application.updateMany({ _id: { $in: applicationIds } }, updateData);
+  await saveAuditLog(
+    req,
+    `Bulk updated ${succeeded.length}/${applications.length} applications to ${status}${failed.length ? `; failed ${failed.length}` : ""}`,
+  );
 
   // Send real-time notifications
-  applications.forEach((application) => {
+  succeeded.forEach(({ application, oldStatus }) => {
     const candidateName = getApplicationCandidateName(application);
     // Notify admins
     emitToAdmins(SOCKET_EVENTS.APPLICATION_STATUS_CHANGED, {
@@ -909,6 +991,7 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
         applicationId: application.applicationId,
         candidateName,
         jobTitle: application.jobId.title,
+        oldStatus,
         newStatus: status,
       },
       timestamp: new Date(),
@@ -950,10 +1033,13 @@ const bulkUpdateApplications = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(
     new ApiResponse(
       StatusCodes.OK,
-      `${applications.length} applications updated successfully`,
+      `${succeeded.length} applications updated successfully${failed.length ? `, ${failed.length} failed` : ""}`,
       {
-        message: `${applications.length} applications updated successfully`,
-        updatedCount: applications.length,
+        message: `${succeeded.length} applications updated successfully${failed.length ? `, ${failed.length} failed` : ""}`,
+        matchedCount: applications.length,
+        updatedCount: succeeded.length,
+        failedCount: failed.length,
+        failures: failed,
       },
     ),
   );
@@ -1170,7 +1256,13 @@ const previewDocument = asyncHandler(async (req, res) => {
     return fs.createReadStream(document.localPath).pipe(res);
   }
 
-  const response = await fetch(document.cloudinaryUrl);
+  const remoteUrl =
+    document.cloudinaryPublicId
+      ? getSignedCloudinaryUrl(document.cloudinaryPublicId, {
+          expiresInSeconds: 300,
+        })
+      : document.cloudinaryUrl;
+  const response = await fetch(remoteUrl);
   if (!response.ok) {
     throw new ApiError(
       StatusCodes.BAD_GATEWAY,

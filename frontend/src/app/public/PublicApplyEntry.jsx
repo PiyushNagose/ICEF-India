@@ -96,6 +96,7 @@ const Input = ({ className = "", ...props }) => (
 
 const PrimaryBtn = ({ loading, children, className = "", ...props }) => (
   <button
+    type="button"
     disabled={loading || props.disabled}
     className={`inline-flex h-12 items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#cb5d16] disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
     {...props}
@@ -338,9 +339,9 @@ export default function PublicApplyEntry() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="grid gap-7 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] lg:items-start"
+          className="grid gap-7 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] lg:items-stretch"
         >
-          <aside className="rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm lg:sticky lg:top-24">
+          <aside className="flex h-full flex-col rounded-[8px] border border-[#e0d7cd] bg-white p-6 shadow-sm">
             <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-orange-50 text-[#e46a1d]">
               <ShieldCheck className="h-6 w-6" />
             </div>
@@ -369,7 +370,7 @@ export default function PublicApplyEntry() {
               ))}
             </div>
 
-            <div className="mt-6 rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
+            <div className="mt-auto rounded-[6px] bg-[#faf7f2] px-4 py-3 text-xs font-semibold leading-5 text-[#6d6761]">
               For testing, the OTP appears in the toast when the backend runs in
               development mode.
             </div>
@@ -423,7 +424,10 @@ export default function PublicApplyEntry() {
             {/* Email section */}
             <div className="rounded-[8px] border border-[#efe7de] bg-[#fffdfb] p-4">
               <div className="mb-2 flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
+                <label
+                  htmlFor="public-email"
+                  className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]"
+                >
                   <Mail className="w-3.5 h-3.5 text-[#e46a1d]" />
                   Email Address
                 </label>
@@ -432,7 +436,9 @@ export default function PublicApplyEntry() {
 
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
                 <Input
+                  id="public-email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => {
@@ -460,8 +466,9 @@ export default function PublicApplyEntry() {
 
               {emailOtpSent && !emailVerified && (
                 <div className="mt-3 space-y-1">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
+                      aria-label="Email OTP"
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
@@ -493,7 +500,10 @@ export default function PublicApplyEntry() {
             {/* Mobile section */}
             <div className="rounded-[8px] border border-[#efe7de] bg-[#fffdfb] p-4">
               <div className="mb-2 flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]">
+                <label
+                  htmlFor="public-mobile"
+                  className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#4a4440]"
+                >
                   <Phone className="w-3.5 h-3.5 text-[#e46a1d]" />
                   Mobile Number
                 </label>
@@ -502,7 +512,9 @@ export default function PublicApplyEntry() {
 
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
                 <Input
+                  id="public-mobile"
                   type="tel"
+                  autoComplete="tel"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="10-digit mobile"
@@ -532,8 +544,9 @@ export default function PublicApplyEntry() {
 
               {mobileOtpSent && !mobileVerified && (
                 <div className="mt-3 space-y-1">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
+                      aria-label="Mobile OTP"
                       type="text"
                       inputMode="numeric"
                       maxLength={6}

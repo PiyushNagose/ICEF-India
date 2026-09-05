@@ -1,6 +1,7 @@
 const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 const env = require("../config/env");
+const { notifyAdmins } = require("../utils/notifyAdmins");
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
@@ -54,6 +55,20 @@ const errorHandler = (err, req, res, next) => {
     logger.error(`[${req.method}] ${req.path} — ${message}`, {
       stack: err.stack,
     });
+    if (/upload|payment|admit-card|bulk|allocation/i.test(req.path)) {
+      notifyAdmins({
+        type: "system_audit",
+        title: "Operational API failure",
+        message: `${req.method} ${req.path} failed: ${message}`,
+        link: req.path.startsWith("/api/admin") ? req.path.replace(/^\/api/, "") : "/admin/dashboard",
+        metadata: {
+          path: req.path,
+          method: req.method,
+          statusCode: String(statusCode),
+          userId: req.user?.id?.toString?.() || "",
+        },
+      }).catch(() => {});
+    }
   }
 
   const response = {

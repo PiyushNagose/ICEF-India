@@ -15,6 +15,8 @@ const {
   generateRegistrationNumber,
   buildProjectCode,
 } = require("./registrationNumber.service");
+const { notifyAdmins } = require("../utils/notifyAdmins");
+const { notify } = require("../utils/notify");
 
 const initiatePayment = async (
   applicationId,
@@ -182,6 +184,19 @@ const verifyPayment = async ({
         registrationNumber: application.registrationNumber || null,
       });
 
+      await notify({
+        recipientId: candidateId,
+        type: "payment_success",
+        title: "Payment Successful",
+        message: `Payment of INR ${payment.amount} for application ${application.applicationId} was successful.`,
+        link: "/check-status",
+        metadata: {
+          applicationId: application.applicationId,
+          transactionId,
+          registrationNumber: application.registrationNumber || "",
+        },
+      });
+
       // Send confirmation email
       await sendPaymentSuccessEmail(
         application.candidateId.email,
@@ -193,6 +208,28 @@ const verifyPayment = async ({
       emitToCandidate(candidateId, SOCKET_EVENTS.PAYMENT_FAILED, {
         transactionId,
         applicationId: application.applicationId,
+      });
+      await notify({
+        recipientId: candidateId,
+        type: "payment_failed",
+        title: "Payment Failed",
+        message: `Payment for application ${application.applicationId} failed. Please retry before the payment deadline.`,
+        link: "/application/payment",
+        metadata: {
+          applicationId: application.applicationId,
+          transactionId,
+        },
+      });
+      await notifyAdmins({
+        type: "payment_failed",
+        title: "Candidate payment failed",
+        message: `Payment failed for application ${application.applicationId}.`,
+        link: `/admin/applications/${application._id}`,
+        metadata: {
+          applicationId: application._id.toString(),
+          transactionId,
+          jobId: application.jobId?._id?.toString?.() || String(application.jobId || ""),
+        },
       });
     }
   }

@@ -37,8 +37,11 @@ import {
 
 const heroContainer = "mx-auto max-w-[1380px] px-4 sm:px-6 lg:px-8";
 
-const FieldLabel = ({ icon: Icon, children }) => (
-  <label className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#2f2b27]">
+const FieldLabel = ({ icon: Icon, children, htmlFor }) => (
+  <label
+    htmlFor={htmlFor}
+    className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#2f2b27]"
+  >
     {Icon && <Icon className="h-4 w-4 text-[#f15a0b]" />}
     {children}
   </label>
@@ -244,8 +247,11 @@ const AdmitCards = () => {
                 {!token && (
                   <form onSubmit={submitLookup} className="mt-5 space-y-5">
                     <div>
-                      <FieldLabel icon={Search}>Registration Number *</FieldLabel>
+                      <FieldLabel icon={Search} htmlFor="admit-registration">
+                        Registration Number *
+                      </FieldLabel>
                       <input
+                        id="admit-registration"
                         value={registrationNumber}
                         onChange={(e) => {
                           setRegistrationNumber(e.target.value.toUpperCase());
@@ -264,7 +270,9 @@ const AdmitCards = () => {
 
                     <div className="rounded-[8px] border border-[#eadfd2] bg-[#fffaf5] p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <FieldLabel icon={Phone}>Registered Mobile *</FieldLabel>
+                        <FieldLabel icon={Phone} htmlFor="admit-mobile">
+                          Registered Mobile *
+                        </FieldLabel>
                         {otpVerified && (
                           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-green-700">
                             Verified
@@ -273,6 +281,7 @@ const AdmitCards = () => {
                       </div>
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <input
+                          id="admit-mobile"
                           value={mobile}
                           onChange={(e) => {
                             setMobile(e.target.value.replace(/\D/g, "").slice(0, 10));
@@ -303,9 +312,10 @@ const AdmitCards = () => {
 
                     {otpSent && !otpVerified && (
                       <div className="rounded-[8px] border border-[#f3d0b9] bg-[#fff8f2] p-4">
-                        <FieldLabel>Mobile OTP *</FieldLabel>
+                        <FieldLabel htmlFor="admit-mobile-otp">Mobile OTP *</FieldLabel>
                         <div className="flex flex-col gap-3 sm:flex-row">
                           <input
+                            id="admit-mobile-otp"
                             value={otp}
                             onChange={(e) =>
                               setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
@@ -539,14 +549,19 @@ const AdmitCards = () => {
         </section>
 
         {previewId && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admit-preview-title"
+          >
             <div className="flex h-[88vh] w-full max-w-[980px] flex-col overflow-hidden rounded-[8px] bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-[#e5e7eb] px-5 py-4">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f15a0b]">
                     Admit Card Preview
                   </p>
-                  <h3 className="font-black text-[#111827]">
+                  <h3 id="admit-preview-title" className="font-black text-[#111827]">
                     Official generated admit card
                   </h3>
                 </div>
@@ -561,6 +576,7 @@ const AdmitCards = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewId(null)}
+                    aria-label="Close admit card preview"
                     className="inline-flex h-10 w-10 items-center justify-center rounded text-[#64748b] hover:bg-[#f3f4f6] hover:text-[#111827]"
                   >
                     <X className="h-5 w-5" />

@@ -20,6 +20,8 @@ const {
   emitBroadcast,
   SOCKET_EVENTS,
 } = require("../socket/index");
+const { notifyAdmins } = require("../utils/notifyAdmins");
+const { notify } = require("../utils/notify");
 
 const DEFAULT_PROVISIONAL_NOTE =
   "NOTE: THIS ADMIT CARD PROVISIONALLY ALLOWS YOU TO APPEAR THE OMR BASED TEST ON THE BASIS OF THE PARTICULARS PROVIDED BY YOU IN THE ONLINE APPLICATION. MERE ISSUANCE OF THIS ADMIT CARD DOES NOT NECESSARILY MEAN ACCEPTANCE OF YOUR ELIGIBILITY. YOUR DOCUMENTS REGARDING ELIGIBILITY WILL BE SCRUTINIZED SUBSEQUENTLY.";
@@ -1016,6 +1018,18 @@ const allocateCandidates = async (id, options = {}, userId) => {
     );
   }
   if (plan.unallocated.length > 0 && !options.allowPartial) {
+    await notifyAdmins({
+      type: "system_audit",
+      title: "Exam capacity shortage",
+      message: `Schedule ${schedule.examName} has ${plan.summary.unallocatedCandidates} candidates without seats. Add rooms/centers or allow partial allocation.`,
+      link: `/admin/admit-cards?focus=schedule&schedule=${schedule._id}`,
+      metadata: {
+        scheduleId: schedule._id.toString(),
+        eligibleCandidates: String(plan.summary.eligibleCandidates),
+        totalCapacity: String(plan.summary.totalCapacity),
+        unallocatedCandidates: String(plan.summary.unallocatedCandidates),
+      },
+    });
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       `Insufficient capacity for all eligible candidates. Eligible: ${plan.summary.eligibleCandidates}, active room capacity: ${plan.summary.totalCapacity}, unallocated: ${plan.summary.unallocatedCandidates}. Add active rooms under centers or pass allowPartial=true.`,
@@ -1700,9 +1714,10 @@ const publishAdmitCards = async (id, userId) => {
     );
   }
 
+  const publishedAt = new Date();
   const result = await AdmitCard.updateMany(
     { examScheduleId: schedule._id, status: "generated" },
-    { status: "published", publishedAt: new Date(), publishedBy: userId },
+    { status: "published", publishedAt, publishedBy: userId },
   );
 
   schedule.status = "published";
@@ -1710,6 +1725,39 @@ const publishAdmitCards = async (id, userId) => {
   schedule.publishedBy = schedule.publishedBy || userId;
   schedule.updatedBy = userId;
   await schedule.save();
+
+  if (result.modifiedCount > 0) {
+    const publishedCards = await AdmitCard.find({
+      examScheduleId: schedule._id,
+      status: "published",
+      publishedAt: { $gte: publishedAt },
+    })
+      .populate("applicationId", "applicationId registrationNumber")
+      .select("candidateId applicationId rollNumber");
+
+    await Promise.allSettled(
+      publishedCards
+        .filter((card) => card.candidateId)
+        .map((card) =>
+          notify({
+            recipientId: card.candidateId,
+            type: "admit_card_released",
+            title: "Admit Card Released",
+            message: `Admit card for ${schedule.examName} is now available. Roll number: ${card.rollNumber}.`,
+            link: "/admit-cards",
+            metadata: {
+              admitCardId: card._id.toString(),
+              applicationId:
+                card.applicationId?.applicationId ||
+                card.applicationId?._id?.toString?.() ||
+                "",
+              registrationNumber: card.applicationId?.registrationNumber || "",
+              scheduleId: schedule._id.toString(),
+            },
+          }),
+        ),
+    );
+  }
 
   return { schedule, publishedCount: result.modifiedCount || 0 };
 };

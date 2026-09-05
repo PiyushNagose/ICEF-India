@@ -208,6 +208,10 @@ const create = asyncHandler(async (req, res) => {
     updatedBy:    req.user?.id,
   });
   await invalidatePublicRecruitmentCache();
+  await saveAuditLog(
+    req,
+    `Created ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
+  );
   emitCmsRealtime(SOCKET_EVENTS.CMS_CREATED, page, "created");
 
   res.status(StatusCodes.CREATED).json(
@@ -336,6 +340,20 @@ const publish = asyncHandler(async (req, res) => {
   page.updatedBy = req.user?.id;
   await page.save();
   await invalidatePublicRecruitmentCache();
+  await saveAuditLog(
+    req,
+    `Published ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
+  );
+  await notifyAdmins({
+    type: "system_audit",
+    title: "Landing CMS published",
+    message: `${scope.isProjectPage ? "Project landing page" : "CMS page"} "${page.heroTitle || page.state}" was published.`,
+    link: scope.isProjectPage ? `/admin/cms/${encodeURIComponent(scope.state)}?projectId=${page.projectId}` : "/admin/cms",
+    metadata: {
+      pageId: page._id.toString(),
+      projectId: page.projectId?.toString?.() || "",
+    },
+  });
 
   emitCmsRealtime(SOCKET_EVENTS.CMS_UPDATED, page, "published");
   res.status(StatusCodes.OK).json(
@@ -367,11 +385,22 @@ const getPublicStatePage = asyncHandler(async (req, res) => {
 // POST /api/admin/cms/upload-image  — upload banner image to Cloudinary
 const uploadBannerImage = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, "No image file provided");
+  const allowedImageTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+  if (!allowedImageTypes.has(req.file.mimetype)) {
+    throw new ApiError(400, "Only JPG, PNG, and WebP images are allowed");
+  }
+  if (req.file.size > 2 * 1024 * 1024) {
+    throw new ApiError(400, "CMS image must be 2MB or smaller");
+  }
 
   const result = await uploadToCloudinary(req.file.buffer, {
     folder: "recruitment_portal/cms_banners",
     resource_type: "image",
   });
+  await saveAuditLog(
+    req,
+    `Uploaded CMS image: ${result.public_id}`,
+  );
 
   res.status(StatusCodes.OK).json(
     new ApiResponse(StatusCodes.OK, "Image uploaded", {

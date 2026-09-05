@@ -8,7 +8,7 @@ const { auditLog } = require("../../shared/middlewares/auditLog");
 router.use(authenticate, authorize("admin", "employee"));
 
 router.get("/", checkPermission("standardsSettings", "view"), ctrl.getAll);
-router.post("/", checkPermission("standardsSettings", "create"), ctrl.create);
+router.post("/", checkPermission("standardsSettings", "create"), auditLog("Standards Settings", "CREATE"), ctrl.create);
 router.put("/:id", checkPermission("standardsSettings", "edit"), auditLog("Standards Settings", "UPDATE"), ctrl.update);
 router.delete("/:id", checkPermission("standardsSettings", "delete"), auditLog("Standards Settings", "DELETE"), ctrl.remove);
 

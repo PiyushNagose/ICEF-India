@@ -67,6 +67,10 @@ const normalizeDocumentFile = (doc) => ({
   mimeType: doc?.mimeType || "",
   originalName: doc?.originalName || "",
   sizeKB: Number(doc?.sizeKB || 0),
+  accessLevel: doc?.accessLevel || "private",
+  scanStatus: doc?.scanStatus || "skipped",
+  scanProvider: doc?.scanProvider || "",
+  scannedAt: doc?.scannedAt || null,
   status: doc?.status || "pending",
   uploadedAt: doc?.uploadedAt || null,
 });

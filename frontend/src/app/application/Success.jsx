@@ -18,6 +18,7 @@ import { candidateService } from "../../services/candidate.service";
 import ApplicationAcknowledgement from "../../components/application/ApplicationAcknowledgement";
 import PublicBrandMark from "../../components/ui/PublicBrandMark";
 import {
+  getApplicationRequirementIssues,
   readApplicationDraft,
   isCorrectionMode,
   persistApplicationDraft,
@@ -154,6 +155,18 @@ const Success = () => {
         return;
       }
 
+      const blockingIssues = getApplicationRequirementIssues(app, {
+        includePayment: false,
+      });
+      if (blockingIssues.length > 0) {
+        toast.error(blockingIssues[0].message);
+        navigate(blockingIssues[0].step?.path || "/application/review", {
+          replace: true,
+          state: { applicationId: rawApplicationId },
+        });
+        return;
+      }
+
       finalizeStartedRef.current = true;
       setFinalizingSubmit(true);
       try {
@@ -189,6 +202,17 @@ const Success = () => {
 
     if (!isPaymentPaid) {
       navigate("/application/payment", { state: { applicationId: rawApplicationId } });
+      return;
+    }
+
+    const blockingIssues = getApplicationRequirementIssues(app, {
+      includePayment: false,
+    });
+    if (blockingIssues.length > 0) {
+      toast.error(blockingIssues[0].message);
+      navigate(blockingIssues[0].step?.path || "/application/review", {
+        state: { applicationId: rawApplicationId },
+      });
       return;
     }
 

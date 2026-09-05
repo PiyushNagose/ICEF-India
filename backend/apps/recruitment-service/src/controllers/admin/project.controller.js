@@ -46,6 +46,19 @@ const PROJECT_SORT_FIELDS = new Set([
   "status",
 ]);
 
+const assertFreshUpdate = (body, document) => {
+  if (!body.updatedAt) return;
+  const clientUpdatedAt = new Date(body.updatedAt);
+  if (Number.isNaN(clientUpdatedAt.getTime())) return;
+  const serverUpdatedAt = new Date(document.updatedAt);
+  if (serverUpdatedAt.getTime() > clientUpdatedAt.getTime() + 1000) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "This record was changed by another admin. Refresh before saving again.",
+    );
+  }
+};
+
 const isJobAdvertisementConfigured = (job) => {
   const posts = Array.isArray(job?.posts) ? job.posts : [];
   const hasVacancies =
@@ -360,6 +373,7 @@ const createProject = asyncHandler(async (req, res) => {
   await project.populate("createdBy", "fullName employeeId");
 
   await invalidatePublicRecruitmentCache();
+  await saveAuditLog(req, `Created project: ${project.name}`);
 
   // Real-time notification to all admins
   emitToAdmins(SOCKET_EVENTS.ADMIN_LIVE_COUNT, {
@@ -402,6 +416,7 @@ const updateProject = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
+  assertFreshUpdate(req.body, project);
 
   assertProjectTimeline({
     startDate: startDate !== undefined ? startDate : project.startDate,
@@ -505,6 +520,13 @@ const publishProject = asyncHandler(async (req, res) => {
   await project.save();
   await saveAuditLog(req, `Published project URL: ${project.name}`);
   await invalidatePublicRecruitmentCache();
+  await notifyAdmins({
+    type: "new_job_posted",
+    title: "Project URL published",
+    message: `Project "${project.name}" public URL is live.`,
+    link: `/admin/projects/${project._id}`,
+    metadata: { projectId: project._id.toString() },
+  });
 
   emitToAdmins(SOCKET_EVENTS.PROJECT_UPDATED, {
     type: "project_published",

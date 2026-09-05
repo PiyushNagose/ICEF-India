@@ -13,6 +13,7 @@ const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 const { createZipBuffer } = require("../utils/zip");
 const { publishToQueue, QUEUES } = require("../config/rabbitmq");
+const { notifyAdmins } = require("../utils/notifyAdmins");
 
 const outputDir = path.join(os.tmpdir(), "recruitment-portal-exam-jobs");
 
@@ -86,6 +87,17 @@ const failJob = async (job, error) => {
   });
   markProgress(job, { message: error.message });
   await job.save();
+  await notifyAdmins({
+    type: "system_audit",
+    title: "Bulk exam job failed",
+    message: `${job.type.replace(/_/g, " ")} failed: ${error.message}`,
+    link: `/admin/admit-cards?bulkJob=${job._id}`,
+    metadata: {
+      bulkJobId: job._id.toString(),
+      scheduleId: job.examScheduleId?.toString?.() || String(job.examScheduleId || ""),
+      type: job.type,
+    },
+  });
 };
 
 const processAllocationJob = async (job) => {

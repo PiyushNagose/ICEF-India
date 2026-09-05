@@ -588,6 +588,8 @@ const JobReview = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
     if (effectiveProjectId) {
       queryClient.invalidateQueries({ queryKey: ["admin-project", effectiveProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-jobs-for-exams", effectiveProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["exam-schedules", effectiveProjectId] });
     }
     const publicSlug = project?.publicSlug || project?.slug || hydratedJob?.projectId?.publicSlug;
     if (publicSlug) {
@@ -911,7 +913,7 @@ const JobReview = () => {
         toast.success("Job advertisement saved. Continue with admit-card setup.");
         sessionStorage.removeItem(STORAGE_KEY);
         invalidateJobAndPublicViews();
-        navigate(getNextProjectStepPath(jobId));
+        navigate(getNextProjectStepPath(publishJobId));
         return;
       }
       await publishJob(publishJobId);

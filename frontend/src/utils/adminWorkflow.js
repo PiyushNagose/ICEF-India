@@ -94,8 +94,12 @@ export const buildAdminJobWorkflow = ({
   const amendmentMode = Boolean(
     project?.isPublished && job?._id && wasPublished && effectiveStatus === "closed",
   );
-  const reviewReady = landingComplete && jobComplete;
   const admitOptional = !admitPhaseActive;
+  const requiredSetupComplete =
+    landingComplete &&
+    jobComplete &&
+    (admitOptional || (admitFormatComplete && centersComplete));
+  const reviewReady = requiredSetupComplete;
 
   const checks = [
     {
@@ -139,10 +143,14 @@ export const buildAdminJobWorkflow = ({
     {
       key: "review",
       label: "Final Review",
-      complete: Boolean(reviewReady || publishComplete),
+      complete: publishComplete,
       message: reviewReady
-        ? "Selected job is ready for publish."
-        : "Verify the selected job before publishing.",
+        ? admitOptional
+          ? "Selected job is ready for publish."
+          : "Selected job is ready for admit-card review."
+        : admitOptional
+          ? "Verify the selected job before publishing."
+          : "Complete admit format and centers before final review.",
     },
     {
       key: "publish",

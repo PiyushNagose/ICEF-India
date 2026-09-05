@@ -125,8 +125,9 @@ const Stat = ({ icon, label, value, tone = 'orange' }) => (
     title={label}
     value={value ?? 0}
     tone={tone}
+    compact
     valueClassName="text-2xl"
-    className="rounded-xl p-4"
+    className="rounded-xl"
   />
 )
 
@@ -158,18 +159,18 @@ const AdmitCards = () => {
     queryFn: () => adminService.getExamCenters({ limit: 100 }),
   })
 
-  const { data: projectData, error: projectError } = useQuery({
+  const { data: projectData, isLoading: projectLoading, error: projectError } = useQuery({
     queryKey: ['admin-project-flow', projectId],
     queryFn: () => adminService.getProject(projectId),
     enabled: Boolean(projectId),
     staleTime: 30000,
   })
 
-  const { data: jobsData, error: jobsError } = useQuery({
+  const { data: jobsData, isLoading: jobsLoading, error: jobsError } = useQuery({
     queryKey: ['admin-jobs-for-exams', projectId],
     queryFn: () => adminService.getAdminJobs({ limit: 100, ...(projectId ? { projectId } : {}) }),
   })
-  const { data: selectedJobData, error: selectedJobError } = useQuery({
+  const { data: selectedJobData, isLoading: selectedJobLoading, error: selectedJobError } = useQuery({
     queryKey: ['admin-job-for-exams', selectedJobId],
     queryFn: () => adminService.getAdminJob(selectedJobId),
     enabled: Boolean(selectedJobId),
@@ -753,6 +754,25 @@ const AdmitCards = () => {
       selectedSchedule?.status !== 'published' &&
       admitMissingRequired.length === 0,
   )
+  const isHydratingProjectContext = Boolean(
+    projectId &&
+      (projectLoading || jobsLoading || (jobParam && selectedJobLoading && !selectedJob?._id)),
+  )
+
+  if (isHydratingProjectContext) {
+    return (
+      <AdminLayout title="Admit Cards">
+        <div className="min-h-full p-5 pt-6 md:p-6 md:pt-7">
+          <div className="flex min-h-[50vh] items-center justify-center rounded-2xl border border-orange-100 bg-white shadow-sm">
+            <div className="flex items-center gap-3 text-sm font-semibold text-gray-600">
+              <Loader2 className="h-5 w-5 animate-spin text-orange-600" />
+              Loading admit-card setup...
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    )
+  }
 
   return (
     <AdminLayout title="Admit Cards">
@@ -894,7 +914,7 @@ const AdmitCards = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-3">
                   <Stat icon={CheckCircle2} label="Active" value={activeCenters.length} tone="green" />
                   <Stat
                     icon={Users}

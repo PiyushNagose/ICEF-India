@@ -53,6 +53,9 @@ const Button = forwardRef(
       rounded-xl font-semibold
       transition-all duration-200 ease-out
       focus:outline-none
+      focus-visible:ring-2
+      focus-visible:ring-orange-500
+      focus-visible:ring-offset-2
       disabled:opacity-50
       disabled:pointer-events-none
       active:scale-[0.98]

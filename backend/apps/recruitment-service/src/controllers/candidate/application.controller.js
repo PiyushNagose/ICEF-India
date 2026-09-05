@@ -24,6 +24,9 @@ const {
 const {
   uploadToCloudinary,
   validateFileSize,
+  validateFileSignature,
+  scanBufferForViruses,
+  getSignedCloudinaryUrl,
   deleteFromCloudinary,
 } = require("../../shared/services/upload.service");
 const { notify } = require("../../shared/utils/notify");
@@ -60,6 +63,64 @@ const slugify = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+
+const MIME_BY_FORMAT = {
+  PDF: ["application/pdf"],
+  JPG: ["image/jpeg", "image/jpg"],
+  JPEG: ["image/jpeg", "image/jpg"],
+  PNG: ["image/png"],
+  DOC: ["application/msword"],
+  DOCX: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+};
+
+const getAllowedMimesForFormats = (formats = []) =>
+  formats
+    .flatMap((format) => MIME_BY_FORMAT[String(format || "").trim().toUpperCase()] || [])
+    .filter(Boolean);
+
+const isBlank = (value) =>
+  value === undefined ||
+  value === null ||
+  value === "" ||
+  (typeof value === "string" && value.trim() === "");
+
+const hasAnyValue = (value) => {
+  if (Array.isArray(value)) return value.some(hasAnyValue);
+  if (value && typeof value === "object") {
+    return Object.values(value).some(hasAnyValue);
+  }
+  return !isBlank(value);
+};
+
+const numberValue = (value) => {
+  if (isBlank(value)) return undefined;
+  const next = Number(value);
+  return Number.isFinite(next) ? next : undefined;
+};
+
+const calculateAge = (dateOfBirth, referenceDate = new Date()) => {
+  const dob = new Date(dateOfBirth);
+  const reference = new Date(referenceDate || Date.now());
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(reference.getTime())) {
+    return undefined;
+  }
+  let age = reference.getFullYear() - dob.getFullYear();
+  const monthDiff = reference.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && reference.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+const getAgeRelaxation = (ageLimit = {}, category = "") => {
+  const key = String(category || "").toLowerCase().replace(/[^a-z]/g, "");
+  const relaxation = ageLimit.relaxation || {};
+  if (key.includes("pwd") || key.includes("ph")) return numberValue(relaxation.pwd) || 0;
+  if (key.includes("obc")) return numberValue(relaxation.obc) || 0;
+  if (key.includes("sc")) return numberValue(relaxation.sc) || 0;
+  if (key.includes("st")) return numberValue(relaxation.st) || 0;
+  return 0;
+};
 
 const RESERVED_FORM_SECTION_TITLES = new Set([
   "personal information",
@@ -185,10 +246,120 @@ const getNextStepNumber = (job, currentStepType) => {
 
 const assertApplicationCompleteForJob = (app) => {
   const job = app.jobId;
+  const personal = app.personalDetails || {};
+  const education = app.education || {};
+  const additionalInfo = app.additionalInfo || {};
+  const address = app.address || {};
+  const permanent = address.permanent || {};
+  const correspondence = address.sameAsPermanent
+    ? permanent
+    : address.correspondence || {};
   const responses =
     app.formResponses instanceof Map
       ? Object.fromEntries(app.formResponses)
       : app.formResponses || {};
+
+  [
+    ["Full name", personal.fullName],
+    ["Date of birth", personal.dateOfBirth],
+    ["Gender", personal.gender],
+    ["Category", personal.category],
+    ["Registered mobile", personal.registeredMobile],
+  ].forEach(([label, value]) => {
+    if (isBlank(value)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, `${label} is required`);
+    }
+  });
+
+  const minAge = numberValue(job?.ageLimit?.min);
+  const maxAge = numberValue(job?.ageLimit?.max);
+  if (minAge !== undefined || maxAge !== undefined) {
+    const candidateAge = calculateAge(
+      personal.dateOfBirth,
+      job?.applicationDeadline || new Date(),
+    );
+    const relaxedMaxAge =
+      maxAge !== undefined
+        ? maxAge + getAgeRelaxation(job.ageLimit, personal.category)
+        : undefined;
+    if (candidateAge === undefined) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Valid date of birth is required");
+    }
+    if (minAge !== undefined && candidateAge < minAge) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Candidate age must be at least ${minAge} years`,
+      );
+    }
+    if (relaxedMaxAge !== undefined && candidateAge > relaxedMaxAge) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Candidate age must not exceed ${relaxedMaxAge} years for selected category`,
+      );
+    }
+  }
+
+  ["addressLine1", "state", "district", "pincode"].forEach((key) => {
+    if (isBlank(permanent[key])) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, `Permanent ${key} is required`);
+    }
+  });
+  ["addressLine1", "state", "district", "pincode"].forEach((key) => {
+    if (isBlank(correspondence[key])) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, `Correspondence ${key} is required`);
+    }
+  });
+
+  const requiredEducation = Array.isArray(job?.education?.essential)
+    ? job.education.essential
+    : [];
+  if (requiredEducation.length > 0 && !hasAnyValue(education)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Education details are required for this job",
+    );
+  }
+
+  [
+    ["10th education", education.tenth, ["board", "school", "year", "percentage"]],
+    ["12th education", education.twelfth, ["board", "school", "year", "percentage"]],
+    ["Graduation", education.graduation, ["degree", "university", "year", "percentage"]],
+  ].forEach(([label, section, fields]) => {
+    if (!hasAnyValue(section)) return;
+    fields.forEach((field) => {
+      if (isBlank(section?.[field])) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `${label}: ${field} is required`);
+      }
+    });
+  });
+
+  if (additionalInfo.isGovtEmployee) {
+    if (isBlank(additionalInfo.departmentName)) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Department name is required for government employees",
+      );
+    }
+    if ((numberValue(additionalInfo.yearsOfService) || 0) < 1) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Years of service is required for government employees",
+      );
+    }
+  }
+
+  if (additionalInfo.isPwD) {
+    if (isBlank(additionalInfo.disabilityType)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Disability type is required for PwD candidates");
+    }
+    const disabilityPercentage = numberValue(additionalInfo.disabilityPercentage);
+    if (!disabilityPercentage || disabilityPercentage < 1 || disabilityPercentage > 100) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Valid disability percentage is required for PwD candidates",
+      );
+    }
+  }
 
   getCustomFormSections(job).forEach((section) => {
     (section.fields || []).forEach((field) => {
@@ -207,6 +378,15 @@ const assertApplicationCompleteForJob = (app) => {
       }
     });
   });
+
+  const posts = Array.isArray(job?.posts) ? job.posts : [];
+  if (posts.length > 0 && (!Array.isArray(app.appliedPosts) || app.appliedPosts.length === 0)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Select at least one post");
+  }
+
+  if (isBlank(app.declaration)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Declaration is required");
+  }
 
   const requiredDocs = (job.documentRequirements || [])
     .filter((doc) => doc.required !== false)
@@ -356,6 +536,18 @@ const createApplication = asyncHandler(async (req, res) => {
     "jobId",
     "title department postCode applicationDeadline formSections documentRequirements posts postSelectionMode applicationFee paymentConfig",
   );
+
+  await notify({
+    recipientId: req.user.id,
+    type: "application_started",
+    title: "Application Started",
+    message: `Application draft ${application.applicationId} for ${application.jobId?.title || "the job"} has been created.`,
+    link: "/application/personal-details",
+    metadata: {
+      applicationId: application.applicationId,
+      jobId: application.jobId?._id?.toString?.() || String(jobId || ""),
+    },
+  });
 
   res.status(StatusCodes.CREATED).json(
     new ApiResponse(StatusCodes.CREATED, "Application created", {
@@ -897,6 +1089,20 @@ const uploadDocument = asyncHandler(async (req, res) => {
     validateFileSize(req.file.size, docType);
   }
 
+  const allowedMimes = getAllowedMimesForFormats(selectedRequirement.formats);
+  if (allowedMimes.length > 0 && !allowedMimes.includes(req.file.mimetype)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Invalid file type for ${selectedRequirement.name}. Allowed: ${selectedRequirement.formats.join(", ")}`,
+    );
+  }
+
+  validateFileSignature(req.file.buffer, req.file.mimetype);
+  const scanResult = await scanBufferForViruses(
+    req.file.buffer,
+    req.file.originalname || docType,
+  );
+
   // Delete old document from Cloudinary if exists
   const existingDoc = app.documents.find((d) => d.type === docType);
   if (existingDoc?.cloudinaryPublicId) {
@@ -912,6 +1118,8 @@ const uploadDocument = asyncHandler(async (req, res) => {
   const result = await uploadToCloudinary(req.file.buffer, {
     folder: `${storagePath.basePath}/documents/${docType}`,
     public_id: `${docType}_${Date.now()}`,
+    type: "authenticated",
+    access_mode: "authenticated",
   });
 
   const safeOriginalName = path
@@ -938,6 +1146,10 @@ const uploadDocument = asyncHandler(async (req, res) => {
     mimeType: req.file.mimetype,
     originalName: req.file.originalname,
     sizeKB: Math.round(req.file.size / 1024),
+    accessLevel: "private",
+    scanStatus: scanResult.status,
+    scanProvider: scanResult.provider,
+    scannedAt: scanResult.scannedAt,
     status: "uploaded",
     uploadedAt: new Date(),
   };
@@ -1346,7 +1558,17 @@ const finalizeApplication = asyncHandler(async (req, res) => {
     metadata: { applicationId: app.applicationId },
   });
 
-  // (Removed) Notify all admins — new application received (Too much overhead)
+  await notifyAdmins({
+    type: "application_submitted",
+    title: "New application submitted",
+    message: `Application ${app.applicationId} was submitted for ${app.jobId?.title || "the job"}.`,
+    link: `/admin/applications/${app._id}`,
+    metadata: {
+      applicationId: app._id.toString(),
+      publicApplicationId: app.applicationId,
+      jobId: app.jobId?._id?.toString?.() || String(app.jobId || ""),
+    },
+  });
 
   try {
     emitToCandidate(req.user.id, SOCKET_EVENTS.APPLICATION_SUBMITTED, {
@@ -1522,7 +1744,13 @@ const previewDocument = asyncHandler(async (req, res) => {
     return fs.createReadStream(document.localPath).pipe(res);
   }
 
-  const response = await fetch(document.cloudinaryUrl);
+  const remoteUrl =
+    document.cloudinaryPublicId
+      ? getSignedCloudinaryUrl(document.cloudinaryPublicId, {
+          expiresInSeconds: 300,
+        })
+      : document.cloudinaryUrl;
+  const response = await fetch(remoteUrl);
   if (!response.ok) {
     throw new ApiError(
       StatusCodes.BAD_GATEWAY,

@@ -187,6 +187,24 @@ const paymentConfigSchema = new mongoose.Schema(
 
 // ── Main Job Schema ───────────────────────────────────────
 
+const amendmentSchema = new mongoose.Schema(
+  {
+    version: { type: Number, required: true, min: 1 },
+    reason: { type: String, required: true, trim: true },
+    changedFields: [{ type: String, trim: true }],
+    changes: [
+      {
+        field: { type: String, required: true, trim: true },
+        oldValue: mongoose.Schema.Types.Mixed,
+        newValue: mongoose.Schema.Types.Mixed,
+      },
+    ],
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    changedAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const jobSchema = new mongoose.Schema(
   {
     projectId: {
@@ -271,6 +289,8 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
     publishedAt: { type: Date },
+    amendmentVersion: { type: Number, default: 0, min: 0 },
+    amendments: [amendmentSchema],
 
     // RBAC Soft Delete — employees soft-delete; hard delete reserved for admin
     isSoftDeleted: { type: Boolean, default: false, index: true },

@@ -194,6 +194,38 @@ export const getRouteForApplicationStep = (
 const hasValue = (value) =>
   value !== undefined && value !== null && String(value).trim() !== "";
 
+const hasAnyValue = (value) => {
+  if (Array.isArray(value)) return value.some(hasAnyValue);
+  if (value && typeof value === "object") {
+    return Object.values(value).some(hasAnyValue);
+  }
+  return hasValue(value);
+};
+
+const calculateAge = (dateOfBirth, referenceDate = new Date()) => {
+  const dob = new Date(dateOfBirth);
+  const reference = new Date(referenceDate || Date.now());
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(reference.getTime())) {
+    return null;
+  }
+  let age = reference.getFullYear() - dob.getFullYear();
+  const monthDiff = reference.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && reference.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+const getAgeRelaxation = (ageLimit = {}, category = "") => {
+  const key = String(category || "").toLowerCase().replace(/[^a-z]/g, "");
+  const relaxation = ageLimit.relaxation || {};
+  if (key.includes("pwd") || key.includes("ph")) return Number(relaxation.pwd) || 0;
+  if (key.includes("obc")) return Number(relaxation.obc) || 0;
+  if (key.includes("sc")) return Number(relaxation.sc) || 0;
+  if (key.includes("st")) return Number(relaxation.st) || 0;
+  return 0;
+};
+
 const normaliseKey = (value = "") =>
   String(value)
     .trim()
@@ -300,6 +332,109 @@ export const isApplicationStepComplete = (step, application = {}) => {
   }
 
   return Number(application?.currentStep || 0) > Number(step.id || 0);
+};
+
+export const getApplicationRequirementIssues = (
+  application = {},
+  { includePayment = true, includeReview = true, includePostSelection = true } = {},
+) => {
+  const job = normaliseJob(application);
+  const steps = buildApplicationSteps(job, application);
+  const issues = [];
+
+  steps.forEach((step) => {
+    if (step.type === "success") return;
+    if (!includePayment && step.type === "payment") return;
+    if (!includeReview && step.type === "review") return;
+    if (!includePostSelection && step.type === "post-selection") return;
+    if (isApplicationStepComplete(step, application)) return;
+    issues.push({
+      step,
+      message: `${step.name || "This step"} is incomplete`,
+    });
+  });
+
+  const education = application?.education || {};
+  const requiredEducation = Array.isArray(job?.education?.essential)
+    ? job.education.essential
+    : [];
+  const personal = application?.personalDetails || {};
+  const minAge = Number(job?.ageLimit?.min);
+  const maxAge = Number(job?.ageLimit?.max);
+
+  if (Number.isFinite(minAge) || Number.isFinite(maxAge)) {
+    const candidateAge = calculateAge(
+      personal.dateOfBirth,
+      job?.applicationDeadline || new Date(),
+    );
+    const personalStep = steps.find((item) => item.type === "personal-details");
+    if (candidateAge === null) {
+      issues.push({
+        step: personalStep,
+        message: "Valid date of birth is required",
+      });
+    } else if (Number.isFinite(minAge) && candidateAge < minAge) {
+      issues.push({
+        step: personalStep,
+        message: `Candidate age must be at least ${minAge} years`,
+      });
+    } else if (Number.isFinite(maxAge)) {
+      const relaxedMaxAge =
+        maxAge + getAgeRelaxation(job?.ageLimit, personal.category);
+      if (candidateAge > relaxedMaxAge) {
+        issues.push({
+          step: personalStep,
+          message: `Candidate age must not exceed ${relaxedMaxAge} years for selected category`,
+        });
+      }
+    }
+  }
+
+  if (requiredEducation.length > 0 && !hasAnyValue(education)) {
+    const step = steps.find((item) => item.type === "education");
+    issues.push({
+      step,
+      message: "Education details are required for this job",
+    });
+  }
+
+  const additionalInfo = application?.additionalInfo || {};
+  if (additionalInfo.isGovtEmployee) {
+    if (!hasValue(additionalInfo.departmentName)) {
+      issues.push({
+        step: steps.find((item) => item.type === "additional-info"),
+        message: "Department name is required for government employees",
+      });
+    }
+    if (!(Number(additionalInfo.yearsOfService) > 0)) {
+      issues.push({
+        step: steps.find((item) => item.type === "additional-info"),
+        message: "Years of service is required for government employees",
+      });
+    }
+  }
+
+  if (additionalInfo.isPwD) {
+    const disabilityPercentage = Number(additionalInfo.disabilityPercentage);
+    if (!hasValue(additionalInfo.disabilityType)) {
+      issues.push({
+        step: steps.find((item) => item.type === "additional-info"),
+        message: "Disability type is required for PwD candidates",
+      });
+    }
+    if (!(disabilityPercentage >= 1 && disabilityPercentage <= 100)) {
+      issues.push({
+        step: steps.find((item) => item.type === "additional-info"),
+        message: "Valid disability percentage is required for PwD candidates",
+      });
+    }
+  }
+
+  return issues.filter(
+    (issue, index, all) =>
+      issue.message &&
+      index === all.findIndex((item) => item.message === issue.message),
+  );
 };
 
 export const getApplicationUnlockedStep = (application = {}, steps = []) => {

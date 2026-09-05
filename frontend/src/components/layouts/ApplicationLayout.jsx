@@ -168,7 +168,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
   };
 
   return (
-    <div className="customer-motion-root h-screen overflow-hidden bg-orange-50 flex flex-col">
+    <div className="customer-motion-root flex min-h-screen flex-col bg-orange-50 lg:h-screen lg:overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-orange-200 px-6 py-4 flex-shrink-0">
         <div className="w-full flex items-center justify-between">
@@ -256,7 +256,7 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[288px_1fr]">
+      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[288px_1fr]">
         {/* Sidebar */}
         <div className="hidden lg:block p-5 min-h-0 overflow-hidden">
           <div className="bg-gray-800 rounded-xl shadow-lg h-full min-h-0 flex flex-col overflow-hidden">
@@ -377,10 +377,10 @@ const ApplicationLayout = ({ children, currentStep = 1, title, jobTitle }) => {
         </div>
 
         {/* Main Content */}
-        <div className="min-w-0 min-h-0">
+        <div className="min-w-0 lg:min-h-0">
           <main
             data-scroll-root="true"
-            className="application-page-scroll hover-scroll h-full overflow-y-auto p-4 lg:p-6"
+            className="application-page-scroll hover-scroll p-4 lg:h-full lg:overflow-y-auto lg:p-6"
           >
             <div className="application-page-root min-h-full w-full">
               {title && (

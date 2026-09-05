@@ -9,6 +9,7 @@ import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import {
   buildApplicationSteps,
+  getApplicationRequirementIssues,
   isCorrectionMode,
 } from "../../utils/applicationFlow";
 import { getLastPublicProjectPath } from "../../utils/publicNavigation";
@@ -141,6 +142,19 @@ const Review = () => {
     }
     if (!accepted) {
       toast.error("Please accept the declaration to continue");
+      return;
+    }
+    const blockingIssues = getApplicationRequirementIssues(app, {
+      includePayment: false,
+      includePostSelection: false,
+      includeReview: false,
+    });
+    if (blockingIssues.length > 0) {
+      const firstIssue = blockingIssues[0];
+      toast.error(firstIssue.message);
+      navigate(firstIssue.step?.path || getLastPublicProjectPath(), {
+        state: { applicationId },
+      });
       return;
     }
     // Store declaration in sessionStorage so Payment/Finalize can use it

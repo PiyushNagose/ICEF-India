@@ -13,10 +13,10 @@ router.post("/upload-image", checkPermission("cms", "edit"), upload.single("imag
 
 router.get("/",               checkPermission("cms", "view"), cms.getAll);
 router.get("/activity",       checkPermission("cms", "view"), cms.getActivity);
-router.post("/",              checkPermission("cms", "create"), cms.create);
+router.post("/",              checkPermission("cms", "create"), auditLog("CMS", "CREATE"), cms.create);
 router.get("/:state",         checkPermission("cms", "view"), cms.getOne);
 router.put("/:state",         checkPermission("cms", "edit"), auditLog("CMS", "UPDATE"), cms.update);
-router.put("/:state/publish", checkPermission("cms", "publish"), cms.publish);
+router.put("/:state/publish", checkPermission("cms", "publish"), auditLog("CMS", "PUBLISH"), cms.publish);
 router.delete("/:state",      checkPermission("cms", "delete"), auditLog("CMS", "DELETE"), cms.remove);
 
 module.exports = router;

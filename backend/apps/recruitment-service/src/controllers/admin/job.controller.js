@@ -40,6 +40,10 @@ const {
   invalidatePublicRecruitmentCache,
 } = require("../../shared/utils/publicCache");
 const { notifyAdmins } = require("../../shared/utils/notifyAdmins");
+const { notify } = require("../../shared/utils/notify");
+const {
+  validateJobConfiguration,
+} = require("../../shared/utils/jobRequirements");
 
 const normalizePosts = (posts = []) =>
   posts
@@ -52,33 +56,6 @@ const normalizePosts = (posts = []) =>
 
 const getPostVacancyTotal = (posts = []) =>
   posts.reduce((sum, post) => sum + (Number(post.vacancies) || 0), 0);
-
-const getPublishValidationErrors = (job) => {
-  const errors = [];
-  if (!job.projectId) errors.push("Project is required");
-  if (!job.title) errors.push("Advertisement / exam title is required");
-  if (!job.postCode) errors.push("Advertisement / exam code is required");
-  if (!job.department) errors.push("Department is required");
-
-  const posts = Array.isArray(job.posts) ? job.posts : [];
-  if (!posts.length) {
-    errors.push("At least one post/designation is required");
-  } else {
-    posts.forEach((post, index) => {
-      const label = `Post ${index + 1}`;
-      if (!post.title) errors.push(`${label}: title is required`);
-      if (!post.designation) errors.push(`${label}: designation is required`);
-      if (!Number(post.vacancies) || Number(post.vacancies) < 1) {
-        errors.push(`${label}: vacancies must be at least 1`);
-      }
-    });
-  }
-
-  if (!job.applicationStartDate) errors.push("Application start date is required");
-  if (!job.applicationDeadline) errors.push("Application deadline is required");
-
-  return errors;
-};
 
 const getBodyPaths = (value, prefix = "") => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -147,6 +124,43 @@ const dateValuesEqual = (left, right) => {
   if (!a && !b) return true;
   if (!a || !b) return false;
   return startOfDay(a).getTime() === startOfDay(b).getTime();
+};
+
+const getPathValue = (value, path) =>
+  path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), value);
+
+const getChangedBodyEntries = (body, job) =>
+  getBodyPaths(body)
+    .filter(
+      (path) =>
+        !["_id", "projectId", "createdBy", "createdAt", "updatedAt", "__v", "amendmentReason"].includes(
+          path.split(".")[0],
+        ),
+    )
+    .filter((path) => {
+      const nextValue = getPathValue(body, path);
+      const currentValue = getPathValue(job, path);
+      return isDateLikeField(path)
+        ? !dateValuesEqual(nextValue, currentValue)
+        : !valuesEqual(nextValue, currentValue);
+    })
+    .map((path) => ({
+      field: path,
+      oldValue: stripMongoKeys(getPathValue(job, path)),
+      newValue: stripMongoKeys(getPathValue(body, path)),
+    }));
+
+const assertFreshUpdate = (body, document) => {
+  if (!body.updatedAt) return;
+  const clientUpdatedAt = new Date(body.updatedAt);
+  if (Number.isNaN(clientUpdatedAt.getTime())) return;
+  const serverUpdatedAt = new Date(document.updatedAt);
+  if (serverUpdatedAt.getTime() > clientUpdatedAt.getTime() + 1000) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "This record was changed by another admin. Refresh before saving again.",
+    );
+  }
 };
 
 const bodyFieldChanged = (body, job, field) => {
@@ -673,6 +687,7 @@ const updateJob = asyncHandler(async (req, res) => {
   if (!job) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
+  assertFreshUpdate(req.body, job);
 
   if (
     req.body.projectId &&
@@ -686,6 +701,9 @@ const updateJob = asyncHandler(async (req, res) => {
   delete req.body.projectId;
 
   await enforcePublishedJobEditPolicy({ job, body: req.body });
+  const amendmentReason = String(req.body.amendmentReason || "").trim();
+  const amendmentChanges = getChangedBodyEntries(req.body, job);
+  const amendmentChangedFields = amendmentChanges.map((change) => change.field);
 
   if (Array.isArray(req.body.posts) && req.body.posts.length > 0) {
     const posts = normalizePosts(req.body.posts);
@@ -760,6 +778,10 @@ const updateJob = asyncHandler(async (req, res) => {
     String(job.status || "").toLowerCase() === "closed" &&
     bodyFieldChanged(req.body, job, "applicationDeadline") &&
     endOfDay(nextJob.applicationDeadline) >= new Date();
+  const shouldNotifyResultPublished =
+    bodyFieldChanged(req.body, job, "resultDate") &&
+    nextJob.resultDate &&
+    startOfDay(nextJob.resultDate) <= startOfToday();
 
   Object.keys(req.body).forEach((key) => {
     if (["_id", "projectId", "createdBy", "createdAt", "updatedAt", "__v", "amendmentReason"].includes(key)) {
@@ -787,14 +809,64 @@ const updateJob = asyncHandler(async (req, res) => {
     job.status = "active";
     job.publishedAt = job.publishedAt || new Date();
   }
+  if (amendmentReason && amendmentChangedFields.length > 0) {
+    const nextVersion = Number(job.amendmentVersion || 0) + 1;
+    job.amendmentVersion = nextVersion;
+    job.amendments.push({
+      version: nextVersion,
+      reason: amendmentReason,
+      changedFields: amendmentChangedFields,
+      changes: amendmentChanges,
+      changedBy: req.user.id,
+      changedAt: new Date(),
+    });
+  }
 
   await job.save();
+  if (shouldNotifyResultPublished) {
+    const applications = await Application.find({
+      jobId: job._id,
+      status: { $ne: "draft" },
+    }).select("candidateId applicationId registrationNumber");
+
+    await Promise.allSettled(
+      applications
+        .filter((application) => application.candidateId)
+        .map((application) =>
+          notify({
+            recipientId: application.candidateId,
+            type: "result_published",
+            title: "Result Published",
+            message: `Result updates for ${job.title} are now available. Check your application status using your registration number.`,
+            link: "/results",
+            metadata: {
+              applicationId: application.applicationId,
+              registrationNumber: application.registrationNumber || "",
+              jobId: job._id.toString(),
+            },
+          }),
+        ),
+    );
+  }
   await saveAuditLog(
     req,
-    req.body.amendmentReason
-      ? `Job amendment for "${job.title}": ${String(req.body.amendmentReason).trim()}`
+    amendmentReason
+      ? `Job amendment v${job.amendmentVersion} for "${job.title}": ${amendmentReason}`
       : `Updated job: ${job.title}`,
   );
+  if (amendmentReason && amendmentChangedFields.length > 0) {
+    await notifyAdmins({
+      type: "system_audit",
+      title: `Job amendment v${job.amendmentVersion}`,
+      message: `${job.title} changed: ${amendmentChangedFields.join(", ")}.`,
+      link: `/admin/projects/${job.projectId}?job=${job._id}`,
+      metadata: {
+        jobId: job._id.toString(),
+        projectId: job.projectId?.toString?.() || "",
+        amendmentVersion: String(job.amendmentVersion),
+      },
+    });
+  }
 
   await job.populate([
     { path: "projectId", select: "name department state" },
@@ -856,7 +928,7 @@ const publishJob = asyncHandler(async (req, res) => {
     if (computed > 0) job.totalPosts = computed;
   }
 
-  const publishErrors = getPublishValidationErrors(job);
+  const publishErrors = validateJobConfiguration(job, { forPublish: true });
   if (publishErrors.length) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -889,6 +961,16 @@ const publishJob = asyncHandler(async (req, res) => {
   ]);
 
   await invalidatePublicRecruitmentCache();
+  await notifyAdmins({
+    type: "new_job_posted",
+    title: "Job published",
+    message: `Job "${job.title}" is now live for candidates.`,
+    link: `/admin/projects/${job.projectId?._id || job.projectId}?job=${job._id}`,
+    metadata: {
+      jobId: job._id.toString(),
+      projectId: (job.projectId?._id || job.projectId)?.toString?.() || "",
+    },
+  });
 
   // Real-time notifications
   emitToAdmins(SOCKET_EVENTS.JOB_PUBLISHED, {

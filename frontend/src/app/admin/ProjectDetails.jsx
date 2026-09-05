@@ -583,11 +583,31 @@ const ProjectDetails = () => {
         { label: "Public URL is available", complete: Boolean(project.publicSlug) },
       ];
 
+  const selectedJobNavWorkflowReadiness =
+    selectedJob && (publishSectionOpen || publishComplete)
+      ? (() => {
+          const checks = selectedJobWorkflowReadiness.checks.map((check) =>
+            check.key === "review" ? { ...check, complete: true } : check,
+          );
+          const blockingChecks = checks.filter((check) => !check.optional);
+
+          return {
+            ...selectedJobWorkflowReadiness,
+            checks,
+            complete: blockingChecks.every((check) => check.complete),
+            completedCount: checks.filter((check) => check.complete).length,
+            completedRequiredCount: blockingChecks.filter((check) => check.complete).length,
+            missingRequired: blockingChecks.filter((check) => !check.complete),
+            nextLabel: checks.find((check) => !check.complete)?.label || "Live",
+          };
+        })()
+      : selectedJobWorkflowReadiness;
+
   const workflowNavProject = selectedJob
     ? {
         ...project,
         isPublished: publishComplete,
-        workflowReadiness: selectedJobWorkflowReadiness,
+        workflowReadiness: selectedJobNavWorkflowReadiness,
       }
     : {
         ...project,
@@ -667,7 +687,7 @@ const ProjectDetails = () => {
           ? "admit-format"
           : !centersComplete
             ? "centers"
-            : !reviewReady
+            : !reviewReady || !publishComplete
               ? "review"
               : "publish";
 
@@ -960,8 +980,8 @@ const ProjectDetails = () => {
             id="publish"
             className="rounded-[26px] border border-orange-100 bg-white p-5 shadow-sm"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
                   Publish / verify
                 </p>
@@ -990,12 +1010,12 @@ const ProjectDetails = () => {
                       : "Publish a reviewed job first, then release the project public URL."}
                 </p>
               </div>
-              <div className="grid gap-2">
-                <div className="grid gap-2 sm:grid-cols-2">
+              <div className="w-full rounded-2xl border border-orange-100 bg-orange-50/50 p-3 shadow-[0_14px_32px_rgba(234,88,12,0.08)] lg:w-[440px]">
+                <div className={`grid gap-2 ${isPublished && project.publicSlug ? "sm:grid-cols-2" : ""}`}>
                   <button
                     type="button"
                     onClick={() => openProjectPreview(id)}
-                    className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-50"
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
                   >
                     <Eye className="h-4 w-4 shrink-0" />
                     <span className="truncate">
@@ -1007,7 +1027,7 @@ const ProjectDetails = () => {
                       href={`/apply/${project.publicSlug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-100"
+                      className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
                     >
                       <ExternalLink className="h-4 w-4 shrink-0" />
                       <span className="truncate">Open Public Page</span>
@@ -1027,7 +1047,7 @@ const ProjectDetails = () => {
                     if (selectedJob) publishSelectedJobMutation.mutate();
                     else publishMutation.mutate();
                   }}
-                  className={`h-11 w-full rounded-xl px-4 text-sm font-bold shadow-[0_12px_26px_rgba(234,88,12,0.16)] ${
+                  className={`mt-2 h-12 w-full rounded-xl px-4 text-sm font-bold shadow-[0_14px_30px_rgba(234,88,12,0.18)] ${
                     selectedJob
                       ? publishComplete
                         ? "bg-green-100 text-green-700 hover:bg-green-100"

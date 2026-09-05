@@ -13,6 +13,7 @@ import Button from "../../components/ui/Button";
 import { candidateService } from "../../services/candidate.service";
 import {
   buildApplicationSteps,
+  getApplicationRequirementIssues,
   getNextPendingApplicationStep,
   getPaymentTiming,
 } from "../../utils/applicationFlow";
@@ -179,6 +180,16 @@ const Payment = () => {
 
   const completePaidApplication = async (transactionId, amount) => {
     const draft = JSON.parse(sessionStorage.getItem(APP_KEY) || "{}");
+    const blockingIssues = getApplicationRequirementIssues(
+      { ...application, declaration: application?.declaration || draft.declaration },
+      { includePayment: false },
+    );
+    if (blockingIssues.length > 0) {
+      navigate(blockingIssues[0].step?.path || "/application/review", {
+        state: { applicationId },
+      });
+      throw new Error(blockingIssues[0].message);
+    }
     let finalized;
 
     try {

@@ -136,11 +136,12 @@ const Documents = () => {
       const docs = app?.documents || [];
       const map = {};
       docs.forEach((doc) => {
-        if (doc.status === "uploaded") {
+        if (["uploaded", "verified"].includes(doc.status)) {
           map[doc.type] = {
             url: doc.cloudinaryUrl,
             name: doc.originalName,
             sizeKB: doc.sizeKB,
+            status: doc.status,
           };
         }
       });
@@ -185,11 +186,12 @@ const Documents = () => {
       const docs = app?.documents || [];
       const map = {};
       docs.forEach((doc) => {
-        if (doc.status === "uploaded") {
+        if (["uploaded", "verified"].includes(doc.status)) {
           map[doc.type] = {
             url: doc.cloudinaryUrl,
             name: doc.originalName,
             sizeKB: doc.sizeKB,
+            status: doc.status,
           };
         }
       });
@@ -354,7 +356,8 @@ const Documents = () => {
                       </div>
                       {isUploaded && uploadedInfo && (
                         <p className="text-xs text-green-600 mt-0.5">
-                          ✓ {uploadedInfo.name} ({uploadedInfo.sizeKB}KB)
+                          Uploaded {uploadedInfo.name} ({uploadedInfo.sizeKB}KB)
+                          {uploadedInfo.status === "verified" ? " - verified" : ""}
                         </p>
                       )}
                       {isUploadingNow && (
@@ -370,6 +373,7 @@ const Documents = () => {
                     <input
                       type="file"
                       accept={doc.accept}
+                      aria-label={`Upload ${doc.name}`}
                       ref={(el) => (fileInputRefs.current[doc.id] = el)}
                       onChange={(e) =>
                         handleFileSelect(doc.id, e.target.files[0])
@@ -477,14 +481,22 @@ const Documents = () => {
       </div>
 
       {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="document-preview-title"
+        >
           <div className="flex max-h-[94vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/20">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-600">
                   Uploaded Document
                 </p>
-                <h3 className="truncate text-base font-semibold text-slate-900">
+                <h3
+                  id="document-preview-title"
+                  className="truncate text-base font-semibold text-slate-900"
+                >
                   {previewDoc.title || "Document Preview"}
                 </h3>
                 {previewDoc.name && (
