@@ -36,7 +36,7 @@ const DEFAULT_INSTRUCTIONS = [
   "Possession and use of electronic devices such as Mobile Phone, Micro Phone or any other associated accessories including Bluetooth devices, Calculator, Log Tables, Paper, Digital Diary Books etc. are strictly prohibited in the Examination Hall.",
   "Kindly refrain yourself from carrying any valuable item or bag as there will be no facility of safekeeping of your personal belongings including mobile phone/watches/Wallet etc.",
   "Friends & relatives accompanying the candidate will not be allowed in the campus.",
-  "The Jharkhand Competitive Examination (Measures for Control and Prevention of Unfair Means in Recruitment) Act 2023 shall be applicable during examination process.",
+  "Applicable recruitment examination rules and unfair-means prevention provisions shall be enforced during the examination process.",
   "In case of any discrepancy in the admit card, visit Commission Office after issuance of admit card.",
 ].map((text, index) => ({ order: index + 1, text }));
 
@@ -64,10 +64,10 @@ const TEMPLATE_DEFAULTS = {
     baseLayout: "standard",
     orientation: "portrait",
     primaryColor: "#f97316",
-    organizationName: "Jharkhand Staff Selection Commission",
-    organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
+    organizationName: "Recruitment Board",
+    organizationNameLocal: "Recruitment Board",
     documentTitle: "Admit Card",
-    sealText: "JSSC",
+    sealText: "RB",
     provisionalNote: DEFAULT_PROVISIONAL_NOTE,
     instructionHeading: "Please read the instructions carefully given below in the admit card before appearing for the examination.",
     photoBoxText: "Paste Photo Here\nSignature of Candidate\nbelow pasted Photo same as\nUploaded Signature",
@@ -79,10 +79,10 @@ const TEMPLATE_DEFAULTS = {
     baseLayout: "standard",
     orientation: "portrait",
     primaryColor: "#f97316",
-    organizationName: "Jharkhand Staff Selection Commission",
-    organizationNameLocal: "झारखंड कर्मचारी चयन आयोग",
+    organizationName: "Recruitment Board",
+    organizationNameLocal: "Recruitment Board",
     documentTitle: "ATTENDANCE SHEET",
-    sealText: "JSSC",
+    sealText: "RB",
     instructions: "Candidate signature and thumb impression must be verified by the invigilator.",
   },
 };
@@ -2032,10 +2032,10 @@ const renderAdmitCardHtml = async (id, options = {}) => {
   const logoUrl = tplConfig.logoUrl || schedule.admitCardLogoUrl;
   const watermarkUrl = tplConfig.watermarkUrl;
   const primaryColor = tplConfig.primaryColor || "#f97316";
-  const organizationName = tplConfig.organizationName || schedule.commissionName || "Jharkhand Staff Selection Commission";
-  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Jharkhand Staff Selection Commission";
+  const organizationName = tplConfig.organizationName || schedule.commissionName || "Recruitment Board";
+  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Recruitment Board";
   const documentTitle = tplConfig.documentTitle || "Admit Card";
-  const sealText = tplConfig.sealText || "JSSC";
+  const sealText = tplConfig.sealText || "RB";
   const provisionalNote = tplConfig.provisionalNote || schedule.provisionalNote || DEFAULT_PROVISIONAL_NOTE;
   const instructionHeading =
     tplConfig.instructionHeading ||
@@ -2282,10 +2282,10 @@ const renderAttendanceSheetHtml = async (id, options = {}) => {
   const baseLayout = tplConfig.baseLayout || "standard";
   const logoUrl = tplConfig.logoUrl || "";
   const watermarkUrl = tplConfig.watermarkUrl || "";
-  const organizationName = tplConfig.organizationName || schedule.commissionName || "Jharkhand Staff Selection Commission";
-  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Jharkhand Staff Selection Commission";
+  const organizationName = tplConfig.organizationName || schedule.commissionName || "Recruitment Board";
+  const organizationNameLocal = tplConfig.organizationNameLocal || schedule.commissionNameLocal || "Recruitment Board";
   const documentTitle = tplConfig.documentTitle || "ATTENDANCE SHEET";
-  const sealText = tplConfig.sealText || "JSSC";
+  const sealText = tplConfig.sealText || "RB";
   const templateInstructions = String(tplConfig.instructions || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -2603,10 +2603,10 @@ const generateCenterTemplate = async () => {
       "123 Main Street",
       "",
       "Near Main Gate",
-      "Ranchi",
-      "Ranchi",
-      "Jharkhand",
-      "834001",
+      "Central City",
+      "Central District",
+      "Recruiting State",
+      "000000",
       "John Doe",
       "9876543210",
       "john@example.com",

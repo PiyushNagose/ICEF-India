@@ -612,7 +612,7 @@ const ApplicationDetails = () => {
                       value={personal.identificationMark}
                     />
                     <Row
-                      label="Domicile of Bihar"
+                      label="Recruiting State Domicile"
                       value={personal.isDomicileOfBihar}
                     />
                   </Grid>

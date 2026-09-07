@@ -107,7 +107,7 @@ const CreateProject = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    state: 'Bihar',
+    state: '',
     department: '',
     description: '',
     status: 'Upcoming',
@@ -133,7 +133,7 @@ const CreateProject = () => {
 
     const nextFormData = {
       name: project.name || '',
-      state: project.state || 'Bihar',
+      state: project.state || '',
       department: project.department || '',
       description: project.description || '',
       status: project.status || 'Upcoming',
@@ -247,6 +247,10 @@ const CreateProject = () => {
     if (!formData.department.trim()) {
       newErrors.department =
         'Department is required'
+    }
+
+    if (!formData.state) {
+      newErrors.state = 'State is required'
     }
 
     if (!formData.startDate) {
@@ -408,7 +412,7 @@ const CreateProject = () => {
 
                   <input
                     type="text"
-                    placeholder="e.g Bihar Police Recruitment 2026"
+                    placeholder="e.g State Police Recruitment 2026"
                     value={formData.name}
                     onChange={(e) =>
                       handleChange(
@@ -447,6 +451,12 @@ const CreateProject = () => {
                       options={STATES}
                       placeholder="Select State"
                     />
+
+                    {errors.state && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.state}
+                      </p>
+                    )}
                   </div>
 
                   <div>

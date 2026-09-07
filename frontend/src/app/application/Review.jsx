@@ -267,7 +267,7 @@ const Review = () => {
                   <Row label="Marital Status" value={personal.maritalStatus} />
                   <Row label="Religion" value={personal.religion} />
                   <Row
-                    label="Bihar Domicile"
+                    label="Recruiting State Domicile"
                     value={
                       personal.isDomicileOfBihar != null
                         ? personal.isDomicileOfBihar

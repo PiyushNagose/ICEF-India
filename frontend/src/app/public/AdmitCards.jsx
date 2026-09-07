@@ -202,7 +202,7 @@ const AdmitCards = () => {
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
+            <h1 className="text-[40px] font-black leading-[1.12] text-white">
               Download Admit Card
             </h1>
             <p className="mt-4 max-w-3xl text-[14px] font-medium leading-[26px] text-white/80">
@@ -257,7 +257,7 @@ const AdmitCards = () => {
                           setRegistrationNumber(e.target.value.toUpperCase());
                           resetLookupResult();
                         }}
-                        placeholder="e.g. JPSC26000001"
+                        placeholder="e.g. REG26000001"
                         className="h-12 w-full rounded border border-[#ded4ca] px-4 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#f15a0b] focus:ring-2 focus:ring-orange-100"
                         required
                       />

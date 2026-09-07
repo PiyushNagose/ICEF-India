@@ -278,7 +278,7 @@ const Dashboard = () => {
                       }
                     `}
                   >
-                    <h3 className="text-3xl font-bold">
+                    <h3 className="text-[28px] leading-8 font-bold tabular-nums">
                       {(value || 0).toLocaleString('en-IN')}
                     </h3>
 
@@ -360,7 +360,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="text-right">
-                      <h3 className="text-3xl font-bold text-gray-900">
+                      <h3 className="text-[28px] leading-8 font-bold text-gray-900 tabular-nums">
                         {job.totalApplications || 0}
                       </h3>
 
@@ -416,7 +416,7 @@ const Dashboard = () => {
                       Open Tickets
                     </p>
 
-                    <h3 className="text-3xl font-bold mt-1">
+                    <h3 className="mt-1 text-[28px] leading-8 font-bold tabular-nums">
                       {support.open || 0}
                     </h3>
                   </div>
@@ -438,7 +438,7 @@ const Dashboard = () => {
                       Pending
                     </p>
 
-                    <h3 className="text-3xl font-bold mt-1">
+                    <h3 className="mt-1 text-[28px] leading-8 font-bold tabular-nums">
                       {support.pending || 0}
                     </h3>
                   </div>
@@ -460,7 +460,7 @@ const Dashboard = () => {
                       Resolved
                     </p>
 
-                    <h3 className="text-3xl font-bold mt-1">
+                    <h3 className="mt-1 text-[28px] leading-8 font-bold tabular-nums">
                       {support.resolved || 0}
                     </h3>
                   </div>

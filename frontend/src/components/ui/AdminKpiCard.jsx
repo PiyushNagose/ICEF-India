@@ -41,6 +41,13 @@ const TONES = {
 const formatValue = (value) =>
   typeof value === 'number' ? value.toLocaleString('en-IN') : value
 
+const valueTextClass = (compact, isLongValue) =>
+  compact
+    ? 'text-[24px] leading-7'
+    : isLongValue
+      ? 'text-[22px] leading-7'
+      : 'text-[28px] leading-8'
+
 const AdminKpiCard = ({
   title,
   value,
@@ -53,6 +60,8 @@ const AdminKpiCard = ({
   className,
 }) => {
   const colors = TONES[tone] || TONES.orange
+  const displayValue = formatValue(value ?? 0)
+  const isLongValue = String(displayValue).length > 10
 
   return (
     <div
@@ -72,28 +81,30 @@ const AdminKpiCard = ({
       <div
         className={cn(
           compact
-            ? 'relative min-h-[66px]'
+            ? 'flex min-h-[66px] min-w-0 items-start justify-between gap-3'
             : 'flex min-w-0 items-start justify-between gap-4',
         )}
       >
-        <div className={cn('min-w-0', compact && 'pr-9')}>
+        <div className="min-w-0 flex-1">
           <p
             className={cn(
-              'font-bold uppercase tracking-normal text-gray-400',
-              compact ? 'mb-1 text-[10px] leading-4' : 'mb-2 text-xs',
+              'truncate font-bold uppercase tracking-normal text-gray-400',
+              compact ? 'mb-1 text-[11px] leading-4' : 'mb-2 text-xs',
             )}
+            title={title}
           >
             {title}
           </p>
 
           <p
             className={cn(
-              'font-bold tracking-normal text-gray-900',
-              compact ? 'text-2xl leading-7' : 'truncate text-3xl',
+              'min-w-0 break-words font-bold tabular-nums tracking-normal text-gray-900',
+              valueTextClass(compact, isLongValue),
               valueClassName,
             )}
+            title={String(displayValue)}
           >
-            {formatValue(value ?? 0)}
+            {displayValue}
           </p>
 
           {(helper || badge) && (
@@ -122,7 +133,7 @@ const AdminKpiCard = ({
           <div
             className={cn(
               'flex shrink-0 items-center justify-center rounded-2xl',
-              compact ? 'absolute right-0 top-0 h-8 w-8' : 'h-12 w-12',
+              compact ? 'h-10 w-10' : 'h-12 w-12',
               colors.iconBg,
             )}
           >

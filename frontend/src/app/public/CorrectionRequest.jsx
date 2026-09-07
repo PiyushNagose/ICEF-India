@@ -396,7 +396,6 @@ export default function CorrectionRequest() {
     !hasExistingPublicCorrection &&
     correctionReadiness.hasCompleteCorrection &&
     !correctionReadiness.hasDuplicateFields;
-
   return (
     <PublicLayout>
       <div className="min-h-screen bg-[#f5efe9]">
@@ -406,7 +405,7 @@ export default function CorrectionRequest() {
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Public Service
             </p>
-            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
+            <h1 className="text-[40px] font-black leading-[1.12] text-white">
               Request Application Correction
             </h1>
             <p className="mt-4 max-w-3xl text-[14px] leading-[26px] font-medium text-white/80">
@@ -417,13 +416,11 @@ export default function CorrectionRequest() {
         </div>
 
         <div className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-stretch">
             <div className="contents">
           {/* Identity */}
           <div
-            className={`${panelClass} flex flex-col gap-5 lg:order-1 lg:min-h-[500px] ${
-              otpVerified ? "" : "min-h-[360px] justify-between"
-            }`}
+            className={`${panelClass} flex flex-col gap-5 lg:order-1 lg:h-full`}
           >
             <div className="space-y-5">
             <div className="border-b border-[#f0e8e0] pb-5">
@@ -656,7 +653,7 @@ export default function CorrectionRequest() {
                     <button
                       type="button"
                       onClick={() =>
-                        navigate("/check-status", {
+                        navigate(getProjectAwarePublicPath("/check-status"), {
                           state: {
                             lookup: {
                               registrationNumber:
@@ -694,7 +691,7 @@ export default function CorrectionRequest() {
                   {getRequestStatusLabel(activeCorrectionRequest?.status)}
                 </span>
               </div>
-              <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_220px] md:items-start">
                 <div className="space-y-3">
                   <p className="text-sm font-medium leading-6 text-[#5c5149]">
                     A second correction request is not allowed for the same
@@ -740,7 +737,7 @@ export default function CorrectionRequest() {
                 </div>
                 <button
                   onClick={() =>
-                    navigate("/check-status", {
+                    navigate(getProjectAwarePublicPath("/check-status"), {
                       state: {
                         lookup: {
                           registrationNumber:
@@ -750,7 +747,7 @@ export default function CorrectionRequest() {
                       },
                     })
                   }
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.18)] transition hover:bg-[#cb5d16]"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#e46a1d] px-5 text-xs font-black uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_rgba(228,106,29,0.18)] transition hover:bg-[#cb5d16] md:mt-9"
                 >
                   Check Status <ChevronRight className="h-4 w-4" />
                 </button>
@@ -907,12 +904,12 @@ export default function CorrectionRequest() {
           )}
             </div>
 
-            <aside className="self-start lg:sticky lg:top-24 lg:order-2">
+            <aside className="self-start lg:sticky lg:top-24 lg:order-2 lg:h-full">
               <motion.div
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="flex rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm lg:min-h-[500px] lg:flex-col"
+              className="flex rounded-[8px] border border-[#e0d7cd] bg-white shadow-sm lg:h-full lg:flex-col"
             >
                 <div className="border-b border-[#f0e8e0] p-5">
                   <div className="flex items-start gap-3">
@@ -934,7 +931,7 @@ export default function CorrectionRequest() {
                   </div>
                 </div>
 
-                <div className={`${selectedApplication ? "border-b border-[#f0e8e0]" : ""} flex-1 p-5`}>
+                <div className="flex-1 p-5">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-600">
                     Before Submitting
                   </p>
@@ -953,41 +950,6 @@ export default function CorrectionRequest() {
                   </div>
                 </div>
 
-                {selectedApplication && (
-                  <div className="grid gap-4 p-5">
-                    <div className="rounded-[8px] border border-emerald-100 bg-emerald-50 p-4">
-                      <div className="flex items-start gap-3">
-                        <Phone className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
-                        <div>
-                          <p className="text-sm font-black text-[#1f1d1b]">
-                            Need Help?
-                          </p>
-                          <p className="mt-1 text-sm font-medium text-[#5f5752]">
-                            Call 1800-123-4567 during office hours.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate("/check-status", {
-                          state: {
-                            lookup: {
-                              registrationNumber:
-                                selectedApplication.registrationNumber,
-                              mobile,
-                            },
-                          },
-                        })
-                      }
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-[6px] border border-orange-200 bg-white px-4 text-xs font-black uppercase tracking-[0.14em] text-[#e46a1d] transition hover:bg-orange-50"
-                    >
-                      Check Application Status
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
               </motion.div>
             </aside>
           </div>

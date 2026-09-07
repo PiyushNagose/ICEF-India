@@ -268,10 +268,10 @@ const FunnelAnalysis = () => {
         {/* â”€â”€ Summary Stats â”€â”€ */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <AdminKpiCard title="Total Inflow" value={fmt(maxVal)} icon={Target} tone="orange" valueClassName="text-2xl" />
-            <AdminKpiCard title="Total Converted" value={fmt(submitted)} icon={CheckCircle} tone="green" valueClassName="text-2xl" />
-            <AdminKpiCard title="Total Leakage" value={fmt(totalLeakage)} icon={TrendingDown} tone="red" valueClassName="text-2xl" />
-            <AdminKpiCard title="Final Conversion" value={`${conversionRate}%`} icon={Target} tone="blue" valueClassName="text-2xl" />
+            <AdminKpiCard title="Total Inflow" value={fmt(maxVal)} icon={Target} tone="orange" />
+            <AdminKpiCard title="Total Converted" value={fmt(submitted)} icon={CheckCircle} tone="green" />
+            <AdminKpiCard title="Total Leakage" value={fmt(totalLeakage)} icon={TrendingDown} tone="red" />
+            <AdminKpiCard title="Final Conversion" value={`${conversionRate}%`} icon={Target} tone="blue" />
           </div>
           <div className="mt-4">
             <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">

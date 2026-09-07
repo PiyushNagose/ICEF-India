@@ -70,7 +70,7 @@ const AddPaymentGateway = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Add Payment Gateway</h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Integrate secure payment channels to facilitate Bihar Recruitment Portal transactions.
+              Integrate secure payment channels to facilitate Recruitment Portal transactions.
             </p>
           </div>
         </div>
@@ -167,7 +167,7 @@ const AddPaymentGateway = () => {
           <div>
             <h3 className="font-semibold text-orange-900 mb-1">Institutional Security Protocol</h3>
             <p className="text-sm text-orange-800">
-              All gateways must comply with PCI-DSS standards and Bihar Government digital security mandates
+              All gateways must comply with PCI-DSS standards and applicable government digital security mandates
               before going live. API credentials are encrypted with AES-256-GCM before storage.
             </p>
           </div>

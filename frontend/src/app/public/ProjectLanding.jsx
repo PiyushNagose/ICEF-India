@@ -1,5 +1,5 @@
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useMemo } from "react";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -85,6 +85,12 @@ const daysLeft = (d) =>
         ),
       )
     : null;
+
+const PUBLIC_METRIC_TILE_CLASS = "rounded-xl bg-[#faf7f2] p-3.5";
+const PUBLIC_METRIC_LABEL_CLASS =
+  "truncate text-[11px] font-black uppercase tracking-[0.14em] text-[#9a8f86]";
+const PUBLIC_METRIC_VALUE_CLASS =
+  "mt-2 flex min-w-0 items-center gap-1.5 break-words font-mono text-[24px] font-black leading-7 tabular-nums text-[#1f1d1b]";
 
 const fee = (job, cat = "general") => {
   const f = job?.applicationFee || {};
@@ -218,39 +224,39 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
 
         {/* Stats Grid */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl bg-[#faf7f2] p-3.5">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+          <div className={PUBLIC_METRIC_TILE_CLASS}>
+            <p className={PUBLIC_METRIC_LABEL_CLASS}>
               Vacancies
             </p>
-            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+            <p className={PUBLIC_METRIC_VALUE_CLASS}>
               <Users className="h-4 w-4 text-orange-500" />
               {(job.totalPosts || 0).toLocaleString("en-IN")}
             </p>
           </div>
-          <div className="rounded-xl bg-[#faf7f2] p-3.5">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+          <div className={PUBLIC_METRIC_TILE_CLASS}>
+            <p className={PUBLIC_METRIC_LABEL_CLASS}>
               Fee (Gen)
             </p>
-            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+            <p className={PUBLIC_METRIC_VALUE_CLASS}>
               <IndianRupee className="h-3.5 w-3.5 text-orange-500" />
               {generalFee === 0 ? "Free" : generalFee}
             </p>
           </div>
-          <div className="rounded-xl bg-[#faf7f2] p-3.5">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+          <div className={PUBLIC_METRIC_TILE_CLASS}>
+            <p className={PUBLIC_METRIC_LABEL_CLASS}>
               Fee (SC/ST)
             </p>
-            <p className="mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none text-[#1f1d1b]">
+            <p className={PUBLIC_METRIC_VALUE_CLASS}>
               <IndianRupee className="h-3.5 w-3.5 text-orange-500" />
               {scstFee === 0 ? "Free" : scstFee}
             </p>
           </div>
-          <div className="rounded-xl bg-[#faf7f2] p-3.5">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#9a8f86]">
+          <div className={PUBLIC_METRIC_TILE_CLASS}>
+            <p className={PUBLIC_METRIC_LABEL_CLASS}>
               Last Date
             </p>
             <p
-              className={`mt-2 flex items-center gap-1.5 text-[24px] font-black font-mono leading-none ${
+              className={`${PUBLIC_METRIC_VALUE_CLASS} ${
                 dl !== null && dl <= 7 ? "text-red-600" : "text-[#1f1d1b]"
               }`}
             >
@@ -368,6 +374,7 @@ export default function ProjectLanding({ preview = false }) {
   const params = useParams();
   const previewId = params.id;
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const useDraft = preview && searchParams.get("draft") === "1";
   const { token, user } = useAuth();
@@ -390,6 +397,20 @@ export default function ProjectLanding({ preview = false }) {
   const project = data?.project;
   const slug = preview ? project?.publicSlug || previewId : params.slug;
   const scopedPath = (path) => getProjectAwarePublicPath(path, slug);
+  const scrollToSection = (sectionId) => {
+    const target = document.getElementById(sectionId);
+    if (!target) return false;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  };
+  const goToSection = (sectionId) => {
+    if (preview) {
+      toast("Preview mode - navigation is disabled here.");
+      return;
+    }
+    if (scrollToSection(sectionId)) return;
+    navigate(`/apply/${slug}#${sectionId}`);
+  };
   const previewMeta = preview ? data?.preview : null;
   const savedCmsPage = data?.cmsPage;
   // In draft mode the admin's unsaved CMS edits (stashed by CmsEdit) win over
@@ -402,6 +423,7 @@ export default function ProjectLanding({ preview = false }) {
   const heroDescription = stripProjectTimelineText(
     cmsPage?.heroSubtitle || project?.description || "",
   );
+
   const jobs = data?.jobs || [];
   const featuredJobIds = new Set(
     (cmsPage?.featuredJobs || []).map((job) => String(job._id || job)),
@@ -412,6 +434,19 @@ export default function ProjectLanding({ preview = false }) {
         ...jobs.filter((job) => !featuredJobIds.has(String(job._id))),
       ]
     : jobs;
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const sectionId = decodeURIComponent(location.hash.slice(1));
+    if (!sectionId) return;
+
+    const timer = window.setTimeout(() => {
+      scrollToSection(sectionId);
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [location.hash, visibleJobs.length]);
+
   const jobAvailabilityCounts = visibleJobs.reduce(
     (counts, job) => {
       const availability = getJobAvailability(job);
@@ -602,7 +637,7 @@ export default function ProjectLanding({ preview = false }) {
       return;
     }
 
-    navigate("/check-status", {
+    navigate(scopedPath("/check-status"), {
       state: {
         applicationId: application?._id,
         publicApplicationId: application?.applicationId,
@@ -657,7 +692,7 @@ export default function ProjectLanding({ preview = false }) {
                 "The recruitment link you visited is invalid or has been removed."}
             </p>
             <button
-              onClick={() => navigate("/check-status")}
+              onClick={() => navigate(scopedPath("/check-status"))}
               className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#e46a1d] px-6 text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-[#cb5d16]"
             >
               Check Application Status
@@ -737,7 +772,7 @@ export default function ProjectLanding({ preview = false }) {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45 }}
-              className="mb-8 flex flex-wrap items-center gap-3"
+              className="mb-9 flex flex-wrap items-center gap-3"
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/20 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300 backdrop-blur-sm">
                 <ShieldCheck className="h-4 w-4" />
@@ -771,7 +806,7 @@ export default function ProjectLanding({ preview = false }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.45, delay: 0.12 }}
-                  className="mt-4 max-w-5xl text-[34px] font-black leading-[1.1] text-white [text-wrap:balance] sm:text-[44px] lg:text-[54px] 2xl:text-[56px]"
+                  className="mt-5 max-w-5xl text-[44px] font-black leading-[1.1] text-white [text-wrap:balance]"
                 >
                   {cmsPage?.heroTitle || project?.name}
                 </motion.h1>
@@ -781,7 +816,7 @@ export default function ProjectLanding({ preview = false }) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.45, delay: 0.18 }}
-                    className="mt-5 max-w-2xl text-[14px] leading-[26px] text-white/80 font-medium"
+                    className="mt-7 max-w-2xl text-[14px] leading-[26px] text-white/80 font-medium"
                   >
                     {heroDescription}
                   </motion.p>
@@ -791,7 +826,7 @@ export default function ProjectLanding({ preview = false }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.45, delay: 0.24 }}
-                  className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm"
+                  className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm"
                 >
                   <span className="flex items-center gap-2 text-white/70">
                     <Briefcase className="h-4 w-4 text-orange-400" />
@@ -817,15 +852,11 @@ export default function ProjectLanding({ preview = false }) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, delay: 0.3 }}
-                    className="mt-8 flex flex-wrap gap-4"
+                    className="mt-10 flex flex-wrap gap-4"
                   >
                     <button
                       type="button"
-                      onClick={() =>
-                        document
-                          .getElementById("available-posts")
-                          ?.scrollIntoView({ behavior: "smooth" })
-                      }
+                      onClick={() => goToSection("available-posts")}
                       className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e46a1d] to-[#d85a0d] px-8 text-sm font-black uppercase tracking-[0.14em] text-white shadow-xl shadow-orange-500/30 transition-all hover:shadow-2xl hover:shadow-orange-500/50"
                     >
                       View Posts & Apply
@@ -833,7 +864,7 @@ export default function ProjectLanding({ preview = false }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate("/check-status")}
+                      onClick={() => navigate(scopedPath("/check-status"))}
                       className="inline-flex h-14 items-center justify-center gap-2 rounded-xl border-2 border-white/30 bg-white/10 px-8 text-sm font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/20"
                     >
                       <SearchCheck className="h-5 w-5" />
@@ -944,11 +975,7 @@ export default function ProjectLanding({ preview = false }) {
             </div>
             {openJobs.length > 0 && (
               <button
-                onClick={() =>
-                  document
-                    .getElementById("how-to-apply")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
+                onClick={() => goToSection("how-to-apply")}
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 text-[13px] font-black uppercase tracking-[0.12em] text-orange-600 transition-colors hover:border-orange-300 hover:bg-orange-100"
               >
                 <BookOpen className="h-4 w-4" />

@@ -53,10 +53,10 @@ export const PageHero = ({ eyebrow, title, description, children }) => (
       </p>
       <div className="mt-3 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-center">
         <div>
-          <h1 className="text-[32px] font-black leading-[1.12] text-white sm:text-[40px] lg:text-[48px]">
+          <h1 className="text-[40px] font-black leading-[1.12] text-white">
             {title}
           </h1>
-          <p className="mt-4 max-w-3xl text-[14px] leading-[26px] text-white/75 font-medium sm:text-base">
+          <p className="mt-4 max-w-3xl text-base leading-[26px] text-white/75 font-medium">
             {description}
           </p>
         </div>
@@ -102,7 +102,7 @@ export const PublicHero3D = ({
                 <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-white/55">
                   {stat.label}
                 </p>
-                <p className="public-hero-3d-stat-value mt-1 truncate font-mono text-sm font-black text-white sm:text-base">
+                <p className="public-hero-3d-stat-value mt-1 truncate font-mono text-base font-black leading-5 text-white tabular-nums">
                   {stat.value}
                 </p>
               </div>
@@ -162,10 +162,12 @@ export const EmptyState = ({ icon: Icon = FileText, title, description }) => (
 
 export const StatTile = ({ label, value }) => (
   <div className="h-full rounded-[8px] border border-white/15 bg-white/10 px-5 py-4">
-    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/55">
+    <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-white/55">
       {label}
     </p>
-    <p className="mt-2 text-[24px] font-black font-mono leading-none text-white">{value}</p>
+    <p className="mt-2 break-words font-mono text-[24px] font-black leading-7 text-white tabular-nums">
+      {value}
+    </p>
   </div>
 );
 

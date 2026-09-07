@@ -450,6 +450,22 @@ const CmsEdit = () => {
     }));
   const setHelpdesk = (key, value) =>
     setForm((p) => ({ ...p, helpdesk: { ...p.helpdesk, [key]: value } }));
+  const safeForm = form || {
+    heroTitle: "",
+    heroSubtitle: "",
+    projectLogo: "",
+    projectLogoSize: 0,
+    bannerImage: "",
+    bannerImageSize: 0,
+    featuredJobs: [],
+    announcements: [],
+    quickLinks: {},
+    instructions: [],
+    downloads: [],
+    faqs: [],
+    helpdesk: {},
+    sectionVisibility: {},
+  };
   const projectDefaults = getProjectDefaults(project, stateName);
   const normalizeText = (value) => String(value || "").trim();
   const sameStringList = (a = [], b = []) =>
@@ -457,9 +473,9 @@ const CmsEdit = () => {
     a.every((item, index) => normalizeText(item) === normalizeText(b[index]));
 
   const projectTextApplied =
-    normalizeText(form.heroTitle) === normalizeText(projectDefaults.heroTitle) &&
-    normalizeText(form.heroSubtitle) === normalizeText(projectDefaults.heroSubtitle) &&
-    normalizeText(form.helpdesk.address) ===
+    normalizeText(safeForm.heroTitle) === normalizeText(projectDefaults.heroTitle) &&
+    normalizeText(safeForm.heroSubtitle) === normalizeText(projectDefaults.heroSubtitle) &&
+    normalizeText(safeForm.helpdesk.address) ===
       normalizeText(projectDefaults.helpdeskAddress);
   const projectNoticeTexts = projectDefaults.announcements.map((item) =>
     normalizeText(item.text),
@@ -467,10 +483,10 @@ const CmsEdit = () => {
   const projectNoticesApplied =
     projectNoticeTexts.length > 0 &&
     projectNoticeTexts.every((text) =>
-      form.announcements.some((item) => normalizeText(item.text) === text),
+      safeForm.announcements.some((item) => normalizeText(item.text) === text),
     );
   const defaultInstructionsApplied = sameStringList(
-    form.instructions,
+    safeForm.instructions,
     projectDefaults.instructions,
   );
   const prefillButtonClass =
@@ -784,7 +800,7 @@ const CmsEdit = () => {
                     <Label>Hero Title</Label>
                     <input
                       type="text"
-                      placeholder="e.g., Government Jobs in Telangana"
+                      placeholder="e.g., State Recruitment Portal"
                       value={form.heroTitle}
                       onChange={(e) => set("heroTitle", e.target.value)}
                       className={inputCls}

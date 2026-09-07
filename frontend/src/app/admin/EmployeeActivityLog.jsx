@@ -171,7 +171,6 @@ const EmployeeActivityLog = () => {
               icon={icon}
               tone={tone}
               helper={helper}
-              valueClassName="text-2xl"
             />
           ))}
         </div>

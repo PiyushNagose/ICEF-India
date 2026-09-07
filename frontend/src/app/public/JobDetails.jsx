@@ -35,6 +35,7 @@ import {
   getApplicationAction,
   getJobAvailability,
 } from "../../utils/jobAvailability";
+import { getProjectAwarePublicPath } from "../../utils/publicNavigation";
 
 /* ─────────────────────────────────────────────────────────────
    ANIMATION VARIANTS
@@ -81,6 +82,9 @@ const getPublicApplyPath = (job) => {
   const slug = job?.projectId?.publicSlug;
   return slug ? `/apply/${slug}/start?jobId=${job._id}` : "/check-status";
 };
+
+const getPublicStatusPath = (job) =>
+  getProjectAwarePublicPath("/check-status", job?.projectId?.publicSlug);
 
 const persistPublicApplyContext = ({ job, applicationId }) => {
   const project = job?.projectId || {};
@@ -219,7 +223,7 @@ const ApplySidebar = ({ job, isLoggedIn, isCandidate, existingApp }) => {
         const applyPath = getPublicApplyPath(job);
         navigate(`${applyPath}${applyPath.includes("?") ? "&" : "?"}resume=1`);
       } else {
-        navigate("/check-status", {
+        navigate(getPublicStatusPath(job), {
           state: { applicationId: existingApp._id },
         });
       }
@@ -288,7 +292,7 @@ const ApplySidebar = ({ job, isLoggedIn, isCandidate, existingApp }) => {
             </>
           )}
           <button
-            onClick={() => navigate("/check-status")}
+            onClick={() => navigate(getPublicStatusPath(job))}
             className="w-full text-center text-xs font-semibold text-[#9a8f86] transition-colors hover:text-[#e46a1d]"
           >
             View Application Status →
@@ -632,7 +636,7 @@ const JobDetails = () => {
                     )}
                   </div>
                   {/* Title */}
-                  <h1 className="mt-3 text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white break-words">
+                  <h1 className="mt-3 text-[40px] font-black leading-[1.12] text-white break-words">
                     {job?.title}
                   </h1>
                   {/* Meta row */}

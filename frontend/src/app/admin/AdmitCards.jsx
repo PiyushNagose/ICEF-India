@@ -126,7 +126,6 @@ const Stat = ({ icon, label, value, tone = 'orange' }) => (
     value={value ?? 0}
     tone={tone}
     compact
-    valueClassName="text-2xl"
     className="rounded-xl"
   />
 )

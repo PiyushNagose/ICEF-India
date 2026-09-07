@@ -127,7 +127,7 @@ const Roles = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Role Management</h1>
             <p className="text-sm text-gray-500 mt-0.5 max-w-md">
-              Define institutional hierarchies and control administrative access across the Bihar Recruitment Portal.
+              Define institutional hierarchies and control administrative access across the Recruitment Portal.
             </p>
           </div>
           {canCreate && (

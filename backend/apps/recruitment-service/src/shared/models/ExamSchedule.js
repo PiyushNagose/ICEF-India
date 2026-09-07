@@ -27,7 +27,7 @@ const examScheduleSchema = new mongoose.Schema(
     examCode: { type: String, required: true, uppercase: true, trim: true },
     commissionName: {
       type: String,
-      default: "Jharkhand Staff Selection Commission",
+      default: "Recruitment Board",
       trim: true,
     },
     commissionNameLocal: {

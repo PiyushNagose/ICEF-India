@@ -1169,7 +1169,7 @@ const ProjectDetails = () => {
         "
         >
           {statCards.map((s) => (
-            <AdminKpiCard key={s.title} {...s} valueClassName="text-2xl" />
+            <AdminKpiCard key={s.title} {...s} />
           ))}
         </div>
 

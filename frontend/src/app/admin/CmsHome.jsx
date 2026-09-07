@@ -232,11 +232,10 @@ const CmsHome = () => {
             value={stats.total ?? 0}
             tone="orange"
             helper={stats.total > 0 ? "+2 New" : "—"}
-            valueClassName="text-2xl"
           />
-          <AdminKpiCard icon={Globe} title="Published" value={stats.published ?? 0} tone="green" valueClassName="text-2xl" />
-          <AdminKpiCard icon={FileText} title="Draft" value={stats.draft ?? 0} tone="amber" valueClassName="text-2xl" />
-          <AdminKpiCard icon={Clock} title="Last Updated" value={lastUpdated} tone="blue" valueClassName="text-2xl" />
+          <AdminKpiCard icon={Globe} title="Published" value={stats.published ?? 0} tone="green" />
+          <AdminKpiCard icon={FileText} title="Draft" value={stats.draft ?? 0} tone="amber" />
+          <AdminKpiCard icon={Clock} title="Last Updated" value={lastUpdated} tone="blue" />
         </div>
 
         {/* Pages table */}

@@ -377,6 +377,14 @@ const Payment = () => {
       const initData = await candidateService.initiatePayment(applicationId, method === "upi_qr" ? "razorpay" : "razorpay");
       const { transactionId, gatewayOrderId, gatewayKeyId, gatewayData, amount, gateway, feeBreakdown } = initData;
       const payableAmount = Number(amount ?? feeBreakdown?.totalFee ?? grandTotal);
+      const paymentPortalName =
+        latestApplication?.jobId?.projectId?.name ||
+        latestApplication?.jobId?.projectId?.department ||
+        latestApplication?.jobId?.department ||
+        application?.jobId?.projectId?.name ||
+        application?.jobId?.projectId?.department ||
+        application?.jobId?.department ||
+        "Recruitment Portal";
 
       if (initData?.alreadyPaid) {
         await completePaymentStep(transactionId, payableAmount);
@@ -407,7 +415,7 @@ const Payment = () => {
           key: gatewayKeyId,
           amount: payableAmount * 100,
           currency: "INR",
-          name: "Bihar Recruitment Portal",
+          name: paymentPortalName,
           description: `Application Fee — ${application?.applicationId || ""}`,
           order_id: gatewayOrderId,
           prefill: {
@@ -481,7 +489,7 @@ const Payment = () => {
           await loadScript(paytmUrl);
           sessionStorage.setItem("pending_payment", JSON.stringify({ transactionId, applicationId, gateway: "paytm" }));
           window.Paytm?.CheckoutJS?.init({
-            merchant: { mid: gatewayData.mid, name: "Bihar Recruitment Portal" },
+            merchant: { mid: gatewayData.mid, name: paymentPortalName },
                 order:    { id: gatewayOrderId, amount: String(payableAmount), token: gatewayData.txnToken, currency: "INR" },
             flow:     "DEFAULT",
             handler:  {

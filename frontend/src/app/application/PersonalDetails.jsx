@@ -400,10 +400,10 @@ const PersonalDetails = () => {
               </h3>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Domicile of Bihar? <span className="text-red-500">*</span>
+                  Domicile of recruiting state? <span className="text-red-500">*</span>
                 </label>
                 <p className="text-sm text-gray-600 mb-3">
-                  Are you a permanent resident of Bihar?
+                  Are you a permanent resident of the state selected for this recruitment?
                 </p>
                 <div className="flex space-x-4">
                   {[true, false].map((val) => (

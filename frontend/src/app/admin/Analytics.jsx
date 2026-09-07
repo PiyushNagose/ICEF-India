@@ -95,7 +95,6 @@ const Analytics = () => {
             icon={TrendingUp}
             tone="orange"
             badge={{ label: '12%', className: 'bg-emerald-50 text-emerald-600' }}
-            valueClassName="text-2xl"
           />
 
           <AdminKpiCard
@@ -104,7 +103,6 @@ const Analytics = () => {
             icon={CheckCircle}
             tone="green"
             badge={{ label: '73%', className: 'bg-emerald-50 text-emerald-600' }}
-            valueClassName="text-2xl"
           />
 
           <AdminKpiCard
@@ -113,7 +111,6 @@ const Analytics = () => {
             icon={Clock}
             tone="amber"
             badge={{ label: 'Processing', className: 'bg-amber-50 text-amber-600' }}
-            valueClassName="text-2xl"
           />
           <AdminKpiCard
             title="Payment Success Rate"
@@ -121,16 +118,15 @@ const Analytics = () => {
             icon={Star}
             tone="blue"
             badge={{ label: 'High', className: 'bg-amber-50 text-amber-600' }}
-            valueClassName="text-2xl"
           />
         </div>
 
         {/* â”€â”€ Row 2: 4 secondary stat cards â”€â”€ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <AdminKpiCard title="Dropped" value={dropped} icon={XCircle} tone="red" valueClassName="text-2xl" />
-          <AdminKpiCard title="Payment Failures" value={payFailed} icon={AlertCircle} tone="orange" valueClassName="text-2xl" />
-          <AdminKpiCard title="Tickets Raised" value={ticketsRaised} icon={Ticket} tone="amber" valueClassName="text-2xl" />
-          <AdminKpiCard title="Tickets Resolved" value={ticketsResolved} icon={BadgeCheck} tone="green" valueClassName="text-2xl" />
+          <AdminKpiCard title="Dropped" value={dropped} icon={XCircle} tone="red" />
+          <AdminKpiCard title="Payment Failures" value={payFailed} icon={AlertCircle} tone="orange" />
+          <AdminKpiCard title="Tickets Raised" value={ticketsRaised} icon={Ticket} tone="amber" />
+          <AdminKpiCard title="Tickets Resolved" value={ticketsResolved} icon={BadgeCheck} tone="green" />
         </div>
 
         {/* â”€â”€ Conversion Funnel â”€â”€ */}

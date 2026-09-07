@@ -261,7 +261,7 @@ const ApplicationAcknowledgement = ({
               />
               <InfoCell label="Email" value={candidate.email} />
               <InfoCell
-                label="Bihar Domicile"
+                label="Recruiting State Domicile"
                 value={personal.isDomicileOfBihar}
               />
             </div>

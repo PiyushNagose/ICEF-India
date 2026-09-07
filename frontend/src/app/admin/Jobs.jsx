@@ -346,7 +346,7 @@ const Jobs = () => {
               text-sm text-gray-500 mt-1
             ">
               Manage recruitment cycles and
-              institutional vacancies across Bihar.
+              institutional vacancies across all configured departments.
             </p>
 
           </div>

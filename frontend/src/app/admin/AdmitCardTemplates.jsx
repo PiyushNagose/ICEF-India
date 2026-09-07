@@ -38,10 +38,10 @@ const TEMPLATE_TYPES = [
 
 const TEMPLATE_TEXT_DEFAULTS = {
   admit_card: {
-    organizationName: 'Jharkhand Staff Selection Commission',
-    organizationNameLocal: 'Jharkhand Staff Selection Commission',
+    organizationName: 'Recruitment Board',
+    organizationNameLocal: 'Recruitment Board',
     documentTitle: 'Admit Card',
-    sealText: 'JSSC',
+    sealText: 'RB',
     provisionalNote:
       'If the information mentioned on this admit card is different from the application, the candidate must contact the commission immediately.',
     instructionHeading: 'Please read the instructions carefully before appearing for the examination.',
@@ -49,10 +49,10 @@ const TEMPLATE_TEXT_DEFAULTS = {
     controllerTitle: 'Examination Controller',
   },
   attendance_sheet: {
-    organizationName: 'Jharkhand Staff Selection Commission',
-    organizationNameLocal: 'Jharkhand Staff Selection Commission',
+    organizationName: 'Recruitment Board',
+    organizationNameLocal: 'Recruitment Board',
     documentTitle: 'ATTENDANCE SHEET',
-    sealText: 'JSSC',
+    sealText: 'RB',
     provisionalNote: '',
     instructionHeading: '',
     photoBoxText: '',
@@ -125,11 +125,11 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
 
       <div className="mt-3 border border-gray-950 text-[10px]">
         <div className="grid grid-cols-2 border-b border-gray-900">
-          <span className="p-1.5 border-r border-gray-900">Venue of Examination: <strong>Ranchi Central Examination Center</strong></span>
-          <span className="p-1.5">Center: <strong>RNC-001</strong></span>
+          <span className="p-1.5 border-r border-gray-900">Venue of Examination: <strong>Central Examination Center</strong></span>
+          <span className="p-1.5">Center: <strong>CEN-001</strong></span>
         </div>
         <div className="border-b border-gray-900 p-1.5">
-          Venue Address: <strong>Main Road, Ranchi, Jharkhand, PIN: 834001</strong>
+          Venue Address: <strong>Main Road, Central City, Recruiting State, PIN: 000000</strong>
         </div>
         <div className="grid grid-cols-2">
           <span className="p-1.5 border-r border-gray-900">Roll Nos.: <strong>260001 to 260006</strong> &nbsp; Total Candidates: <strong>06</strong></span>
@@ -170,7 +170,7 @@ const AttendanceSheetPreview = ({ template, scale = 1 }) => {
               </tr>
               <tr>
                 <td className="border border-gray-950 p-1 align-middle">
-                  Registration No.: <strong>JSSC00000{row}</strong>
+                  Registration No.: <strong>REG00000{row}</strong>
                 </td>
                 <td className="border border-gray-950 p-1 text-center align-middle">
                   Absent <span className="ml-5 inline-block h-5 border-l border-gray-950 align-middle" />
@@ -629,7 +629,7 @@ const AdmitCardTemplates = () => {
                             value={form.organizationName}
                             onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
                             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                            placeholder="e.g. Jharkhand Staff Selection Commission"
+                            placeholder="e.g. State Recruitment Board"
                           />
                         </label>
 
@@ -662,7 +662,7 @@ const AdmitCardTemplates = () => {
                             value={form.sealText}
                             onChange={(e) => setForm({ ...form, sealText: e.target.value })}
                             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                            placeholder="e.g. JSSC"
+                            placeholder="e.g. RB"
                           />
                         </label>
 

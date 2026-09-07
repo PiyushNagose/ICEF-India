@@ -462,7 +462,6 @@ const SupportKanban = () => {
               value={countByStatus(col.id)}
               icon={col.Icon}
               tone={col.tone}
-              valueClassName="text-2xl"
             />
           ))}
         </div>

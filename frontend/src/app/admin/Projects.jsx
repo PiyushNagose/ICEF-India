@@ -127,7 +127,7 @@ const Projects = () => {
             </h1>
 
             <p className="text-sm text-gray-500 mt-1">
-              Oversee and manage recruitment cycles across Bihar departments.
+              Oversee and manage recruitment cycles across all configured departments.
             </p>
           </div>
 

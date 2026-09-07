@@ -324,7 +324,7 @@ export default function PublicApplyEntry() {
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
               Secure Application Entry
             </p>
-            <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] text-white">
+            <h1 className="text-[40px] font-black leading-[1.12] text-white">
               Verify Your Identity
             </h1>
             <p className="mt-4 max-w-3xl text-[14px] leading-[26px] font-medium text-white/80">

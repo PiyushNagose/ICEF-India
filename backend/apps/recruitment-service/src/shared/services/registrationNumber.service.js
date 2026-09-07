@@ -43,7 +43,7 @@ const generateRegistrationNumber = async (projectCode = "PROJ26") => {
 
 /**
  * Build a compact project code from project name + year.
- * Example: "Bihar Police Constable 2026" -> "BPC26".
+ * Example: "State Police Constable 2026" -> "SPC26".
  */
 const buildProjectCode = (projectName = "Project", year) => {
   const words = String(projectName).trim().split(/\s+/).filter(Boolean);
