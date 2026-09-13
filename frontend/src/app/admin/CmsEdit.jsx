@@ -28,6 +28,7 @@ import {
   openProjectPreview,
 } from "../../utils/cmsPreview";
 import { getJobWizardPath } from "../../utils/jobDraft";
+import { buildAdminJobWorkflow, getEntityId } from "../../utils/adminWorkflow";
 
 const Section = ({ icon: Icon, title, children, action, className = "" }) => (
   <div
@@ -93,43 +94,6 @@ const normalizeCmsPayload = (payload = {}) => ({
 });
 
 const getCmsSnapshot = (payload) => JSON.stringify(normalizeCmsPayload(payload));
-
-const getEntityId = (value) =>
-  String(value?._id || value?.id || value || "");
-
-const isJobAdvertisementConfigured = (job) => {
-  if (!job?._id) return false;
-  const posts = Array.isArray(job.posts) ? job.posts : [];
-  const hasVacancies =
-    Number(job.totalPosts || 0) > 0 ||
-    posts.some((post) => Number(post.vacancies || 0) > 0);
-
-  return Boolean(
-    job.title &&
-      job.postCode &&
-      job.department &&
-      hasVacancies &&
-      job.applicationStartDate &&
-      job.applicationDeadline,
-  );
-};
-
-const isAdmitFormatConfigured = (schedule) => {
-  if (!schedule) return false;
-  const hasTemplate = Boolean(
-    schedule.admitCardTemplate ||
-      schedule.admitCardTemplateConfig?.templateId ||
-      schedule.admitCardTemplateConfig?.baseLayout,
-  );
-
-  return Boolean(
-    schedule.examName &&
-      schedule.examDate &&
-      schedule.reportingTime &&
-      schedule.examStartTime &&
-      hasTemplate,
-  );
-};
 
 const formatProjectDate = (value) => {
   if (!value) return "";
@@ -227,6 +191,8 @@ const CmsEdit = () => {
   const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
   const [jobSearch, setJobSearch] = useState("");
   const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [cmsAmendmentReason, setCmsAmendmentReason] = useState("");
+  const [pendingCmsAction, setPendingCmsAction] = useState(null);
 
   const { data: pageData, isLoading: pageLoading } = useQuery({
     queryKey: ["admin-cms-page", stateName, projectId],
@@ -280,60 +246,24 @@ const CmsEdit = () => {
         (schedule) => getEntityId(schedule.jobId) === getEntityId(amendmentJobId),
       )
     : selectedJobSchedulesRaw;
-  const landingComplete = Boolean(
-    project?.workflowReadiness?.checks?.find((check) => check.key === "landing")?.complete ||
-      project?.isPublished,
-  );
-  const jobComplete = isJobAdvertisementConfigured(amendmentJob);
-  const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured);
-  const centersComplete = selectedJobSchedules.some(
-    (schedule) =>
-      Array.isArray(schedule?.selectedCenterIds) &&
-      schedule.selectedCenterIds.length > 0,
-  );
-  const publishComplete =
-    ["active", "closed", "published"].includes(String(amendmentJob?.status || "").toLowerCase()) &&
-    Boolean(project?.isPublished);
+  const jobWorkflow = buildAdminJobWorkflow({
+    project,
+    job: amendmentJob,
+    schedules: selectedJobSchedules,
+    admitPhaseActive: false,
+  });
   const workflowNavProject =
     project && amendmentJobId
       ? {
           ...project,
-          isPublished: publishComplete,
-          workflowReadiness: {
-            complete: landingComplete && jobComplete && publishComplete,
-            checks: [
-              { key: "landing", label: "Landing CMS", complete: landingComplete },
-              { key: "job", label: "Job Advertisement", complete: jobComplete },
-              {
-                key: "admit-format",
-                label: "Admit Format",
-                complete: admitFormatComplete,
-                optional: true,
-              },
-              {
-                key: "centers",
-                label: "Centers",
-                complete: centersComplete,
-                optional: true,
-              },
-              {
-                key: "review",
-                label: "Final Review",
-                complete: publishComplete,
-              },
-              {
-                key: "publish",
-                label: "Publish Job",
-                complete: publishComplete,
-              },
-            ],
-          },
+          isPublished: jobWorkflow.publishComplete,
+          workflowReadiness: jobWorkflow,
         }
       : project;
   const amendmentJobLabel = amendmentJob
     ? `${amendmentJob.title || "Selected job"}${amendmentJob.postCode ? ` (${amendmentJob.postCode})` : ""}`
     : "the selected job";
-  const amendmentNoticeText = `Official amendment: Application form fields for ${amendmentJobLabel} have been updated. Candidates should review the latest instructions before applying or requesting correction.`;
+  const amendmentNoticeText = `Job update: Application form fields for ${amendmentJobLabel} have been updated. Candidates should review the latest instructions before applying or requesting correction.`;
   const amendmentNoticeLink =
     project?.publicSlug || project?.slug
       ? `/apply/${project.publicSlug || project.slug}`
@@ -623,11 +553,46 @@ const CmsEdit = () => {
     faqs: form.faqs,
     helpdesk: form.helpdesk,
     sectionVisibility: form.sectionVisibility,
+    ...(isFormAmendment ? { jobAmendmentNotice: true } : {}),
   });
+
+  const page = pageData?.page;
+  const requiresCmsAmendmentReason =
+    Boolean(projectId && page?.status === "published" && !isFormAmendment);
 
   const hasUnsavedChanges =
     Boolean(form && savedSnapshot) &&
     getCmsSnapshot(buildPayload()) !== savedSnapshot;
+
+  const runCmsSave = (action, reason = "") => {
+    const basePayload = buildPayload();
+    const payload =
+      reason.trim().length > 0
+        ? { ...basePayload, amendmentReason: reason.trim() }
+        : basePayload;
+
+    if (action === "publish") {
+      saveAndPublish(payload);
+      return;
+    }
+    saveUpdate({ ...payload, status: "draft" });
+  };
+
+  const requestCmsSave = (action) => {
+    if (requiresCmsAmendmentReason) {
+      setPendingCmsAction(action);
+      setCmsAmendmentReason("");
+      return;
+    }
+    runCmsSave(action);
+  };
+
+  const confirmCmsAmendment = () => {
+    if (!pendingCmsAction || cmsAmendmentReason.trim().length < 12) return;
+    runCmsSave(pendingCmsAction, cmsAmendmentReason);
+    setPendingCmsAction(null);
+    setCmsAmendmentReason("");
+  };
 
   // Stash the current (possibly unsaved) draft and open the public preview in a
   // new tab. Only meaningful for project landing pages, which have a public URL.
@@ -678,7 +643,10 @@ const CmsEdit = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["public-projects"] });
       queryClient.invalidateQueries({ queryKey: ["public-project-branding"] });
-      if (projectId) navigate(nextPath);
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["admin-project-flow", projectId] });
+        navigate(nextPath);
+      }
     },
     onError: (err) => toast.error(err.message || "Failed to save"),
   });
@@ -713,6 +681,9 @@ const CmsEdit = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["public-projects"] });
       queryClient.invalidateQueries({ queryKey: ["public-project-branding"] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["admin-project-flow", projectId] });
+      }
       navigate(nextPath);
     },
     onError: (err) => toast.error(err.message || "Failed to publish"),
@@ -728,7 +699,6 @@ const CmsEdit = () => {
     );
   }
 
-  const page = pageData?.page;
   const liveSummary = [
     { label: "State", value: stateName },
     { label: "Project Logo", value: form.projectLogo ? "Uploaded" : "-" },
@@ -1166,7 +1136,7 @@ const CmsEdit = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => saveAndPublish(buildPayload())}
+                  onClick={() => requestCmsSave("publish")}
                   disabled={isPublishing || isSaving || !hasUnsavedChanges}
                   className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
                 >
@@ -1182,9 +1152,7 @@ const CmsEdit = () => {
                       : "No Changes to Publish"}
                 </button>
                 <button
-                  onClick={() =>
-                    saveUpdate({ ...buildPayload(), status: "draft" })
-                  }
+                  onClick={() => requestCmsSave("draft")}
                   disabled={isSaving || isPublishing || !hasUnsavedChanges}
                   className="w-full py-2.5 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-50 disabled:text-gray-400"
                 >
@@ -1465,16 +1433,14 @@ const CmsEdit = () => {
                 </button>
               )}
               <button
-                onClick={() =>
-                  saveUpdate({ ...buildPayload(), status: "draft" })
-                }
+                onClick={() => requestCmsSave("draft")}
                 disabled={isSaving || isPublishing || !hasUnsavedChanges}
                 className="px-5 py-2.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 Save Draft
               </button>
               <button
-                onClick={() => saveAndPublish(buildPayload())}
+                onClick={() => requestCmsSave("publish")}
                 disabled={isSaving || isPublishing || !hasUnsavedChanges}
                 className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:bg-orange-200 disabled:text-orange-700/60 flex items-center gap-2"
               >
@@ -1485,6 +1451,61 @@ const CmsEdit = () => {
           </div>
         </div>
       </div>
+      {Boolean(pendingCmsAction) && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cms-amendment-title"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-2xl"
+          >
+            <div className="border-b border-gray-100 px-6 py-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
+                Project amendment
+              </p>
+              <h2 id="cms-amendment-title" className="mt-1 text-xl font-bold text-gray-900">
+                Add amendment reason
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-gray-500">
+                This reason is stored in the project amendment history and admin audit log only.
+              </p>
+            </div>
+            <div className="px-6 py-5">
+              <textarea
+                value={cmsAmendmentReason}
+                onChange={(event) => setCmsAmendmentReason(event.target.value)}
+                rows={4}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                placeholder="Example: Corrected landing page legal instructions after official approval."
+              />
+              <p className="mt-2 text-xs font-medium text-gray-500">
+                Minimum 12 characters. Candidate notices are not generated from this reason.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingCmsAction(null);
+                  setCmsAmendmentReason("");
+                }}
+                disabled={isSaving || isPublishing}
+                className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCmsAmendment}
+                disabled={cmsAmendmentReason.trim().length < 12 || isSaving || isPublishing}
+                className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:bg-orange-200 disabled:text-orange-700/60"
+              >
+                Save Amendment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };

@@ -72,6 +72,46 @@ const defaultHelpdesk = {
   address: "Recruitment Portal Helpdesk",
 };
 
+const amendmentTrackedFields = [
+  "heroTitle",
+  "heroSubtitle",
+  "announcements",
+  "instructions",
+  "downloads",
+  "faqs",
+  "helpdesk",
+  "sectionVisibility",
+  "quickLinks",
+  "status",
+];
+
+const stableStringify = (value) => JSON.stringify(value ?? null);
+
+const getChangedPageFields = (page, body) =>
+  amendmentTrackedFields
+    .filter((field) => body[field] !== undefined)
+    .filter((field) => stableStringify(page[field]) !== stableStringify(body[field]))
+    .map((field) => ({
+      field: `landingCms.${field}`,
+      oldValue: page[field],
+      newValue: body[field],
+    }));
+
+const getNoticeText = (notice) =>
+  typeof notice === "string"
+    ? notice
+    : notice?.text || notice?.title || notice?.label || "";
+
+const sanitizePublicCmsPage = (page) => {
+  if (!page) return page;
+  return {
+    ...page,
+    announcements: (page.announcements || []).filter(
+      (notice) => !/\bproject\b/i.test(getNoticeText(notice)),
+    ),
+  };
+};
+
 const getCmsScope = async ({ state, projectId }) => {
   if (!projectId) {
     return {
@@ -246,6 +286,19 @@ const update = asyncHandler(async (req, res) => {
     });
   }
 
+  const isJobScopedCandidateNotice = req.body.jobAmendmentNotice === true;
+  const cmsAmendmentChanges =
+    scope.isProjectPage && page.status === "published" && !isJobScopedCandidateNotice
+      ? getChangedPageFields(page, req.body)
+      : [];
+  const amendmentReason = String(req.body.amendmentReason || "").trim();
+  if (cmsAmendmentChanges.length > 0 && amendmentReason.length < 12) {
+    throw new ApiError(
+      400,
+      "Add an amendment reason before changing a published landing page.",
+    );
+  }
+
   const allowed = [
     "heroTitle","heroSubtitle","projectLogo","projectLogoSize","bannerImage","bannerImageSize",
     "featuredJobs","announcements","quickLinks","status",
@@ -257,10 +310,28 @@ const update = asyncHandler(async (req, res) => {
   page.updatedBy = req.user?.id;
 
   await page.save();
+  if (cmsAmendmentChanges.length > 0) {
+    const project = await Project.findById(scope.project._id);
+    if (project) {
+      const nextVersion = Number(project.amendmentVersion || 0) + 1;
+      project.amendmentVersion = nextVersion;
+      project.amendments.push({
+        version: nextVersion,
+        reason: amendmentReason,
+        changedFields: cmsAmendmentChanges.map((change) => change.field),
+        changes: cmsAmendmentChanges,
+        updatedBy: req.user.id,
+        updatedAt: new Date(),
+      });
+      await project.save();
+    }
+  }
   await invalidatePublicRecruitmentCache();
   await saveAuditLog(
     req,
-    `Updated ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
+    cmsAmendmentChanges.length > 0
+      ? `Project landing amendment for "${scope.project.name}": ${amendmentReason}`
+      : `Updated ${scope.isProjectPage ? "project landing page" : "CMS page"}: ${page.heroTitle || page.state}`,
   );
   emitCmsRealtime(SOCKET_EVENTS.CMS_UPDATED, page, "updated");
 
@@ -378,7 +449,7 @@ const getPublicStatePage = asyncHandler(async (req, res) => {
   }
 
   res.status(StatusCodes.OK).json(
-    new ApiResponse(StatusCodes.OK, "State page fetched", { page }),
+    new ApiResponse(StatusCodes.OK, "State page fetched", { page: sanitizePublicCmsPage(page) }),
   );
 });
 

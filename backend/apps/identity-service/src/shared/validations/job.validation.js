@@ -3,7 +3,7 @@ const { z } = require("zod");
 const createJobSchema = z.object({
   projectId: z.string().min(1, "Project ID is required"),
   title: z.string().min(3, "Job title must be at least 3 characters").max(200),
-  postCode: z.string().min(2, "Post code is required").max(50),
+  postCode: z.string().min(2, "Advertisement / Exam Code must be at least 2 characters").max(50),
   department: z.string().min(2, "Department is required"),
   category: z
     .enum(["General", "Technical", "Administrative", "Teaching"])

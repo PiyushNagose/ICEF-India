@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
@@ -47,6 +47,11 @@ const maxDate = (...dates) => {
   if (!validDates.length) return undefined
   return new Date(Math.max(...validDates.map((date) => date.getTime())))
 }
+const minOfDates = (...dates) => {
+  const validDates = dates.filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+  if (!validDates.length) return undefined
+  return new Date(Math.min(...validDates.map((date) => date.getTime())))
+}
 
 const JobBasicInfo = () => {
   const navigate = useNavigate();
@@ -63,6 +68,36 @@ const JobBasicInfo = () => {
   })();
   const projectId = urlProjectId || savedDraft.projectId || null;
   const jobId = searchParams.get("job") || savedDraft._jobId || "";
+  const validProjectId = /^[a-f\d]{24}$/i.test(projectId || "");
+  const { data: projectData } = useQuery({
+    queryKey: ["admin-project", projectId],
+    queryFn: () => adminService.getProject(projectId),
+    enabled: Boolean(validProjectId),
+    staleTime: 30000,
+  });
+  const project = projectData?.project || projectData || {};
+  const projectStartDateValue =
+    toDateOnly(project?.startDate) || toDateOnly(savedDraft.projectStartDate);
+  const projectClosureDateValue =
+    toDateOnly(project?.endDate || project?.closureDate) ||
+    toDateOnly(savedDraft.projectEndDate || savedDraft.projectClosureDate);
+  const projectStartDate = toDate(projectStartDateValue);
+  const projectClosureDate = toDate(projectClosureDateValue);
+  const projectName = project?.name || savedDraft.projectName || "this project";
+  const projectClosureDisplay = projectClosureDateValue
+    ? new Date(`${projectClosureDateValue}T00:00:00`).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+  const projectStartDisplay = projectStartDateValue
+    ? new Date(`${projectStartDateValue}T00:00:00`).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
   const originalApplicationStartDate = toDateOnly(savedDraft.applicationStartDate);
   const originalApplicationDeadline = toDateOnly(savedDraft.applicationDeadline);
   const originalDateValues = {
@@ -187,10 +222,7 @@ const JobBasicInfo = () => {
   const minAllowedDate = (field, ...dates) =>
     isExistingJobDraft && formData[field] === originalDateValues[field]
       ? maxDate(todayDate(), ...dates, toDate(originalDateValues[field]))
-      : maxDate(todayDate(), ...dates)
-  const applicationDeadlineMinDate = isExistingJobDraft
-    ? maxDate(todayDate(), toDate(originalApplicationDeadline))
-    : toDate(formData.applicationStartDate) || todayDate();
+      : maxDate(todayDate(), ...dates);
 
   const set = (field, value) => {
     if (field.includes(".")) {
@@ -213,12 +245,14 @@ const JobBasicInfo = () => {
     if (!formData.jobTitle.trim()) e.jobTitle = "Job title is required";
     else if (formData.jobTitle.trim().length < 3)
       e.jobTitle = "Job title must be at least 3 characters";
-    if (!formData.postCode.trim()) e.postCode = "Post code is required";
+    if (!formData.postCode.trim())
+      e.postCode = "Advertisement / Exam Code is required";
     else if (formData.postCode.trim().length < 2)
-      e.postCode = "Post code must be at least 2 characters";
+      e.postCode = "Advertisement / Exam Code must be at least 2 characters";
     if (!formData.department.trim()) e.department = "Department is required";
     else if (formData.department.trim().length < 2)
       e.department = "Department must be at least 2 characters";
+    const seenPostCodes = new Set();
     formData.posts.forEach((post, index) => {
       if (!post.title?.trim())
         e[`posts.${index}.title`] = "Post title is required";
@@ -226,6 +260,13 @@ const JobBasicInfo = () => {
         e[`posts.${index}.designation`] = "Designation is required";
       if (!post.vacancies || Number(post.vacancies) < 1)
         e[`posts.${index}.vacancies`] = "Vacancies must be at least 1";
+      const pCode = post.postCode?.trim();
+      if (pCode) {
+        if (seenPostCodes.has(pCode.toUpperCase())) {
+          e[`posts.${index}.postCode`] = "Duplicate post code in post list";
+        }
+        seenPostCodes.add(pCode.toUpperCase());
+      }
     });
     if (
       formData.posts.reduce(
@@ -280,6 +321,33 @@ const JobBasicInfo = () => {
     ) {
       e.applicationStartDate = "Application start date cannot be in the past";
     }
+    // ── Project boundary validation ──
+    if (
+      projectStartDateValue &&
+      formData.applicationStartDate &&
+      formData.applicationStartDate < projectStartDateValue
+    ) {
+      e.applicationStartDate = `Application start date cannot be before project start date (${projectStartDisplay})`;
+    }
+
+    const projectClosureFields = [
+      ["applicationStartDate", "Application start date"],
+      ["applicationDeadline", "Application deadline"],
+      ["correctionStartDate", "Correction start date"],
+      ["correctionDeadline", "Correction deadline"],
+      ["admitCardReleaseDate", "Admit card release date"],
+      ["examDate", "Tentative exam date"],
+      ["resultDate", "Result publish date"],
+    ];
+
+    if (projectClosureDateValue) {
+      projectClosureFields.forEach(([field, label]) => {
+        if (formData[field] && formData[field] > projectClosureDateValue) {
+          e[field] = `First amend project closure date, then update this ${label.toLowerCase()} (must be on or before ${projectClosureDisplay})`;
+        }
+      });
+    }
+
     // ── Sequential date chain ──
     if (
       formData.applicationStartDate &&
@@ -452,6 +520,10 @@ const JobBasicInfo = () => {
       examDate: formData.examDate || undefined,
       resultDate: formData.resultDate || undefined,
       description: formData.description,
+      projectStartDate: projectStartDateValue,
+      projectEndDate: projectClosureDateValue,
+      projectClosureDate: projectClosureDateValue,
+      projectName: projectName,
     };
   };
 
@@ -469,9 +541,14 @@ const JobBasicInfo = () => {
       toast.success("Draft saved.");
     } catch (err) {
       const apiErrors = extractApiErrors(err);
+      const rawMsg = err?.response?.data?.message || err.message || "";
+      if (/post\s*code|advertisement.*exam.*code/i.test(rawMsg)) {
+        apiErrors.postCode =
+          "Advertisement / Exam Code already exists. Please choose a different code.";
+      }
       if (Object.keys(apiErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...apiErrors }));
-        toast.error("Please fix the highlighted fields.");
+        toast.error(apiErrors.postCode || "Please fix the highlighted fields.");
       } else {
         toast.error(err.message || "Failed to save draft");
       }
@@ -493,9 +570,14 @@ const JobBasicInfo = () => {
       );
     } catch (err) {
       const apiErrors = extractApiErrors(err);
+      const rawMsg = err?.response?.data?.message || err.message || "";
+      if (/post\s*code|advertisement.*exam.*code/i.test(rawMsg)) {
+        apiErrors.postCode =
+          "Advertisement / Exam Code already exists. Please choose a different code.";
+      }
       if (Object.keys(apiErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...apiErrors }));
-        toast.error("Please fix the highlighted fields.");
+        toast.error(apiErrors.postCode || "Please fix the highlighted fields.");
       } else {
         toast.error(err.message || "Failed to save job");
       }
@@ -601,6 +683,9 @@ const JobBasicInfo = () => {
                           {errors.postCode}
                         </p>
                       )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Unique exam or notification code for this entire recruitment
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -791,16 +876,21 @@ const JobBasicInfo = () => {
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">
-                              Post Code
+                              Post Code (Specific to this post)
                             </label>
                             <input
                               value={post.postCode || ""}
                               onChange={(e) =>
                                 updatePost(index, "postCode", e.target.value)
                               }
-                              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 ${errors[`posts.${index}.postCode`] ? "border-red-400" : "border-gray-300"}`}
                               placeholder="e.g. TC-01"
                             />
+                            {errors[`posts.${index}.postCode`] && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {errors[`posts.${index}.postCode`]}
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">
@@ -987,6 +1077,21 @@ const JobBasicInfo = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
+                  {projectClosureDateValue && (
+                    <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs text-orange-950">
+                      <div className="flex items-center gap-1.5 font-semibold text-orange-900">
+                        <Calendar className="w-3.5 h-3.5 text-orange-600" />
+                        <span>Project Timeline Boundary ({projectName})</span>
+                      </div>
+                      <p className="mt-1 text-orange-800">
+                        {projectStartDisplay ? `Project Start: ${projectStartDisplay} • ` : ""}
+                        Project Closure: <span className="font-semibold">{projectClosureDisplay}</span>
+                      </p>
+                      <p className="mt-0.5 text-gray-600">
+                        All dates must fall within this project boundary. Dates beyond {projectClosureDisplay} are restricted.
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Application Start <span className="text-red-500">*</span>
@@ -997,7 +1102,9 @@ const JobBasicInfo = () => {
                         if (!applicationStartLocked) set("applicationStartDate", val);
                       }}
                       placeholder="Select application start"
-                      minDate={todayDate()}
+                      minDate={minAllowedDate("applicationStartDate", projectStartDate)}
+                      maxDate={minOfDates(toDate(formData.applicationDeadline), projectClosureDate) || projectClosureDate}
+                      initialViewDate={maxDate(todayDate(), projectStartDate)}
                       readOnly={applicationStartLocked}
                       readOnlyReason={
                         applicationStartLocked
@@ -1006,6 +1113,11 @@ const JobBasicInfo = () => {
                       }
                       disabled={applicationStartLocked}
                     />
+                    {projectStartDateValue && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Cannot be before project start ({projectStartDisplay}).
+                      </p>
+                    )}
                     {errors.applicationStartDate && (
                       <p className="text-red-500 text-xs mt-1">
                         {errors.applicationStartDate}
@@ -1020,8 +1132,20 @@ const JobBasicInfo = () => {
                       value={formData.applicationDeadline}
                       onChange={(val) => set("applicationDeadline", val)}
                       placeholder="Select deadline"
-                      minDate={applicationDeadlineMinDate}
+                      minDate={minAllowedDate(
+                        "applicationDeadline",
+                        toDate(formData.applicationStartDate),
+                        projectStartDate,
+                        isExistingJobDraft && originalApplicationDeadline ? toDate(originalApplicationDeadline) : undefined,
+                      )}
+                      maxDate={projectClosureDate}
+                      initialViewDate={toDate(formData.applicationStartDate) || maxDate(todayDate(), projectStartDate)}
                     />
+                    {projectClosureDateValue && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Must be on or before project closure ({projectClosureDisplay}).
+                      </p>
+                    )}
                     {isExistingJobDraft && originalApplicationDeadline && (
                       <p className="mt-1 text-xs font-medium text-amber-600">
                         Extensions only — deadline can only move forward from {new Date(originalApplicationDeadline + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.
@@ -1047,7 +1171,10 @@ const JobBasicInfo = () => {
                         "correctionStartDate",
                         toDate(formData.applicationDeadline),
                         toDate(formData.applicationStartDate),
+                        projectStartDate,
                       )}
+                      maxDate={minOfDates(toDate(formData.correctionDeadline), projectClosureDate) || projectClosureDate}
+                      initialViewDate={toDate(formData.applicationDeadline) || toDate(formData.applicationStartDate) || maxDate(todayDate(), projectStartDate)}
                       readOnly={correctionStartLocked}
                       readOnlyReason={
                         correctionStartLocked
@@ -1074,7 +1201,10 @@ const JobBasicInfo = () => {
                         "correctionDeadline",
                         toDate(formData.correctionStartDate),
                         toDate(formData.applicationDeadline),
+                        projectStartDate,
                       )}
+                      maxDate={projectClosureDate}
+                      initialViewDate={toDate(formData.correctionStartDate) || toDate(formData.applicationDeadline) || maxDate(todayDate(), projectStartDate)}
                     />
                     {errors.correctionDeadline && (
                       <p className="text-red-500 text-xs mt-1">
@@ -1094,7 +1224,10 @@ const JobBasicInfo = () => {
                         "admitCardReleaseDate",
                         toDate(formData.correctionDeadline),
                         toDate(formData.applicationDeadline),
+                        projectStartDate,
                       )}
+                      maxDate={minOfDates(toDate(formData.examDate), projectClosureDate) || projectClosureDate}
+                      initialViewDate={toDate(formData.correctionDeadline) || toDate(formData.applicationDeadline) || maxDate(todayDate(), projectStartDate)}
                     />
                     {errors.admitCardReleaseDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -1113,8 +1246,12 @@ const JobBasicInfo = () => {
                       minDate={minAllowedDate(
                         "examDate",
                         toDate(formData.admitCardReleaseDate),
+                        toDate(formData.correctionDeadline),
                         toDate(formData.applicationDeadline),
+                        projectStartDate,
                       )}
+                      maxDate={minOfDates(toDate(formData.resultDate), projectClosureDate) || projectClosureDate}
+                      initialViewDate={toDate(formData.admitCardReleaseDate) || toDate(formData.correctionDeadline) || maxDate(todayDate(), projectStartDate)}
                     />
                     {errors.examDate && (
                       <p className="text-red-500 text-xs mt-1">
@@ -1130,7 +1267,9 @@ const JobBasicInfo = () => {
                       value={formData.resultDate}
                       onChange={(val) => set("resultDate", val)}
                       placeholder="Select expected result date"
-                      minDate={minAllowedDate("resultDate", toDate(formData.examDate))}
+                      minDate={minAllowedDate("resultDate", toDate(formData.examDate), projectStartDate)}
+                      maxDate={projectClosureDate}
+                      initialViewDate={toDate(formData.examDate) || maxDate(todayDate(), projectStartDate)}
                     />
                     {errors.resultDate && (
                       <p className="text-red-500 text-xs mt-1">

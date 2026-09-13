@@ -6,10 +6,10 @@ import toast from 'react-hot-toast'
 import {
   FileText,
   Calendar,
+  BriefcaseBusiness,
   Plus,
   Loader2,
   Sparkles,
-  BriefcaseBusiness,
   ArrowRight,
   CheckCircle2,
   X,
@@ -88,6 +88,21 @@ const todayDate = () => {
   return d
 }
 
+const maxDate = (...dates) => {
+  const validDates = dates.filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+  if (!validDates.length) return undefined
+  return new Date(Math.max(...validDates.map((date) => date.getTime())))
+}
+
+const formatDisplayDate = (value) =>
+  value
+    ? new Date(`${toDateInput(value)}T00:00:00`).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : ''
+
 const getProjectSnapshot = (data = {}) =>
   JSON.stringify({
     name: (data.name || '').trim(),
@@ -98,6 +113,112 @@ const getProjectSnapshot = (data = {}) =>
     startDate: data.startDate || '',
     endDate: data.endDate || '',
   })
+
+const ProjectAmendmentReasonModal = ({
+  isOpen,
+  isSaving,
+  value,
+  onChange,
+  onClose,
+  onConfirm,
+  oldDate,
+  newDate,
+}) => {
+  if (!isOpen) return null
+
+  const canSubmit = value.trim().length >= 12
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 px-4 py-6 backdrop-blur-md">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-amendment-title"
+        className="w-full max-w-[560px] overflow-hidden rounded-[24px] border border-orange-100 bg-white shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-orange-100 px-6 py-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-600">
+              Official project amendment
+            </p>
+            <h2 id="project-amendment-title" className="mt-1 text-xl font-bold text-gray-900">
+              Add amendment reason
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-500">
+              Extending a published project lifecycle needs an official reason for audit history.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            aria-label="Close project amendment reason"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="grid gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
+                Previous deadline
+              </p>
+              <p className="mt-1 font-semibold text-gray-900">{oldDate || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
+                Extended deadline
+              </p>
+              <p className="mt-1 font-semibold text-gray-900">{newDate || '-'}</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={5}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder="Example: Project deadline extended as per official administrative order."
+              className="mt-2 w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Minimum 12 characters. This is stored in project amendment history.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-xl border-gray-200 text-gray-700 hover:bg-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={!canSubmit || isSaving}
+            className={`rounded-xl px-5 font-bold ${
+              canSubmit && !isSaving
+                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-100'
+            }`}
+          >
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save Amendment
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const CreateProject = () => {
   const { id } = useParams()
@@ -119,6 +240,8 @@ const CreateProject = () => {
   const [createdProject, setCreatedProject] = useState(null)
   const [showCreatedModal, setShowCreatedModal] = useState(false)
   const [savedSnapshot, setSavedSnapshot] = useState('')
+  const [showProjectAmendmentModal, setShowProjectAmendmentModal] = useState(false)
+  const [projectAmendmentReason, setProjectAmendmentReason] = useState('')
 
   const { data: projectData, isLoading: isProjectLoading } = useQuery({
     queryKey: ['admin-project', id],
@@ -127,6 +250,26 @@ const CreateProject = () => {
   })
 
   const project = projectData?.project || projectData
+  const originalStartDate = isEditMode ? toDateInput(project?.startDate) : ''
+  const originalEndDate = isEditMode ? toDateInput(project?.endDate || project?.closureDate) : ''
+  const projectStartLocked = Boolean(isEditMode && originalStartDate)
+  const projectEndMinDate = isEditMode
+    ? maxDate(
+        todayDate(),
+        originalEndDate ? new Date(`${originalEndDate}T00:00:00`) : undefined,
+        formData.startDate ? new Date(`${formData.startDate}T00:00:00`) : undefined,
+      )
+    : (formData.startDate ? new Date(`${formData.startDate}T00:00:00`) : todayDate())
+  const projectDeadlineExtended = Boolean(
+    isEditMode &&
+      originalEndDate &&
+      formData.endDate &&
+      formData.endDate > originalEndDate,
+  )
+  const projectAmendmentRequired = Boolean(
+    projectDeadlineExtended &&
+      (project?.isPublished || String(project?.status || '').toLowerCase() === 'completed'),
+  )
 
   useEffect(() => {
     if (!project) return
@@ -278,6 +421,21 @@ const CreateProject = () => {
         'Project closure date must be after start date'
     }
 
+    if (isEditMode && originalStartDate && formData.startDate !== originalStartDate) {
+      newErrors.startDate =
+        'Project start date is fixed after creation. Extend the closure date for amendments.'
+    }
+
+    if (isEditMode && formData.endDate) {
+      const today = toDateInput(todayDate())
+      if (formData.endDate < today) {
+        newErrors.endDate = 'Project closure date must be today or a future date for an amendment'
+      } else if (originalEndDate && formData.endDate < originalEndDate) {
+        newErrors.endDate =
+          'Project closure date can only be extended forward, not moved earlier'
+      }
+    }
+
     setErrors(newErrors)
 
     return Object.keys(newErrors).length === 0
@@ -301,7 +459,24 @@ const CreateProject = () => {
       return
     }
 
+    if (projectAmendmentRequired) {
+      setProjectAmendmentReason('')
+      setShowProjectAmendmentModal(true)
+      return
+    }
+
     updateProject(payload)
+  }
+
+  const handleConfirmProjectAmendment = () => {
+    const reason = projectAmendmentReason.trim()
+    if (reason.length < 12) return
+
+    updateProject({
+      ...formData,
+      amendmentReason: reason,
+    })
+    setShowProjectAmendmentModal(false)
   }
 
   const getCreatedProjectId = () =>
@@ -614,10 +789,24 @@ const CreateProject = () => {
 
                   <AppDatePicker
                     value={formData.startDate}
-                    onChange={(val) => handleChange('startDate', val)}
+                    onChange={(val) => {
+                      if (!projectStartLocked) handleChange('startDate', val)
+                    }}
                     placeholder="Select start date"
                     minDate={!isEditMode ? todayDate() : undefined}
+                    readOnly={projectStartLocked}
+                    disabled={projectStartLocked}
+                    readOnlyReason={
+                      projectStartLocked
+                        ? `Project start date is fixed after creation (${formatDisplayDate(originalStartDate)}). Extend the project closure date for deadline amendments.`
+                        : ''
+                    }
                   />
+                  {projectStartLocked && (
+                    <p className="mt-1 text-xs font-medium text-gray-500">
+                      Start date is locked after project creation.
+                    </p>
+                  )}
                   {errors.startDate && (
                     <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>
                   )}
@@ -631,9 +820,20 @@ const CreateProject = () => {
                   <AppDatePicker
                     value={formData.endDate}
                     onChange={(val) => handleChange('endDate', val)}
-                    placeholder="Select closure date after result"
-                    minDate={formData.startDate ? new Date(formData.startDate + 'T00:00:00') : (!isEditMode ? todayDate() : undefined)}
+                    placeholder={
+                      isEditMode
+                        ? 'Select extended project deadline'
+                        : 'Select closure date after result'
+                    }
+                    minDate={projectEndMinDate}
                   />
+                  {isEditMode && (
+                    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-800">
+                      Project deadline amendments can only move forward. If a
+                      job deadline must go beyond this date, extend the project
+                      closure date first, then update that job deadline.
+                    </div>
+                  )}
                   {errors.endDate && (
                     <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>
                   )}
@@ -830,6 +1030,21 @@ const CreateProject = () => {
           </div>
         </div>
       )}
+
+      <ProjectAmendmentReasonModal
+        isOpen={showProjectAmendmentModal}
+        isSaving={isUpdating}
+        value={projectAmendmentReason}
+        onChange={setProjectAmendmentReason}
+        onClose={() => {
+          if (isUpdating) return
+          setShowProjectAmendmentModal(false)
+          setProjectAmendmentReason('')
+        }}
+        onConfirm={handleConfirmProjectAmendment}
+        oldDate={formatDisplayDate(originalEndDate)}
+        newDate={formatDisplayDate(formData.endDate)}
+      />
     </AdminLayout>
   )
 }

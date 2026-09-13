@@ -897,8 +897,66 @@ const updateSchedule = async (id, data, userId) => {
     data.attendanceSheetTemplateConfig = await resolveAttendanceSheetTemplateConfig(data.attendanceSheetTemplate);
   }
 
+  const setupKeys = [
+    "examName",
+    "examCode",
+    "examDate",
+    "reportingTime",
+    "gateClosingTime",
+    "examStartTime",
+    "examEndTime",
+    "selectedCenterIds",
+    "admitCardTemplate",
+    "attendanceSheetTemplate",
+    "admitCardTemplateConfig",
+    "attendanceSheetTemplateConfig",
+    "papers",
+    "instructions",
+    "provisionalNote",
+  ];
+  const setupTouched = setupKeys.some((key) =>
+    Object.prototype.hasOwnProperty.call(data, key),
+  );
+
   await clearGeneratedScheduleState(schedule, data);
   Object.assign(schedule, data, { updatedBy: userId });
+  if (setupTouched) {
+    schedule.admitSetupVerifiedAt = undefined;
+    schedule.admitSetupVerifiedBy = undefined;
+    schedule.admitSetupVersion = Number(schedule.admitSetupVersion || 0) + 1;
+  }
+  await schedule.save();
+  return getSchedule(schedule._id);
+};
+
+const verifyAdmitSetup = async (id, userId) => {
+  const schedule = await ExamSchedule.findById(id);
+  if (!schedule)
+    throw new ApiError(StatusCodes.NOT_FOUND, "Exam schedule not found");
+
+  const selectedCenterIds = getSelectedCenterIds(schedule);
+  if (!schedule.examName || !schedule.examDate || !schedule.reportingTime || !schedule.examStartTime) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Complete exam schedule details before verifying admit-card setup",
+    );
+  }
+  if (!schedule.admitCardTemplateConfig?.templateId && !schedule.admitCardTemplateConfig?.baseLayout) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Select an admit-card template before verifying admit-card setup",
+    );
+  }
+  if (!selectedCenterIds.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Select centers before verifying admit-card setup",
+    );
+  }
+
+  schedule.admitSetupVerifiedAt = new Date();
+  schedule.admitSetupVerifiedBy = userId;
+  schedule.updatedBy = userId;
   await schedule.save();
   return getSchedule(schedule._id);
 };
@@ -2920,6 +2978,7 @@ module.exports = {
   createSchedule,
   getSchedule,
   updateSchedule,
+  verifyAdmitSetup,
   getScheduleStats,
   previewAllocation,
   allocateCandidates,

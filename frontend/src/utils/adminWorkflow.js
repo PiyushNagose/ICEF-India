@@ -51,6 +51,14 @@ export const isCenterSelectionConfigured = (schedule, centers = []) => {
   );
 };
 
+export const isAdmitSetupVerified = (schedule) => {
+  if (!schedule?.admitSetupVerifiedAt) return false;
+  const verifiedAt = new Date(schedule.admitSetupVerifiedAt).getTime();
+  const updatedAt = new Date(schedule.updatedAt || schedule.createdAt || 0).getTime();
+  if (!verifiedAt) return false;
+  return !updatedAt || updatedAt - verifiedAt <= 2000;
+};
+
 export const pickDefaultAdminJob = (jobs = []) => {
   const sorted = [...jobs].sort((a, b) => {
     const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime() || 0;
@@ -85,21 +93,41 @@ export const buildAdminJobWorkflow = ({
   const centersComplete = selectedSchedules.some((schedule) =>
     isCenterSelectionConfigured(schedule, centers),
   );
+  const admitSetupVerified = selectedSchedules.some(
+    (schedule) =>
+      isAdmitFormatConfigured(schedule) &&
+      isCenterSelectionConfigured(schedule, centers) &&
+      isAdmitSetupVerified(schedule),
+  );
   const storedStatus = String(job?.status || "").toLowerCase();
   const wasPublished = ["active", "closed", "published"].includes(storedStatus);
   const effectiveStatus = getEffectiveJobStatus(job || {});
-  const publishComplete = Boolean(
+  
+  // Unverified changes: if a published job is updated, its updatedAt will be greater than publishedAt
+  // We use a 2000ms buffer to account for mongoose simultaneous save timing differences
+  const updatedAt = new Date(job?.updatedAt || 0).getTime();
+  const publishedAt = new Date(job?.publishedAt || 0).getTime();
+  const hasUnverifiedChanges = wasPublished && (updatedAt - publishedAt > 2000);
+
+  const publicJobLive = Boolean(
     project?.isPublished && job?._id && wasPublished && effectiveStatus === "active",
   );
+  
   const amendmentMode = Boolean(
-    project?.isPublished && job?._id && wasPublished && effectiveStatus === "closed",
+    hasUnverifiedChanges || 
+    (project?.isPublished && job?._id && wasPublished && effectiveStatus === "closed")
   );
+
   const admitOptional = !admitPhaseActive;
   const requiredSetupComplete =
     landingComplete &&
     jobComplete &&
     (admitOptional || (admitFormatComplete && centersComplete));
+  
   const reviewReady = requiredSetupComplete;
+  
+  const releaseVerified = admitPhaseActive ? admitSetupVerified : !hasUnverifiedChanges;
+  const publishComplete = publicJobLive && requiredSetupComplete && releaseVerified;
 
   const checks = [
     {
@@ -154,13 +182,21 @@ export const buildAdminJobWorkflow = ({
     },
     {
       key: "publish",
-      label: amendmentMode ? "Verify Amendment" : "Publish Job",
+      label: admitPhaseActive
+        ? "Verify Admit Setup"
+        : amendmentMode
+          ? "Verify Amendment"
+          : "Publish Job",
       complete: publishComplete,
       message: publishComplete
-        ? "This job is live on the project public URL."
-        : amendmentMode
-          ? "Verify the extended job window on the public URL."
-          : "Publish this job after final review.",
+        ? admitPhaseActive
+          ? "Latest admit-card setup is verified."
+          : "This job is live on the project public URL."
+        : admitPhaseActive
+          ? "Verify the latest admit-card format and center setup."
+          : amendmentMode
+            ? "Verify the extended job window on the public URL."
+            : "Publish this job after final review.",
     },
   ];
   const blockingChecks = checks.filter((check) => !check.optional);
@@ -170,6 +206,7 @@ export const buildAdminJobWorkflow = ({
     readyToPublish: reviewReady,
     publishComplete,
     amendmentMode,
+    admitSetupVerified,
     effectiveStatus,
     statusLabel: formatJobStatus(job),
     checks,

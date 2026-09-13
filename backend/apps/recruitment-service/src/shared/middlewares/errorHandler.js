@@ -26,6 +26,9 @@ const errorHandler = (err, req, res, next) => {
     if (field === "publicSlug") {
       message =
         "A project with this name already exists. Please choose a different project name.";
+    } else if (field === "postCode") {
+      message =
+        "Advertisement / Exam Code already exists. Please choose a different code.";
     } else {
       message = `${field} already exists`;
     }

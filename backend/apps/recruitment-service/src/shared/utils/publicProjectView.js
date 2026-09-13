@@ -16,6 +16,14 @@ const PUBLIC_JOB_FIELDS =
   "correctionDeadline admitCardReleaseDate examDate resultDate ageLimit " +
   "education physicalStandards medicalStandards description status";
 
+const PUBLIC_JOB_DETAIL_FIELDS =
+  "projectId title postCode department category jobType workLocation description " +
+  "totalPosts posts postSelectionMode reservedPosts salaryRange applicationFee " +
+  "applicationStartDate applicationDeadline correctionStartDate correctionDeadline " +
+  "admitCardReleaseDate examDate resultDate paymentConfig ageLimit education " +
+  "experience physicalStandards medicalStandards otherRequirements selectionProcess " +
+  "formSections documentRequirements requiredDocuments status publishedAt";
+
 const buildAvailability = (job, now = new Date()) => {
   const currentDay = startOfDay(now);
   const start = startOfDay(job.applicationStartDate);
@@ -97,6 +105,7 @@ const enrichPublicJobs = (jobs = [], now = new Date()) =>
 module.exports = {
   PUBLIC_JOB_FILTER,
   PUBLIC_JOB_FIELDS,
+  PUBLIC_JOB_DETAIL_FIELDS,
   buildAvailability,
   enrichPublicJob,
   enrichPublicJobs,

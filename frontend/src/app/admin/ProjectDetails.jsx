@@ -44,6 +44,9 @@ import {
 import {
   buildAdminJobWorkflow,
   getEntityId,
+  isAdmitFormatConfigured,
+  isAdmitSetupVerified,
+  isCenterSelectionConfigured,
   isJobAdvertisementConfigured,
   pickDefaultAdminJob,
 } from "../../utils/adminWorkflow";
@@ -247,7 +250,35 @@ const ProjectDetails = () => {
         throw new Error("Select a job before publishing");
       }
       if (!reviewReady) {
-        throw new Error("Complete landing CMS and job advertisement first");
+        throw new Error(
+          admitSetupReviewMode
+            ? "Complete admit-card format and centers before verifying setup"
+            : "Complete landing CMS and job advertisement first",
+        );
+      }
+
+      if (admitSetupReviewMode) {
+        const verifiableSchedules = selectedJobSchedules.filter(
+          (schedule) =>
+            isAdmitFormatConfigured(schedule) &&
+            isCenterSelectionConfigured(schedule) &&
+            !isAdmitSetupVerified(schedule),
+        );
+        const alreadyVerified = selectedJobSchedules.some(
+          (schedule) =>
+            isAdmitFormatConfigured(schedule) &&
+            isCenterSelectionConfigured(schedule) &&
+            isAdmitSetupVerified(schedule),
+        );
+        if (!verifiableSchedules.length && !alreadyVerified) {
+          throw new Error("Create a complete admit-card schedule with centers before verifying setup");
+        }
+        await Promise.all(
+          verifiableSchedules.map((schedule) =>
+            adminService.verifyAdmitSetup(getEntityId(schedule)),
+          ),
+        );
+        return { admitSetupVerified: true, project: rawProject, job: selectedJob };
       }
 
       let publishedJob = selectedJob;
@@ -276,8 +307,16 @@ const ProjectDetails = () => {
 
       return { project: publishedProject, job: publishedJob };
     },
-    onSuccess: ({ project: publishedProject, job: publishedJob }) => {
+    onSuccess: ({ project: publishedProject, job: publishedJob, admitSetupVerified }) => {
       const publishedAt = new Date().toISOString();
+      if (admitSetupVerified) {
+        toast.success("Admit-card setup verified");
+        queryClient.invalidateQueries({ queryKey: ["admin-project", id] });
+        queryClient.invalidateQueries({ queryKey: ["admin-project-job-schedules", id, selectedJob?._id] });
+        queryClient.invalidateQueries({ queryKey: ["exam-schedules", id] });
+        navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}#publish`, { replace: true });
+        return;
+      }
       setProjectPublishedLocally(Boolean(publishedProject?.isPublished || isPublished));
       if (selectedJob?._id) {
         setPublishedJobIds((current) => {
@@ -471,6 +510,7 @@ const ProjectDetails = () => {
 
   // isPublished declared earlier
   const publishSectionOpen = location.hash === "#publish";
+  const admitSetupReviewMode = Boolean(selectedJob && searchParams.get("setup") === "admit");
   const workflowReadiness = rawProject?.workflowReadiness || { complete: false, checks: [] };
   const workflowScope = selectedJob ? "job" : "project";
   const landingComplete = Boolean(
@@ -489,18 +529,23 @@ const ProjectDetails = () => {
     project: projectForWorkflow,
     job: selectedWorkflowJob,
     schedules: selectedJobSchedules,
-    admitPhaseActive: false,
+    admitPhaseActive: admitSetupReviewMode,
   });
   const jobComplete = selectedJobWorkflowReadiness.checks.find((check) => check.key === "job")?.complete;
   const admitFormatComplete =
     selectedJobWorkflowReadiness.checks.find((check) => check.key === "admit-format")?.complete;
   const centersComplete =
     selectedJobWorkflowReadiness.checks.find((check) => check.key === "centers")?.complete;
-  const reviewReady = landingComplete && jobComplete;
-  const publishComplete = selectedJob
+  const reviewReady = Boolean(selectedJobWorkflowReadiness.readyToPublish);
+  const basePublishComplete = selectedJob
     ? selectedJobWorkflowReadiness.publishComplete
     : isPublished;
-  const amendmentMode = Boolean(selectedJobWorkflowReadiness.amendmentMode);
+  const publishComplete = selectedJob && admitSetupReviewMode
+    ? false
+    : basePublishComplete;
+  const amendmentMode = Boolean(
+    selectedJobWorkflowReadiness.amendmentMode || admitSetupReviewMode,
+  );
   const projectPublishComplete = Boolean(isPublished && activeJobCount > 0);
   const projectPublishReady = Boolean(landingComplete && activeJobCount > 0);
   const projectWorkflowReadiness = {
@@ -554,13 +599,17 @@ const ProjectDetails = () => {
     projectWorkflowReadiness.checks?.filter((check) => !check.complete && !check.optional) || [];
   const publishBlockReason = selectedJob
     ? publishComplete
-      ? "This job is already live on the public URL."
+      ? admitSetupReviewMode
+        ? "Latest admit-card setup is already verified."
+        : "This job is already live on the public URL."
       : !landingComplete
         ? "Publish the landing CMS before this job can go live."
         : !jobComplete
           ? "Complete the job advertisement before publishing."
+          : admitSetupReviewMode
+            ? "Verify the latest admit-card format and center setup."
           : amendmentMode
-            ? "Verify the extended deadline and amendment notice before releasing the job again."
+            ? "Verify the job amendment before releasing the job again."
             : ""
     : projectPublishComplete
       ? "The project public URL is already live."
@@ -583,8 +632,10 @@ const ProjectDetails = () => {
         { label: "Public URL is available", complete: Boolean(project.publicSlug) },
       ];
 
+  const selectedJobReleaseVerified =
+    selectedJob && !admitSetupReviewMode && (publishSectionOpen || publishComplete);
   const selectedJobNavWorkflowReadiness =
-    selectedJob && (publishSectionOpen || publishComplete)
+    selectedJobReleaseVerified
       ? (() => {
           const checks = selectedJobWorkflowReadiness.checks.map((check) =>
             check.key === "review" ? { ...check, complete: true } : check,
@@ -941,7 +992,7 @@ const ProjectDetails = () => {
               <div className="flex flex-wrap items-center gap-2 sm:justify-start lg:justify-end">
                 <Button
                   type="button"
-                  onClick={() => navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}#publish`)}
+                  onClick={() => navigate(`/admin/projects/${id}?review=1${selectedJob?._id ? `&job=${selectedJob._id}` : ''}${admitSetupReviewMode ? '&setup=admit' : ''}#publish`)}
                   className="h-10 w-full rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700 sm:w-auto"
                 >
                   Next: Publish / Verify
@@ -988,7 +1039,11 @@ const ProjectDetails = () => {
                 <h2 className="mt-1 text-xl font-bold text-gray-900">
                   {selectedJob
                     ? publishComplete
-                      ? "Job is live on the public URL"
+                      ? admitSetupReviewMode
+                        ? "Admit-card setup is verified"
+                        : "Job is live on the public URL"
+                      : admitSetupReviewMode
+                        ? "Verify admit-card setup"
                       : amendmentMode
                         ? "Verify this amendment on the public URL"
                         : isPublished
@@ -1001,9 +1056,13 @@ const ProjectDetails = () => {
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-500">
                   {selectedJob
                     ? publishComplete
-                      ? "Candidates can apply for this job from the project landing page."
+                      ? admitSetupReviewMode
+                        ? "The latest admit-card format and center setup are reviewed."
+                        : "Candidates can apply for this job from the public page."
+                      : admitSetupReviewMode
+                        ? "Confirm the latest admit-card format and selected centers before allocation or card release."
                       : amendmentMode
-                        ? "Confirm the amended dates and public notice are live for candidates."
+                        ? "Confirm the amended job details are ready for candidates."
                         : "This is the final action after landing CMS, job advertisement, and review. Admit cards and centers can be configured later."
                     : projectPublishComplete
                       ? "Candidates can now open the public URL and start applications."
@@ -1068,7 +1127,11 @@ const ProjectDetails = () => {
                   )}
                   {selectedJob
                     ? publishComplete
-                      ? "Published"
+                      ? admitSetupReviewMode
+                        ? "Admit Setup Verified"
+                        : "Published"
+                      : admitSetupReviewMode
+                        ? "Verify Admit Setup"
                       : amendmentMode
                         ? "Verify Amendment"
                         : isPublished

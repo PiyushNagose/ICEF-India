@@ -1,6 +1,24 @@
 const mongoose = require("mongoose");
 const { getProjectLifecycleStatus } = require("../utils/timeline");
 
+const projectAmendmentSchema = new mongoose.Schema(
+  {
+    version: { type: Number, required: true },
+    reason: { type: String, required: true, trim: true },
+    changedFields: [{ type: String }],
+    changes: [
+      {
+        field: { type: String, required: true },
+        oldValue: mongoose.Schema.Types.Mixed,
+        newValue: mongoose.Schema.Types.Mixed,
+      },
+    ],
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const projectSchema = new mongoose.Schema(
   {
     name: {
@@ -27,6 +45,8 @@ const projectSchema = new mongoose.Schema(
     totalApplicants: { type: Number, default: 0 },
     totalRevenue: { type: Number, default: 0 },
     isPublished: { type: Boolean, default: false },
+    amendmentVersion: { type: Number, default: 0, min: 0 },
+    amendments: [projectAmendmentSchema],
 
     // Public landing page slug (NEW)
     publicSlug: {

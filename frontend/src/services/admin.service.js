@@ -206,6 +206,10 @@ export const adminService = {
     const response = await apiClient.put(`/admin/exams/schedules/${id}`, data);
     return unwrapData(response);
   },
+  async verifyAdmitSetup(id) {
+    const response = await apiClient.post(`/admin/exams/schedules/${id}/admit-setup/verify`);
+    return unwrapData(response);
+  },
   async getExamScheduleStats(id) {
     const response = await apiClient.get(`/admin/exams/schedules/${id}/stats`);
     return unwrapData(response);

@@ -6,6 +6,7 @@ const ApiError = require("../../shared/utils/ApiError");
 const { ApiResponse } = require("../../shared/utils/ApiResponse");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const { startOfDay, endOfDay } = require("../../shared/utils/timeline");
+const { PUBLIC_JOB_DETAIL_FIELDS } = require("../../shared/utils/publicProjectView");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -223,7 +224,9 @@ const getJob = asyncHandler(async (req, res) => {
     _id: req.params.id,
     status: { $in: ["active", "closed"] },
     isSoftDeleted: { $ne: true },
-  }).populate("projectId", "name department state description publicSlug status isPublished");
+  })
+    .select(PUBLIC_JOB_DETAIL_FIELDS)
+    .populate("projectId", "name department state description publicSlug status isPublished");
 
   if (
     !job ||

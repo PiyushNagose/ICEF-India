@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { cn } from '../../lib/utils'
 import { hasPermission, useAuth } from '../../hooks/useAuth'
 import logo from '../../assets/logo.png'
@@ -104,6 +105,7 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
 
         {visibleMenuItems.map((item) => {
           const Icon = item.icon
+          const isLocked = Boolean(user?.mustChangePassword)
           // Highlight active: exact match OR sub-path (but not cross-contaminating)
           const isActive =
             location.pathname === item.path ||
@@ -113,9 +115,16 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
             <Link
               key={item.path}
               ref={isActive ? activeItemRef : null}
-              to={item.path}
-              onClick={isMobile ? onClose : undefined}
-              title={isCollapsed && !isMobile ? item.label : undefined}
+              to={isLocked ? '/admin/settings-profile' : item.path}
+              onClick={(e) => {
+                if (isLocked) {
+                  e.preventDefault()
+                  toast.error('Please set your new password first to unlock your account.')
+                  return
+                }
+                if (isMobile && onClose) onClose()
+              }}
+              title={isLocked ? 'Account locked: Change your temporary password in Settings & Profile' : (isCollapsed && !isMobile ? item.label : undefined)}
               className={cn(
                 'flex items-center rounded-lg transition-all duration-200 ease-out group relative',
                 isCollapsed && !isMobile
@@ -123,6 +132,8 @@ const AdminSidebar = ({ isCollapsed = false, isMobile = false, onClose }) => {
                   : 'px-3 py-2.5 space-x-3',
                 isActive
                   ? 'bg-orange-600 text-white shadow-sm'
+                  : isLocked
+                  ? 'text-gray-400 hover:bg-gray-50 cursor-not-allowed opacity-60'
                   : 'text-gray-600 hover:bg-orange-50 hover:text-gray-900'
               )}
             >

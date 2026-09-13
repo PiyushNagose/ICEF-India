@@ -131,6 +131,12 @@ router.put(
   auditLog("AdmitCards", "UPDATE"),
   examController.updateSchedule,
 );
+router.post(
+  "/schedules/:id/admit-setup/verify",
+  checkPermission("admitCards", "edit"),
+  auditLog("AdmitCards", "VERIFY_SETUP"),
+  examController.verifyAdmitSetup,
+);
 router.get(
   "/schedules/:id/stats",
   checkPermission("admitCards", "view"),

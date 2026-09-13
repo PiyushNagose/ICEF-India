@@ -103,7 +103,7 @@ const assertWithinProject = (date, project, label) => {
   if (closure && value > closure) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      `${label} cannot be after project closure date`,
+      `${label} falls after the project closure date. First amend the project closure date, then update this job date.`,
     );
   }
 };
@@ -119,17 +119,20 @@ const assertProjectTimeline = (projectLike) => {
   }
 };
 
-const assertJobTimeline = (jobLike, project) => {
+const assertJobTimeline = (jobLike, project, options = {}) => {
+  const { skipPaymentDeadlineOrder = false } = options;
   assertOrder(
     jobLike.applicationStartDate,
     jobLike.applicationDeadline,
     "Application deadline must be after application start date",
   );
-  assertOrder(
-    jobLike.applicationDeadline,
-    jobLike.paymentConfig?.paymentDeadline,
-    "Payment deadline cannot be before application deadline",
-  );
+  if (!skipPaymentDeadlineOrder) {
+    assertOrder(
+      jobLike.applicationDeadline,
+      jobLike.paymentConfig?.paymentDeadline,
+      "Payment deadline cannot be before application deadline",
+    );
+  }
   assertOrder(
     jobLike.correctionStartDate,
     jobLike.correctionDeadline,
@@ -141,9 +144,13 @@ const assertJobTimeline = (jobLike, project) => {
     "Exam date must be after application deadline",
   );
   assertOrder(
-    jobLike.paymentConfig?.paymentDeadline || jobLike.applicationDeadline,
+    skipPaymentDeadlineOrder
+      ? jobLike.applicationDeadline
+      : jobLike.paymentConfig?.paymentDeadline || jobLike.applicationDeadline,
     jobLike.examDate,
-    "Exam date must be after payment deadline",
+    skipPaymentDeadlineOrder
+      ? "Exam date must be after application deadline"
+      : "Exam date must be after payment deadline",
   );
   assertOrder(
     jobLike.correctionDeadline,

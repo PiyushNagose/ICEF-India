@@ -8,7 +8,7 @@ import {
   Globe2,
   Send,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const getProjectId = (project) => project?._id || project?.id;
 
@@ -30,6 +30,15 @@ const getWorkflowOptionalMap = (project) => {
 const DO_LATER_TARGETS = {
   "admit-format": "centers",
   centers: "review",
+};
+
+const appendQueryParam = (path, key, value) => {
+  if (!path || path.includes(`${key}=`)) return path;
+  const [withoutHash, hash = ""] = path.split("#");
+  const separator = withoutHash.includes("?") ? "&" : "?";
+  return `${withoutHash}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}${
+    hash ? `#${hash}` : ""
+  }`;
 };
 
 const buildSteps = (
@@ -147,6 +156,7 @@ const ProjectFlowNav = ({
   contextValue = "",
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const projectId = getProjectId(project);
 
   if (!projectId) return null;
@@ -175,12 +185,31 @@ const ProjectFlowNav = ({
   const nextActionLabel =
     workflowScope === "project" && nextStep?.key === "publish"
       ? "Next: Publish / Verify"
+      : workflowScope === "job" &&
+        searchParams.get("setup") === "admit" &&
+        nextStep?.key === "publish"
+        ? "Verify Admit Setup"
       : workflowScope === "job" && nextStep?.key === "publish"
         ? "Resume Publish Job"
         : `Resume ${nextStep?.label || "Next Step"}`;
   const showDoLater = Boolean(
     currentStep && !currentStep.complete && doLaterStep,
   );
+  const getNavigationStep = (step) => {
+    const keepAdmitSetupContext = searchParams.get("setup") === "admit";
+    if (
+      workflowScope !== "job" ||
+      !(keepAdmitSetupContext || ["admit-format", "centers"].includes(currentStep?.key)) ||
+      !["review", "publish"].includes(step?.key)
+    ) {
+      return step;
+    }
+
+    return {
+      ...step,
+      path: appendQueryParam(step.path, "setup", "admit"),
+    };
+  };
 
   return (
     <div
@@ -214,8 +243,9 @@ const ProjectFlowNav = ({
             <button
               type="button"
               onClick={() => {
-                if (onStepClick?.(doLaterStep) === false) return;
-                navigate(doLaterStep.path);
+                const targetStep = getNavigationStep(doLaterStep);
+                if (onStepClick?.(targetStep) === false) return;
+                navigate(targetStep.path);
               }}
               className="inline-flex w-fit items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
             >
@@ -226,8 +256,9 @@ const ProjectFlowNav = ({
             <button
               type="button"
               onClick={() => {
-                if (onStepClick?.(nextStep) === false) return;
-                navigate(nextStep.path);
+                const targetStep = getNavigationStep(nextStep);
+                if (onStepClick?.(targetStep) === false) return;
+                navigate(targetStep.path);
               }}
               className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-orange-700"
             >
@@ -249,8 +280,9 @@ const ProjectFlowNav = ({
               key={step.key}
               type="button"
               onClick={() => {
-                if (onStepClick?.(step) === false) return;
-                navigate(step.path);
+                const targetStep = getNavigationStep(step);
+                if (onStepClick?.(targetStep) === false) return;
+                navigate(targetStep.path);
               }}
               className={`group flex min-h-[136px] w-full flex-col rounded-2xl border p-4 text-left transition-all ${
                 activeComplete

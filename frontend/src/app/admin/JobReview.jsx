@@ -63,7 +63,7 @@ const AmendmentReasonModal = ({
               Add amendment reason
             </h2>
             <p className="mt-1 text-sm leading-6 text-gray-500">
-              This reason will be stored in audit logs and published with the candidate notice.
+              This reason is stored for audit and admin review. Candidate notices use job-only wording.
             </p>
           </div>
           <button
@@ -447,11 +447,15 @@ const JobReview = () => {
   const effectiveProjectId = projectId || draft.projectId || "";
   const isProjectWizard = Boolean(effectiveProjectId);
   const draftJobId = routeJobId || draft._jobId || "";
-  const storedJobStatus = String(hydratedJob?.status || draft.status || "").toLowerCase();
-  const effectiveJobStatus = getEffectiveJobStatus(hydratedJob || draft || {});
+  const targetJob = hydratedJob || draft || {};
+  const storedJobStatus = String(targetJob.status || "").toLowerCase();
+  const effectiveJobStatus = getEffectiveJobStatus(targetJob);
   const hasPublishedHistory = ["active", "closed", "published"].includes(storedJobStatus);
-  const isPublishedJob = effectiveJobStatus === "active";
-  const isAmendmentMode = hasPublishedHistory && !isPublishedJob;
+  const updatedAt = new Date(targetJob.updatedAt || 0).getTime();
+  const publishedAt = new Date(targetJob.publishedAt || 0).getTime();
+  const hasUnverifiedChanges = hasPublishedHistory && (updatedAt - publishedAt > 2000);
+  const isPublishedJob = effectiveJobStatus === "active" && !hasUnverifiedChanges;
+  const isAmendmentMode = hasPublishedHistory && (hasUnverifiedChanges || effectiveJobStatus !== "active");
   const validProjectId = /^[a-f\d]{24}$/i.test(effectiveProjectId || "");
   const { data: projectData } = useQuery({
     queryKey: ["admin-project", effectiveProjectId],
@@ -540,7 +544,7 @@ const JobReview = () => {
     (!effectiveProjectId || !/^[a-f\d]{24}$/i.test(effectiveProjectId)) &&
       "Project setup",
     !draft.title && "Job title",
-    !draft.postCode && "Post code",
+    !draft.postCode && "Advertisement / Exam Code",
     !draft.department && "Department",
     !draft.posts?.length && "Posts / vacancies",
   ].filter(Boolean);
@@ -581,7 +585,9 @@ const JobReview = () => {
 
   const getNextProjectStepPath = (jobId) =>
     effectiveProjectId
-      ? `/admin/admit-cards?project=${effectiveProjectId}&focus=template${jobId ? `&job=${jobId}` : ""}`
+      ? isAmendmentMode
+        ? `/admin/projects/${effectiveProjectId}?review=1${jobId ? `&job=${jobId}` : ""}`
+        : `/admin/admit-cards?project=${effectiveProjectId}&focus=template${jobId ? `&job=${jobId}` : ""}`
       : "/admin/jobs";
 
   const invalidateJobAndPublicViews = () => {
@@ -599,7 +605,7 @@ const JobReview = () => {
     queryClient.invalidateQueries({ queryKey: ["public-projects"] });
   };
 
-  const publishJobAmendmentNotice = async ({ reason, updatePayload, job }) => {
+  const publishJobAmendmentNotice = async ({ updatePayload, job }) => {
     const projectSlug = project?.publicSlug || project?.slug || hydratedJob?.projectId?.publicSlug;
     const state = project?.state || hydratedJob?.projectId?.state || "All";
     if (!effectiveProjectId || !state) return;
@@ -608,9 +614,10 @@ const JobReview = () => {
       job?.postCode || draft.postCode ? ` (${job?.postCode || draft.postCode})` : ""
     }`;
     const changedLabels = getChangedFieldLabels(updatePayload);
-    const text = `Official amendment for ${jobLabel}: ${reason.trim()}${
-      changedLabels.length ? ` Updated: ${changedLabels.join(", ")}.` : ""
-    }`;
+    const changedSummary = changedLabels.length
+      ? `${changedLabels.join(", ")} updated.`
+      : "Post details updated.";
+    const text = `Job update for ${jobLabel}: ${changedSummary} Check the latest post details before applying or requesting correction.`;
     const link = projectSlug ? `/apply/${projectSlug}` : "";
 
     try {
@@ -626,6 +633,7 @@ const JobReview = () => {
         state,
         {
           announcements: nextAnnouncements,
+          jobAmendmentNotice: true,
           sectionVisibility: {
             ...(page.sectionVisibility || {}),
             notices: true,
@@ -760,7 +768,7 @@ const JobReview = () => {
           }
         }
         toast.error(
-          `Post code "${createPayload.postCode}" is already used by another job. Edit Basic Info and enter a unique code.`,
+          `Advertisement / Exam Code "${createPayload.postCode}" is already used by another job. Edit Basic Info and enter a unique code.`,
         );
         return null;
       }
@@ -821,7 +829,6 @@ const JobReview = () => {
         },
       });
       await publishJobAmendmentNotice({
-        reason,
         updatePayload: amendmentReasonRequest.updatePayload,
         job: amendmentReasonRequest.job,
       });
@@ -909,7 +916,7 @@ const JobReview = () => {
       if (Object.keys(updatePayload).length > 0) {
         publishJobId = await savePayloadToJob(jobId, updatePayload);
       }
-      if (isProjectWizard) {
+      if (isProjectWizard && !isAmendmentMode) {
         toast.success("Job advertisement saved. Continue with admit-card setup.");
         sessionStorage.removeItem(STORAGE_KEY);
         invalidateJobAndPublicViews();
@@ -917,7 +924,7 @@ const JobReview = () => {
         return;
       }
       await publishJob(publishJobId);
-      toast.success("Job published");
+      toast.success(isAmendmentMode ? "Amendment verified" : "Job published");
       sessionStorage.removeItem(STORAGE_KEY);
       invalidateJobAndPublicViews();
       navigate(getNextProjectStepPath(jobId));
@@ -1473,11 +1480,13 @@ const JobReview = () => {
               <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="p-5 space-y-3">
                   <p className="text-sm text-orange-800 font-medium">
-                    {isProjectWizard
-                      ? "Save this advertisement, then configure admit cards and centers."
-                      : isPublishedJob
-                        ? "This job is already published."
-                        : "Review once more, then publish."}
+                    {isAmendmentMode
+                      ? "Review your changes and verify the amendment."
+                      : isProjectWizard
+                        ? "Save this advertisement, then configure admit cards and centers."
+                        : isPublishedJob
+                          ? "This job is already published."
+                          : "Review once more, then publish."}
                   </p>
                   <Button
                     onClick={handlePublish}
@@ -1492,12 +1501,12 @@ const JobReview = () => {
                     ) : isPublishing ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        {isProjectWizard ? "Saving..." : "Publishing..."}
+                        {isAmendmentMode ? "Verifying..." : isProjectWizard ? "Saving..." : "Publishing..."}
                       </>
                     ) : (
                       <>
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        {isProjectWizard ? "Save & Continue" : "Publish Job"}
+                        {isAmendmentMode ? "Verify Amendment" : isProjectWizard ? "Save & Continue" : "Publish Job"}
                       </>
                     )}
                   </Button>
@@ -1540,10 +1549,10 @@ const JobReview = () => {
                 {isPublishing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {isProjectWizard ? "Saving..." : "Publishing..."}
+                    {isAmendmentMode ? "Verifying..." : isProjectWizard ? "Saving..." : "Publishing..."}
                   </>
                 ) : (
-                  isProjectWizard ? "Save & Continue" : "Publish Job"
+                  isAmendmentMode ? "Verify Amendment" : isProjectWizard ? "Save & Continue" : "Publish Job"
                 )}
               </Button>
             </div>

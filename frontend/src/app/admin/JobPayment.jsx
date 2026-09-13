@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/layouts/AdminLayout";
@@ -7,6 +8,7 @@ import Button from "../../components/ui/Button";
 import AppDatePicker from "../../components/ui/AppDatePicker";
 import JobStepProgress from "./JobStepProgress";
 import { getJobWizardPath, saveJobDraftProgress } from "../../utils/jobDraft";
+import { adminService } from "../../services/admin.service";
 import {
   ArrowRight,
   ArrowLeft,
@@ -28,6 +30,12 @@ const todayDate = () => {
 }
 /** Convert YYYY-MM-DD string to a local midnight Date object */
 const toDate = (s) => s ? new Date(s + 'T00:00:00') : undefined
+const toDateOnly = (value) => value ? String(value).split("T")[0] : ""
+const maxDate = (...dates) => {
+  const validDates = dates.filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+  if (!validDates.length) return undefined
+  return new Date(Math.max(...validDates.map((date) => date.getTime())))
+}
 
 const FeeInput = ({
   label,
@@ -80,6 +88,29 @@ const JobPayment = () => {
   const projectId = searchParams.get("project") || savedDraft.projectId || null;
   const jobId = searchParams.get("job") || savedDraft._jobId || "";
   const returnToReview = searchParams.get("returnTo") === "review";
+  const { data: projectData } = useQuery({
+    queryKey: ["admin-project", projectId],
+    queryFn: () => adminService.getProject(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 30000,
+  });
+  const project = projectData?.project || projectData || {};
+  const projectClosureDateValue =
+    toDateOnly(project?.endDate || project?.closureDate) ||
+    toDateOnly(savedDraft.projectEndDate || savedDraft.projectClosureDate);
+  const projectClosureDate = toDate(projectClosureDateValue);
+  const projectName = project?.name || savedDraft.projectName || "this project";
+  const projectClosureDisplay = projectClosureDateValue
+    ? new Date(`${projectClosureDateValue}T00:00:00`).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+  const paymentDeadlineMinDate = maxDate(
+    todayDate(),
+    toDate(savedDraft.applicationDeadline),
+  );
 
   const [config, setConfig] = useState(() => {
     const saved = savedDraft;
@@ -194,6 +225,14 @@ const JobPayment = () => {
     ) {
       nextErrors.paymentDeadline =
         "Payment deadline cannot be before application deadline"
+    }
+    if (
+      projectClosureDateValue &&
+      config.paymentDeadline &&
+      config.paymentDeadline > projectClosureDateValue
+    ) {
+      nextErrors.paymentDeadline =
+        "Payment deadline cannot be after the project deadline. Amend the project closure date first."
     }
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
@@ -438,8 +477,14 @@ const JobPayment = () => {
                       value={config.paymentDeadline}
                       onChange={(val) => set("paymentDeadline", val)}
                       placeholder="Select payment deadline"
-                      minDate={toDate(savedDraft.applicationDeadline) || todayDate()}
+                      minDate={paymentDeadlineMinDate}
+                      maxDate={projectClosureDate}
                     />
+                    {projectClosureDateValue && (
+                      <p className="mt-1 text-xs font-medium text-gray-500">
+                        Must stay within {projectName}'s project deadline ({projectClosureDisplay}). If payment needs a later deadline, amend the project deadline first.
+                      </p>
+                    )}
                     {errors.paymentDeadline && (
                       <p className="mt-1 text-xs text-red-500">
                         {errors.paymentDeadline}

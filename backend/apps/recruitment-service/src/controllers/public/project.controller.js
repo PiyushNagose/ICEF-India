@@ -18,6 +18,24 @@ const {
 
 const CACHE_TTL = 10; // keep public pages fresh after admin publishing changes
 
+const getNoticeText = (notice) =>
+  typeof notice === "string"
+    ? notice
+    : notice?.text || notice?.title || notice?.label || "";
+
+const isCandidateFacingNotice = (notice) => {
+  const text = getNoticeText(notice);
+  return Boolean(text && !/\bproject\b/i.test(text));
+};
+
+const sanitizeCmsPageForPublic = (page) => {
+  if (!page) return page;
+  return {
+    ...page,
+    announcements: (page.announcements || []).filter(isCandidateFacingNotice),
+  };
+};
+
 const getVisibleJobFilter = (now = new Date()) => ({
   status: "active",
   $or: [
@@ -53,7 +71,7 @@ const safeCacheSet = async (redis, key, ttl, payload) => {
 const getProjectBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const redis = getRedis();
-  const cacheKey = `public:v3:project:${slug}`;
+  const cacheKey = `public:v5:project:${slug}`;
 
   // Try cache first
   const cached = await safeCacheGet(redis, cacheKey);
@@ -66,7 +84,7 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
     isPublished: true,
     status: { $ne: "Cancelled" },
   })
-    .select("-createdBy -__v")
+    .select("name description department state status publicSlug totalJobs totalApplicants totalVacancies")
     .lean();
 
   if (!project) {
@@ -96,7 +114,7 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
   const payload = new ApiResponse(
     StatusCodes.OK,
     "Project fetched successfully",
-    { project, jobs: enrichedJobs, cmsPage },
+    { project, jobs: enrichedJobs, cmsPage: sanitizeCmsPageForPublic(cmsPage) },
   );
 
   // Cache the response
@@ -112,7 +130,7 @@ const getProjectBySlug = asyncHandler(async (req, res) => {
 const getActiveProjects = asyncHandler(async (req, res) => {
   const { page = 1, limit = 12, state, department, search } = req.query;
   const redis = getRedis();
-  const cacheKey = `public:v3:projects:${JSON.stringify(req.query)}`;
+  const cacheKey = `public:v5:projects:${JSON.stringify(req.query)}`;
 
   const cached = await safeCacheGet(redis, cacheKey);
   if (cached) {
@@ -135,7 +153,7 @@ const getActiveProjects = asyncHandler(async (req, res) => {
   const [allProjects] = await Promise.all([
     Project.find(filter)
       .select(
-        "name description department state status startDate endDate publicSlug totalJobs totalApplicants",
+        "name description department state status startDate endDate closureDate publicSlug totalJobs totalApplicants",
       )
       .sort({ startDate: -1 })
       .lean(),
@@ -176,8 +194,12 @@ const getActiveProjects = asyncHandler(async (req, res) => {
   const activeProjects = lifecycleActiveProjects
     .map((project) => {
       const count = countByProjectId.get(String(project._id));
+      const publicProject = { ...project };
+      delete publicProject.startDate;
+      delete publicProject.endDate;
+      delete publicProject.closureDate;
       return {
-        ...project,
+        ...publicProject,
         totalJobs: count?.totalJobs || 0,
         openJobs: count?.totalJobs || 0,
         totalPosts: count?.totalPosts || 0,

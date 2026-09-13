@@ -116,10 +116,8 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
     project?.workflowReadiness?.checks?.find((check) => check.key === 'landing')?.complete ||
       project?.isPublished,
   )
-  const jobIsPublished = Boolean(
-    job?._id &&
-      ['active', 'closed', 'published'].includes(String(job.status || '').toLowerCase()),
-  )
+  // A job opened in the wizard is draft/amendment work; release is verified from project review.
+  const publishComplete = false
   const jobComplete = isJobAdvertisementConfigured(job)
 
   const admitFormatComplete = selectedJobSchedules.some(isAdmitFormatConfigured)
@@ -131,7 +129,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
   const workflowProject = project
     ? {
         ...project,
-        isPublished: jobIsPublished,
+        isPublished: publishComplete,
         workflowReadiness: {
           complete: false,
           checks: [
@@ -165,7 +163,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
             {
               key: 'publish',
               label: 'Publish Job',
-              complete: jobIsPublished,
+              complete: publishComplete,
             },
           ],
         },
@@ -192,7 +190,7 @@ const JobStepProgress = ({ currentStep, projectId, clickable = false }) => {
           current="job"
           className="mb-4"
           workflowScope="job"
-          publishComplete={draftMatchesContext && jobIsPublished}
+          publishComplete={draftMatchesContext && publishComplete}
           jobId={job?._id}
           contextLabel="Current Job"
           contextValue={job

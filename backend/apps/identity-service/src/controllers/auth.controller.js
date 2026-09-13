@@ -409,6 +409,7 @@ const changePassword = asyncHandler(async (req, res) => {
   const User = require("../shared/models/User");
   const Employee = require("../shared/models/Employee");
   const ApiError = require("../shared/utils/ApiError");
+  const authService = require("../shared/services/auth.service");
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword) {
@@ -418,25 +419,80 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "New password must be at least 8 characters");
   }
 
-  const Model = req.user.role === "candidate" ? User : Employee;
-  const user = await Model.findById(req.user.id).select("+password");
+  const isCandidate = req.user.role === "candidate";
+  const Model = isCandidate ? User : Employee;
+  const user = await Model.findById(req.user.id)
+    .select("+password +sessionVersion")
+    .populate(!isCandidate ? { path: "systemRole", select: "roleName permissions isActive" } : []);
   if (!user) throw new ApiError(404, "User not found");
 
   const isMatch = await user.comparePassword(currentPassword);
   if (!isMatch) throw new ApiError(401, "Current password is incorrect");
 
   user.password = newPassword; // pre-save hook will hash it
-  if (req.user.role !== "candidate") {
+
+  let accessToken;
+  let refreshToken;
+  let internalRole;
+
+  if (!isCandidate) {
     user.mustChangePassword = false;
-    user.passwordChangedAt = new Date();
-    user.refreshToken = undefined;
+    user.passwordChangedAt = new Date(Date.now() - 1000);
     user.sessionVersion = (user.sessionVersion || 0) + 1;
+
+    const isSuperAdmin = Boolean(
+      user.isSuperAdmin ||
+      user.systemRole?.roleName?.trim().toLowerCase() === "super admin" ||
+      user.roleDesignation?.trim().toLowerCase() === "super administrator" ||
+      user.fullName?.trim().toLowerCase() === "super admin" ||
+      user.employeeId?.trim().toLowerCase() === "emp-super-001"
+    );
+    internalRole = isSuperAdmin ? "admin" : "employee";
+
+    const payload = {
+      id: user._id,
+      email: user.officialEmail,
+      role: internalRole,
+      employeeId: user.employeeId,
+      sessionVersion: user.sessionVersion || 0,
+    };
+    const tokens = authService.generateTokenPair(payload);
+    accessToken = tokens.accessToken;
+    refreshToken = tokens.refreshToken;
+    user.refreshToken = refreshToken;
+  } else {
+    user.mustChangePassword = false;
+    user.passwordChangedAt = new Date(Date.now() - 1000);
+    const payload = {
+      id: user._id,
+      email: user.email,
+      role: "candidate",
+    };
+    const tokens = authService.generateTokenPair(payload);
+    accessToken = tokens.accessToken;
+    refreshToken = tokens.refreshToken;
+    user.refreshToken = refreshToken;
   }
+
   await user.save({ validateBeforeSave: false });
 
-  res
-    .status(StatusCodes.OK)
-    .json(new ApiResponse(StatusCodes.OK, "Password changed successfully"));
+  if (accessToken && refreshToken) {
+    authService.setAuthCookies(res, accessToken, refreshToken);
+  }
+
+  const safeUser = {
+    ...user.toSafeObject(),
+    role: isCandidate ? "candidate" : internalRole,
+    mustChangePassword: false,
+  };
+
+  res.status(StatusCodes.OK).json(
+    new ApiResponse(StatusCodes.OK, "Password changed successfully", {
+      accessToken,
+      refreshToken,
+      user: safeUser,
+    }),
+  );
 });
 
 /**

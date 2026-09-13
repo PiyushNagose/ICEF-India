@@ -125,6 +125,21 @@ const normalizeNoticeText = (text = "") =>
 const isGenericDeadlineNotice = (text = "") =>
   /last date to apply|application deadline|check each post/i.test(text);
 
+const isCandidateFacingNotice = (notice) => {
+  const text = getNoticeText(notice);
+  if (!text) return false;
+  if (/\bproject\b/i.test(text)) {
+    return false;
+  }
+  if (/project\s+(amendment|deadline|closure|timeline|lifecycle)/i.test(text)) {
+    return false;
+  }
+  if (/official\s+project\s+amendment/i.test(text)) {
+    return false;
+  }
+  return true;
+};
+
 const stripProjectTimelineText = (text = "") =>
   String(text)
     .replace(/\bApplication window:\s*[^.]+\.?\s*/gi, "")
@@ -178,6 +193,8 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
   const dl = availability.daysLeft ?? daysLeft(job.applicationDeadline);
   const generalFee = fee(job, "general");
   const scstFee = fee(job, "sc");
+  const showUrgencyBanner =
+    availability.status === "open" && dl !== null && dl <= 7 && dl > 0;
 
   return (
     <motion.article
@@ -186,12 +203,12 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: 0.2 }}
-      className="group relative overflow-hidden rounded-2xl border border-[#e0d7cd] bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#e0d7cd] bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
     >
       {/* Subtle gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50/0 to-orange-50/0 transition-all group-hover:from-orange-50/30 group-hover:to-transparent" />
 
-      <div className="relative">
+      <div className="relative flex h-full flex-col">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -272,21 +289,23 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
         </div>
 
         {/* Urgency Banner */}
-        {availability.status === "open" && dl !== null && dl <= 7 && dl > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 border-l-4 border-red-500 px-4 py-3 text-red-700"
-          >
-            <Clock className="h-4 w-4 shrink-0" />
-            <span className="text-sm font-bold">
-              Only {dl} day{dl !== 1 ? "s" : ""} left to apply!
-            </span>
-          </motion.div>
-        )}
+        <div className="mt-4 min-h-[56px]">
+          {showUrgencyBanner && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex min-h-[56px] items-center gap-2 rounded-lg bg-red-50 border-l-4 border-red-500 px-4 py-3 text-red-700"
+            >
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-bold">
+                Only {dl} day{dl !== 1 ? "s" : ""} left to apply!
+              </span>
+            </motion.div>
+          )}
+        </div>
 
         {/* Important Dates Accordion */}
-        <details className="group/details mt-5">
+        <details className="group/details mt-1">
           <summary className="flex cursor-pointer items-center justify-between rounded-xl bg-gradient-to-r from-orange-50 to-transparent px-4 py-3 text-sm font-bold text-[#1f1d1b] transition-colors hover:from-orange-100">
             <span className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-orange-500" />
@@ -338,7 +357,7 @@ const JobCard = ({ job, existingApp, onApply, onStatus, onDetails, index }) => {
         </details>
 
         {/* Action Buttons */}
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="mt-auto grid gap-3 pt-6 sm:grid-cols-2">
           <button
             onClick={() => onDetails(job)}
             className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-orange-200 bg-white px-5 text-sm font-black uppercase tracking-[0.12em] text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-50"
@@ -511,9 +530,10 @@ export default function ProjectLanding({ preview = false }) {
           },
         ]
       : [];
-  const cmsTickerNotices = (cmsPage?.announcements || []).filter(
-    (notice) => !isGenericDeadlineNotice(getNoticeText(notice)),
-  );
+  const cmsTickerNotices = (cmsPage?.announcements || []).filter((notice) => {
+    const text = getNoticeText(notice);
+    return isCandidateFacingNotice(notice) && !isGenericDeadlineNotice(text);
+  });
   const tickerNotices = uniqueNotices([
     ...cmsTickerNotices,
     ...jobDeadlineNotices,

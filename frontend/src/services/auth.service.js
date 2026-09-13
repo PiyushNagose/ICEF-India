@@ -151,6 +151,10 @@ export const authService = {
 
   async changePassword(data) {
     const response = await apiClient.put("/auth/change-password", data);
-    return unwrapData(response);
+    const result = unwrapData(response);
+    if (result?.accessToken && result?.user) {
+      saveSession(result);
+    }
+    return result;
   },
 };

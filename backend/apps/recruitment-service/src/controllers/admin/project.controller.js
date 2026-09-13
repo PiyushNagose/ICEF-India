@@ -17,6 +17,7 @@ const {
   assertProjectTimeline,
   getEffectiveJobStatus,
   getProjectLifecycleStatus,
+  startOfDay,
   startOfToday,
 } = require("../../shared/utils/timeline");
 const {
@@ -34,6 +35,14 @@ const withProjectLifecycleStatus = (project) => {
     ...plain,
     status: getProjectLifecycleStatus(plain),
   };
+};
+
+const sameDay = (left, right) => {
+  const a = startOfDay(left);
+  const b = startOfDay(right);
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.getTime() === b.getTime();
 };
 
 const PROJECT_SORT_FIELDS = new Set([
@@ -407,7 +416,7 @@ const createProject = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const updateProject = asyncHandler(async (req, res) => {
-  const { name, description, department, state, status, startDate, endDate, closureDate, isPublished } =
+  const { name, description, department, state, status, startDate, endDate, closureDate, isPublished, amendmentReason } =
     req.body;
   const nextEndDate = endDate !== undefined ? endDate : closureDate;
 
@@ -417,23 +426,76 @@ const updateProject = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Project not found");
   }
   assertFreshUpdate(req.body, project);
+  const currentLifecycleStatus = getProjectLifecycleStatus(project);
+  const currentProjectEndDate = project.endDate || project.closureDate;
+  const currentProjectClosureDate = project.closureDate || project.endDate;
+  const isProjectDeadlineExtension =
+    nextEndDate !== undefined &&
+    startOfDay(nextEndDate) &&
+    startOfDay(currentProjectEndDate) &&
+    startOfDay(nextEndDate) > startOfDay(currentProjectEndDate);
+  const requiresProjectAmendment =
+    isProjectDeadlineExtension &&
+    (project.isPublished || currentLifecycleStatus === "Completed");
+  const cleanAmendmentReason = String(amendmentReason || "").trim();
+
+  if (requiresProjectAmendment && cleanAmendmentReason.length < 12) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Add an amendment reason before extending a published project deadline.",
+    );
+  }
 
   assertProjectTimeline({
     startDate: startDate !== undefined ? startDate : project.startDate,
     endDate: nextEndDate !== undefined ? nextEndDate : project.endDate,
   });
 
+  if (startDate !== undefined) {
+    const currentStart = startOfDay(project.startDate);
+    const requestedStart = startOfDay(startDate);
+    if (
+      currentStart &&
+      requestedStart &&
+      requestedStart.getTime() !== currentStart.getTime()
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Project start date is fixed after creation. Extend the project closure date for amendments.",
+      );
+    }
+  }
+
   if (nextEndDate !== undefined) {
-    const newEndDate = new Date(nextEndDate);
+    const currentEndDate = startOfDay(project.endDate || project.closureDate);
+    const newEndDate = startOfDay(nextEndDate);
+    if (!newEndDate) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Project closure date is invalid.",
+      );
+    }
+    if (newEndDate && newEndDate < startOfToday()) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Project closure date must be today or a future date for an amendment.",
+      );
+    }
+    if (currentEndDate && newEndDate && newEndDate < currentEndDate) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Project closure date can only be extended forward, not moved earlier.",
+      );
+    }
     const childJobs = await Job.find({ projectId: project._id });
     for (const j of childJobs) {
-      if (j.resultDate && new Date(j.resultDate) > newEndDate) {
+      if (j.resultDate && startOfDay(j.resultDate) > newEndDate) {
         throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" result date.`);
       }
-      if (j.examDate && new Date(j.examDate) > newEndDate) {
+      if (j.examDate && startOfDay(j.examDate) > newEndDate) {
         throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" exam date.`);
       }
-      if (j.applicationDeadline && new Date(j.applicationDeadline) > newEndDate) {
+      if (j.applicationDeadline && startOfDay(j.applicationDeadline) > newEndDate) {
         throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot shrink project end date before job "${j.title}" application deadline.`);
       }
     }
@@ -452,8 +514,42 @@ const updateProject = asyncHandler(async (req, res) => {
   }
   if (isPublished !== undefined) project.isPublished = isPublished;
 
+  if (requiresProjectAmendment) {
+    const changes = [];
+    if (!sameDay(currentProjectEndDate, nextEndDate)) {
+      changes.push({
+        field: "endDate",
+        oldValue: currentProjectEndDate,
+        newValue: nextEndDate,
+      });
+      changes.push({
+        field: "closureDate",
+        oldValue: currentProjectClosureDate,
+        newValue: nextEndDate,
+      });
+    }
+
+    if (changes.length > 0) {
+      const nextVersion = Number(project.amendmentVersion || 0) + 1;
+      project.amendmentVersion = nextVersion;
+      project.amendments.push({
+        version: nextVersion,
+        reason: cleanAmendmentReason,
+        changedFields: changes.map((change) => change.field),
+        changes,
+        updatedBy: req.user.id,
+        updatedAt: new Date(),
+      });
+    }
+  }
+
   await project.save();
-  await saveAuditLog(req, `Updated project: ${project.name}`);
+  await saveAuditLog(
+    req,
+    requiresProjectAmendment
+      ? `Project amendment v${project.amendmentVersion} for "${project.name}": ${cleanAmendmentReason}`
+      : `Updated project: ${project.name}`,
+  );
   await project.populate("createdBy", "fullName employeeId");
 
   await invalidatePublicRecruitmentCache();

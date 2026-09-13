@@ -212,8 +212,6 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
 
   if (!protectedStatus) return;
 
-  if (!hasApplications) return;
-
   const blockedAfterApplications = [
     "projectId",
     "postCode",
@@ -236,18 +234,20 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
     "formSections",
     "documentRequirements",
   ];
-  const attemptedBlocked = blockedAfterApplications.filter((field) =>
-    pathTouched(paths, field) && bodyFieldChanged(body, job, field),
-  );
-
-  if (attemptedBlocked.length > 0) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      `Cannot change ${attemptedBlocked.join(", ")} after candidates have applied. Create an official amendment instead.`,
+  if (hasApplications) {
+    const attemptedBlocked = blockedAfterApplications.filter((field) =>
+      pathTouched(paths, field) && bodyFieldChanged(body, job, field),
     );
+
+    if (attemptedBlocked.length > 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Cannot change ${attemptedBlocked.join(", ")} after candidates have applied. Create an official amendment instead.`,
+      );
+    }
   }
 
-  if (body.paymentConfig) {
+  if (hasApplications && body.paymentConfig) {
     const allowedPaymentKeys = ["paymentDeadline", "refundPolicy"];
     const blockedPaymentKeys = Object.keys(body.paymentConfig).filter(
       (key) =>
@@ -268,7 +268,7 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
   ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Application deadline can only be extended after candidates have applied.",
+      "Application deadline can only be extended after a job is published.",
     );
   }
 
@@ -278,7 +278,7 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
   ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Payment deadline can only be extended after candidates have applied.",
+      "Payment deadline can only be extended after a job is published.",
     );
   }
 
@@ -299,7 +299,7 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
   ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Correction deadline can only be extended after candidates have applied.",
+      "Correction deadline can only be extended after a job is published.",
     );
   }
 
@@ -320,7 +320,7 @@ const enforcePublishedJobEditPolicy = async ({ job, body }) => {
   ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Add an amendment reason before saving published job changes after candidates have applied.",
+      "Add an amendment reason before saving published job changes.",
     );
   }
 
@@ -613,7 +613,17 @@ const createJob = asyncHandler(async (req, res) => {
   // Check if postCode is unique
   const existingJob = await Job.findOne({ postCode });
   if (existingJob) {
-    throw new ApiError(StatusCodes.CONFLICT, "Post code already exists");
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "Advertisement / Exam Code already exists. Please choose a different code.",
+      [
+        {
+          field: "postCode",
+          message:
+            "Advertisement / Exam Code already exists. Please choose a different code.",
+        },
+      ],
+    );
   }
 
   const job = await Job.create({
@@ -688,6 +698,26 @@ const updateJob = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
   assertFreshUpdate(req.body, job);
+
+  if (req.body.postCode && req.body.postCode.trim() !== job.postCode) {
+    const existingJob = await Job.findOne({
+      postCode: req.body.postCode.trim(),
+      _id: { $ne: job._id },
+    });
+    if (existingJob) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        "Advertisement / Exam Code already exists. Please choose a different code.",
+        [
+          {
+            field: "postCode",
+            message:
+              "Advertisement / Exam Code already exists. Please choose a different code.",
+          },
+        ],
+      );
+    }
+  }
 
   if (
     req.body.projectId &&
@@ -772,7 +802,12 @@ const updateJob = asyncHandler(async (req, res) => {
     );
   }
   if (job.status !== "draft") {
-    assertJobTimeline(nextJob, project);
+    assertJobTimeline(nextJob, project, {
+      skipPaymentDeadlineOrder: !Object.prototype.hasOwnProperty.call(
+        req.body.paymentConfig || {},
+        "paymentDeadline",
+      ),
+    });
   }
   const shouldReopenClosedJob =
     String(job.status || "").toLowerCase() === "closed" &&
@@ -915,10 +950,14 @@ const publishJob = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Job not found");
   }
 
-  if (job.status !== "draft") {
+  const storedStatus = String(job.status || "").toLowerCase();
+  const isFirstPublish = storedStatus === "draft";
+  const isAmendmentVerify = ["active", "closed"].includes(storedStatus);
+
+  if (!isFirstPublish && !isAmendmentVerify) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Only draft jobs can be published",
+      "Only draft or previously published jobs can be published/verified",
     );
   }
 
@@ -939,21 +978,37 @@ const publishJob = asyncHandler(async (req, res) => {
   assertJobTimeline(job.toObject(), job.projectId);
 
   const deadline = endOfDay(job.applicationDeadline);
-  if (deadline && new Date() > deadline) {
+  if (isFirstPublish && deadline && new Date() > deadline) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Cannot publish job. Application deadline has already passed. Update the deadline before publishing.",
     );
   }
 
-  job.status = "active";
-  job.publishedAt = new Date();
-  await job.save();
+  if (isAmendmentVerify) {
+    // For closed jobs whose deadline was extended, reactivate them
+    if (storedStatus === "closed" && deadline && deadline >= new Date()) {
+      job.status = "active";
+    }
+    // Mark the amendment as verified by bumping publishedAt
+    job.publishedAt = new Date();
+    await job.save();
 
-  await saveAuditLog(req, "JOB_PUBLISHED", "Job published successfully", {
-    jobId: job._id,
-    title: job.title,
-  });
+    await saveAuditLog(req, "AMENDMENT_VERIFIED", "Job amendment verified", {
+      jobId: job._id,
+      title: job.title,
+    });
+  } else {
+    // First-time publish
+    job.status = "active";
+    job.publishedAt = new Date();
+    await job.save();
+
+    await saveAuditLog(req, "JOB_PUBLISHED", "Job published successfully", {
+      jobId: job._id,
+      title: job.title,
+    });
+  }
 
   await job.populate([
     { path: "projectId", select: "name department state" },
@@ -962,9 +1017,11 @@ const publishJob = asyncHandler(async (req, res) => {
 
   await invalidatePublicRecruitmentCache();
   await notifyAdmins({
-    type: "new_job_posted",
-    title: "Job published",
-    message: `Job "${job.title}" is now live for candidates.`,
+    type: isAmendmentVerify ? "amendment_verified" : "new_job_posted",
+    title: isAmendmentVerify ? "Amendment verified" : "Job published",
+    message: isAmendmentVerify
+      ? `Amendment for "${job.title}" has been verified and is now live.`
+      : `Job "${job.title}" is now live for candidates.`,
     link: `/admin/projects/${job.projectId?._id || job.projectId}?job=${job._id}`,
     metadata: {
       jobId: job._id.toString(),
@@ -974,16 +1031,20 @@ const publishJob = asyncHandler(async (req, res) => {
 
   // Real-time notifications
   emitToAdmins(SOCKET_EVENTS.JOB_PUBLISHED, {
-    type: "job_published",
-    message: `Job "${job.title}" has been published`,
+    type: isAmendmentVerify ? "amendment_verified" : "job_published",
+    message: isAmendmentVerify
+      ? `Job "${job.title}" amendment has been verified`
+      : `Job "${job.title}" has been published`,
     job: job.toObject(),
     timestamp: new Date(),
   });
 
   // Broadcast to public for new job notification
   emitBroadcast(SOCKET_EVENTS.JOB_PUBLISHED, {
-    type: "new_job_available",
-    message: `New job available: ${job.title}`,
+    type: isAmendmentVerify ? "job_updated" : "new_job_available",
+    message: isAmendmentVerify
+      ? `Job details updated for: ${job.title}`
+      : `New job available: ${job.title}`,
     job: {
       _id: job._id,
       title: job.title,

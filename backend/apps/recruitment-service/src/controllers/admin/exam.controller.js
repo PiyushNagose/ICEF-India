@@ -169,6 +169,21 @@ const updateSchedule = asyncHandler(async (req, res) => {
     .json(new ApiResponse(StatusCodes.OK, "Exam schedule updated", { schedule }));
 });
 
+const verifyAdmitSetup = asyncHandler(async (req, res) => {
+  const schedule = await examService.verifyAdmitSetup(req.params.id, req.user.id);
+  await saveAuditLog(req, `Verified admit-card setup for exam schedule: ${schedule.examCode}`);
+  await invalidatePublicRecruitmentCache();
+  emitExamRealtime(SOCKET_EVENTS.EXAM_SCHEDULE_UPDATED, {
+    action: "admit_setup_verified",
+    scheduleId: schedule._id,
+    jobId: schedule.jobId?._id || schedule.jobId,
+    status: schedule.status,
+  });
+  res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(StatusCodes.OK, "Admit-card setup verified", { schedule }));
+});
+
 const getScheduleStats = asyncHandler(async (req, res) => {
   const result = await examService.getScheduleStats(req.params.id);
   res
@@ -502,6 +517,7 @@ module.exports = {
   createSchedule,
   getSchedule,
   updateSchedule,
+  verifyAdmitSetup,
   getScheduleStats,
   getOpsSummary,
   previewAllocation,
